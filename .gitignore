@@ -1,0 +1,29 @@
+# Folder vendor (library PHP/Composer)
+vendor/
+
+# Folder Node.js packages
+node_modules/
+
+# File log
+*.log
+
+# File sementara / cache
+*.tmp
+*.temp
+*.swp
+
+# File environment / konfigurasi sensitif
+*.env
+
+# File OS (Windows & Mac)
+Thumbs.db
+.DS_Store
+
+# Backup editor atau IDE
+*.bak
+*.old
+*.orig
+
+# File build atau hasil compile (jika ada)
+dist/
+build/
