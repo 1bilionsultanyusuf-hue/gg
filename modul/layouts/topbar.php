@@ -1,5 +1,5 @@
 <header class="site-header">
-    <div class="header-container flex items-center justify-between">
+    <div class="header-container flex items-center p-1 justify-between">
         <h1 class="flex items-center font-bold tracking-wide logo-main">
             <span class="logo-it">IT</span>
             <span class="logo-sep">|</span>
