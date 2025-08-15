@@ -1,0 +1,76 @@
+/* ====== Perbaikan Alignment Tombol Menu ====== */
+.sidebar .flex.items-center.p-4 {
+    height: 64px; /* samain tinggi header dengan item menu */
+    display: flex;
+    align-items: center;
+}
+
+#toggleSidebar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;  /* sama seperti icon menu-item */
+    width: 40px;
+    margin-left: auto;
+    margin-right: 0;
+    padding: 0;
+    border-radius: 8px; /* biar konsisten sama hover item */
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#toggleSidebar i {
+    font-size: 1.25rem; /* ukuran icon sama seperti menu-item */
+    line-height: 1;
+}
+
+/* Hover biru */
+#toggleSidebar:hover {
+    background-color: #007bff20; /* biru muda dan transparan */
+    color: #007bff;
+}
+
+/* Biar posisi icon tetap sama di collapsed mode */
+.sidebar.collapsed .flex.items-center.p-4 {
+    justify-content: center;
+}
+
+.sidebar.collapsed #toggleSidebar {
+    margin: 0;
+}
+.logo-it {
+    background: linear-gradient(90deg, #FFD700, #FFD700, #FFB700, #FFA500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 1.8rem;
+    font-weight: bold;
+}
+
+.logo-sep {
+    color: rgba(255, 255, 255, 0.3);
+    font-weight: 200;
+    margin: 0 6px;
+    font-size: 1.4rem;
+}
+
+.saturn-o {
+  position: relative;
+  display: inline-block;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.saturn-o::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.6em;
+  height: 0.4em;
+  border: 2px solid #ffcc00;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotate(-25deg);
+}
+
+.saturn-o {
+  color: #ffcc00; 
+}
