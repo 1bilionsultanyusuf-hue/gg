@@ -1,6 +1,6 @@
-/* ====== Sidebar & Toggle Button ====== */
+/* ===== Sidebar & Toggle Button ===== */
 .sidebar .flex.items-center.p-4 {
-    height: 64px; /* samain tinggi header dengan item menu */
+    height: 64px;
     display: flex;
     align-items: center;
 }
@@ -9,27 +9,24 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 40px;  /* sama seperti icon menu-item */
+    height: 40px;
     width: 40px;
     margin-left: auto;
-    margin-right: 0;
     padding: 0;
-    border-radius: 8px; /* biar konsisten sama hover item */
+    border-radius: 8px;
     transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #toggleSidebar i {
-    font-size: 1.25rem; /* ukuran icon sama seperti menu-item */
+    font-size: 1.25rem;
     line-height: 1;
 }
 
-/* Hover biru */
 #toggleSidebar:hover {
-    background-color: #007bff20; /* biru muda dan transparan */
+    background-color: #007bff20;
     color: #007bff;
 }
 
-/* Biar posisi icon tetap sama di collapsed mode */
 .sidebar.collapsed .flex.items-center.p-4 {
     justify-content: center;
 }
@@ -76,7 +73,7 @@
 
 /* ===== Elegant Header / Topbar ===== */
 .site-header {
-    background: linear-gradient(135deg, #1f4037, #99f2c8); /* serasi dengan footer */
+    background: linear-gradient(135deg, #1f4037, #99f2c8);
     color: #fff;
     padding: 15px 20px;
     font-family: 'Arial', sans-serif;
@@ -184,14 +181,15 @@
     flex-wrap: wrap;
     max-width: 1200px;
     margin: auto;
-    gap: 110px; /* sebelumnya 30px, aku tambah jarak antar kolom */
+    gap: 90px;
 }
 
 .footer-column {
     flex: 1;
     min-width: 220px;
     margin: 10px 0;
-    padding-right: 30px; /* bisa ditambah biar lebih renggang */
+    padding-right: 50px;
+    text-align: center;
 }
 
 .footer-column h3 {
@@ -207,7 +205,7 @@
     width: 50px;
     height: 2px;
     background: #fff;
-    margin-top: 5px;
+    margin: 5px auto 0;
 }
 
 .footer-column p,
@@ -246,14 +244,13 @@
     outline: none;
 }
 
-.footer-column input {
+.footer-column input,
+.footer-column textarea {
     background: rgba(255,255,255,0.1);
     color: #fff;
 }
 
 .footer-column textarea {
-    background: rgba(255,255,255,0.1);
-    color: #fff;
     min-height: 80px;
     resize: none;
 }
