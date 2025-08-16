@@ -36,12 +36,20 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6 md:col-span-2 lg:col-span-2">
-            <h3 class="text-lg font-semibold mb-4">Activity Overview</h3>
-            <div class="h-64">
-                <canvas id="activityChart"></canvas>
-            </div>
-        </div>
+        <div class="bg-white rounded-lg shadow p-6 md:col-span-2 lg:col-span-2 flex flex-col">
+    <h3 class="text-lg font-semibold mb-2">Activity Overview</h3>
+
+    <!-- Teks deskripsi aman -->
+    <div class="mb-4">
+        <p class="text-gray-500">
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+        </p>
+    </div>
+
+    <div class="flex-1">
+        <canvas id="activityChart"></canvas>
+    </div>
+</div>
 
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-semibold mb-4">Quick Actions</h3>

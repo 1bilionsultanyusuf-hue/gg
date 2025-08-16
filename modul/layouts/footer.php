@@ -38,16 +38,16 @@
             <p>✉ ex@mail.com</p>
             <p>We accept: Amex, Credit Card</p>
             <div class="social-icons">
-                <a href="#"><img src="icon-facebook.png" alt="FB"></a>
-                <a href="#"><img src="icon-instagram.png" alt="IG"></a>
-                <a href="#"><img src="icon-pinterest.png" alt="PT"></a>
-                <a href="#"><img src="icon-twitter.png" alt="TW"></a>
-                <a href="#"><img src="icon-linkedin.png" alt="LN"></a>
+                <a href="#"><img src="assets/f.png" alt="FB"></a>
+                <a href="#"><img src="assets/i.png" alt="IG"></a>
+                <a href="#"><img src="assets/p.png" alt="PT"></a>
+                <a href="#"><img src="assets/c.png" alt="TW"></a>
+                <a href="#"><img src="assets/l.png" alt="LN"></a>
             </div>
         </div>
 
     </div>
     <div class="footer-bottom">
-        &copy; <?= date('Y'); ?> Company Name. All rights reserved.
+        &copy; <?= date('Y'); ?> Core. All rights reserved.
     </div>
 </footer>
