@@ -44,16 +44,6 @@
             transition: all 0.3s;
         }
 
-        /* Menu item active styles */
-        .menu-item.active {
-            background-color: #4f46e5;
-            color: white;
-        }
-
-        .menu-item.active:hover {
-            background-color: #4338ca;
-        }
-
         /* Menu item hover */
         .menu-item:hover {
             background-color: #e0e7ff;

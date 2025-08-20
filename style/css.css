@@ -73,7 +73,7 @@
 
 /* ===== Elegant Header / Topbar ===== */
 .site-header {
-    background: linear-gradient(135deg, #1f4037, #99f2c8);
+    background: linear-gradient(135deg, #0066ff, #33ccff);
     color: #fff;
     padding: 15px 20px;
     font-family: 'Arial', sans-serif;
@@ -169,7 +169,7 @@
 
 /* ===== Elegant Footer ===== */
 .site-footer {
-    background: linear-gradient(135deg, #1f4037, #99f2c8);
+    background: linear-gradient(135deg, #0066ff, #33ccff);
     color: #fff;
     padding: 50px 20px;
     font-family: 'Arial', sans-serif;
