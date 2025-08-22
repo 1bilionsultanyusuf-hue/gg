@@ -21,6 +21,7 @@
                     <td class="px-4 py-2">boby@example.com</td>
                     <td class="px-4 py-2">••••••••</td>
                     <td class="px-4 py-2 flex gap-2">
+                        <button class="bg-green-500 hover:bg-green-600 text white px-3 py-1 rounded-md">Edit</button>
                         <button class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md">Hapus</button>
                     </td>
                 </tr>
@@ -30,6 +31,7 @@
                     <td class="px-4 py-2">alice@example.com</td>
                     <td class="px-4 py-2">••••••••</td>
                     <td class="px-4 py-2 flex gap-2">
+                        <button class="bg-green-500 hover:bg-green-600 text white px-3 py-1 rounded-md">Edit</button>
                         <button class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md">Hapus</button>
                     </td>
                 </tr>

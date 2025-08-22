@@ -1,6 +1,13 @@
 <?php
+// Logout handling
+if(isset($_GET['logout'])){
+    // Redirect ke login dummy
+    header('Location: modul/auth/login.php'); // pastikan path login benar
+    exit;
+}
+
 $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
-$allowed_pages = ['dashboard', 'apps', 'users', 'todos', 'pelaporan'];
+$allowed_pages = ['dashboard', 'apps', 'users', 'todos', 'pelaporan', 'profile', 'settings'];
 if (!in_array($page, $allowed_pages)) $page = 'dashboard';
 
 include 'modul/layouts/header.php';
@@ -18,6 +25,8 @@ include 'modul/layouts/sidebar.php';
                 case 'users': include "modul/data/users.php"; break;
                 case 'todos': include "modul/todos/todos.php"; break;
                 case 'pelaporan': include "modul/pelaporan/pelaporan.php"; break;
+                case 'profile': include "modul/profile/profile.php"; break;
+                case 'settings': include "modul/setting/setting.php"; break;
                 default: include "modul/dashboard/dashboard.php"; break;
             }
             ?>
@@ -26,7 +35,7 @@ include 'modul/layouts/sidebar.php';
         <?php include 'modul/layouts/footer.php'; ?>
     </div>
 
-    <!-- Overlay hanya menutupi content -->
+    
     <div id="overlay" class="overlay"></div>
 </div>
 

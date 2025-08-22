@@ -64,7 +64,7 @@
                     <i class="fas fa-user-plus"></i> Add User
                 </button>
                 <button class="p-3 bg-orange-50 text-orange-600 rounded hover:bg-orange-100">
-                    <i class="fas fa-cog"></i> Settings
+                    <i class="fas fa-cog"></i> Setting
                 </button>
             </div>
         </div>

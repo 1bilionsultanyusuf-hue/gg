@@ -34,5 +34,11 @@
             <i class="fas fa-file-alt w-6 text-center"></i>
             <span class="nav-text ml-3">Pelaporan</span>
         </a>
+
+        <!-- Menu setting -->
+        <a href="?page=settings" class="menu-item flex items-center p-3 text-gray-600 hover:text-gray-900">
+            <i class="fas fa-cog w-6 text-center"></i>
+            <span class="nav-text ml-3">Setting</span>
+        </a>
     </div>
 </div>
