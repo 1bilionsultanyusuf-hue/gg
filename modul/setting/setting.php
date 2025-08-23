@@ -42,22 +42,22 @@ function confirmLogout(e){
             transform: translateX(-50%);
             background: white;
             border-radius: 12px;
-            padding: 12px 20px;
+            padding: 15px 25px;
             display: flex;
             align-items: center;
             gap: 10px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
             font-weight: bold;
             font-family: 'Segoe UI', sans-serif;
-            color: #16a34a;
+            color: #10b981;
             z-index: 9999;
             opacity: 1;
             transition: all 0.3s ease;
         }
         .popup-circle {
-            width: 28px;
-            height: 28px;
-            border: 3px solid #16a34a;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #10b981;
             border-radius: 50%;
             position: relative;
             animation: spin 0.5s ease forwards;
@@ -68,7 +68,7 @@ function confirmLogout(e){
             left: 50%;
             transform: translate(-50%, -50%) scale(0);
             font-size: 16px;
-            color: #16a34a;
+            color: #10b981;
             animation: scaleCheck 0.5s 0.5s forwards;
         }
         .popup-text { font-size: 14px; }
