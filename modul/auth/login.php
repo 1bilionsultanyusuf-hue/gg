@@ -8,7 +8,7 @@ if(isset($_POST['login'])){
 
     // Dummy login
     if($user=='pr' && $pass=='pr'){
-        $loginSuccess = true; // menandai login berhasil
+        $loginSuccess = true;
     } else {
         $error = 'Username atau password salah!';
     }
@@ -29,17 +29,27 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: linear-gradient(270deg, #0066ff, #33ccff);
-    background-size: 1400% 1400%;
-    animation: rainbow 20s ease infinite;
+    background: #0066ff;
+    overflow: hidden;
 }
 
-@keyframes rainbow {
-    0% {background-position:0% 50%;}
-    50% {background-position:100% 50%;}
-    100% {background-position:0% 50%;}
+/* ===== Bubble Background ===== */
+.bubble {
+    position: absolute;
+    bottom: -100px;
+    border-radius: 50%;
+    opacity: 0.3;
+    background: #33ccff;
+    animation: rise 20s linear infinite;
 }
 
+@keyframes rise {
+    0% { transform: translateY(0) scale(0.5); }
+    50% { transform: translateY(-50vh) scale(1); }
+    100% { transform: translateY(-120vh) scale(0.5); }
+}
+
+/* ===== Login Form ===== */
 .login-container {
     background: white;
     padding: 40px;
@@ -49,7 +59,7 @@ body {
     max-width: 400px;
     text-align: center;
     position: relative;
-    z-index: 1;
+    z-index: 10;
 }
 
 h1 {
@@ -57,15 +67,7 @@ h1 {
     margin-bottom: 20px;
     font-size: 2.2rem;
 }
-
-.error {
-    background: #fee2e2;
-    color: #b91c1c;
-    padding: 10px;
-    border-radius: 10px;
-    margin-bottom: 15px;
-}
-
+ 
 input {
     width: 100%;
     padding: 12px;
@@ -78,7 +80,7 @@ input {
 
 input:focus {
     border-color: #0066ff;
-    box-shadow: 0 0 0 2px rgba(79,70,229,0.3);
+    box-shadow: 0 0 0 2px rgba(0,102,255,0.3);
 }
 
 button {
@@ -95,7 +97,7 @@ button {
 }
 
 button:hover {
-    background: linear-gradient(90deg, #0066ff, #33ccff);
+    background: linear-gradient(90deg, #0044cc, #00aaff);
 }
 
 p.info {
@@ -104,10 +106,50 @@ p.info {
     color: #6b7280;
 }
 
-/* ===== Pop-up Login Success Tengah Atas ===== */
+/* ===== Error Popup ===== */
+.error-popup {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fee2e2;
+    color: #b91c1c;
+    padding: 15px 25px;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    font-weight: bold;
+    font-family: 'Segoe UI', sans-serif;
+    z-index: 9999;
+    opacity: 0;
+    animation: fadeIn 0.5s forwards, fadeOut 0.5s forwards 5s;
+}
+
+/* Shake effect */
+@keyframes shake {
+    0% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-10px); }
+    80% { transform: translateX(10px); }
+    100% { transform: translateX(0); }
+}
+
+/* Fade in */
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateX(-50%) translateY(-20px);}
+    100% { opacity: 1; transform: translateX(-50%) translateY(0);}
+}
+
+/* Fade out after 5s */
+@keyframes fadeOut {
+    0% { opacity: 1; transform: translateX(-50%) translateY(0);}
+    100% { opacity: 0; transform: translateX(-50%) translateY(-20px);}
+}
+
+/* ===== Pop-up Login Success ===== */
 .popup-container {
     position: fixed;
-    top: 20px; /* posisi atas */
+    top: 20px;
     left: 50%;
     transform: translateX(-50%);
     background: white;
@@ -142,14 +184,13 @@ p.info {
     transform: translate(-50%, -50%) scale(0);
     font-size: 16px;
     color: #10b981;
-    animation: scaleCheck 0.5s 0.5s forwards; /* delay setelah spin */
+    animation: scaleCheck 0.5s 0.5s forwards;
 }
 
 .popup-text {
     font-size: 16px;
 }
-
-/* Animasi */
+ 
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -164,16 +205,27 @@ p.info {
 </head>
 <body>
 
+<!-- Bubble background -->
+<div class="bubble" style="width:40px; height:40px; left:5%; animation-delay: 0s;"></div>
+<div class="bubble" style="width:60px; height:60px; left:20%; animation-delay: 3s;"></div>
+<div class="bubble" style="width:50px; height:50px; left:40%; animation-delay: 6s;"></div>
+<div class="bubble" style="width:70px; height:70px; left:60%; animation-delay: 2s;"></div>
+<div class="bubble" style="width:30px; height:30px; left:80%; animation-delay: 4s;"></div>
+
+<!-- Error Popup -->
+<?php if($error): ?>
+    <div class="error-popup" id="errorPopup"><?= $error ?></div>
+<?php endif; ?>
+
+<!-- Login Success Popup -->
 <?php if($loginSuccess): ?>
 <div class="popup-container">
     <div class="popup-circle">
         <div class="checkmark">✔</div>
     </div>
     <div class="popup-text">Login Berhasil!</div>
-</div>
-
-<script>
-// animasi fade out
+  </div>
+ <script>
 setTimeout(() => {
     document.querySelector('.popup-container').style.opacity = '0';
 }, 1800);
@@ -184,18 +236,26 @@ setTimeout(() => {
 </script>
 <?php endif; ?>
 
-<div class="login-container">
+<div class="login-container <?php if($error) echo 'shake'; ?>">
     <h1>SANTAI</h1>
-    <?php if($error): ?>
-        <div class="error"><?= $error ?></div>
-    <?php endif; ?>
-    <form method="post">
+     <form method="post">
         <input type="text" name="username" placeholder="Username">
         <input type="password" name="password" placeholder="Password">
         <button type="submit" name="login">Login</button>
     </form>
     <p class="info">Username: ? | Password: ? (dummy/prototype)</p>
 </div>
+
+<script>
+if(document.getElementById('errorPopup')){
+    // tambahkan class shake
+    const form = document.querySelector('.login-container');
+    form.style.animation = 'shake 0.5s';
+    setTimeout(() => {
+        form.style.animation = '';
+    }, 500);
+}
+</script>
 
 </body>
 </html>
