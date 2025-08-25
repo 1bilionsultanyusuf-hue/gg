@@ -29,7 +29,7 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: linear-gradient(270deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8f00ff);
+    background: linear-gradient(270deg, #0066ff, #33ccff);
     background-size: 1400% 1400%;
     animation: rainbow 20s ease infinite;
 }
