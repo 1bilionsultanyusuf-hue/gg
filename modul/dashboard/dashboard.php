@@ -43,6 +43,24 @@
     <div class="mb-4">
         <p class="text-gray-500">
             Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+                        Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+                                    Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
+            Grafik berikut menampilkan ringkasan aktivitas terbaru pengguna dan tugas yang telah diselesaikan dalam sistem. Gunakan informasi ini untuk memantau performa dan produktivitas.
         </p>
     </div>
 
