@@ -283,3 +283,6 @@ document.addEventListener("DOMContentLoaded", function () {
         if (e.key === 'Escape' && isMobile && sidebar.classList.contains('show')) {
             hideMobileSidebar();
         }
+    })
+
+})
