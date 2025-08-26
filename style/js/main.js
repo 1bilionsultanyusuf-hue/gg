@@ -1,6 +1,7 @@
-// Enhanced main.js untuk layout fixed yang benar
+// Updated main.js dengan perbaikan mobile menu dan footer handling
 document.addEventListener("DOMContentLoaded", function () {
     const toggleSidebar = document.getElementById('toggleSidebar');
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
     const sidebar = document.querySelector('.sidebar');
     const content = document.querySelector('.content');
     const overlay = document.getElementById('overlay');
@@ -17,6 +18,7 @@ document.addEventListener("DOMContentLoaded", function () {
             sidebar.classList.remove('show', 'collapsed');
             content.classList.remove('ml-64', 'ml-20');
             if (overlay) overlay.classList.remove('show');
+            document.body.style.overflow = '';
         } else {
             // Desktop: sidebar visible, check saved state
             const savedState = localStorage.getItem('sidebarCollapsed');
@@ -29,6 +31,7 @@ document.addEventListener("DOMContentLoaded", function () {
         
         updateToggleIcon();
         addTooltips();
+        updateMobileMenuIcon();
     }
 
     // === Desktop Sidebar Functions ===
@@ -73,6 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
         sidebar.classList.add('show');
         if (overlay) overlay.classList.add('show');
         document.body.style.overflow = 'hidden';
+        updateMobileMenuIcon();
         console.log('📱 Mobile sidebar shown');
     }
 
@@ -82,10 +86,11 @@ document.addEventListener("DOMContentLoaded", function () {
         sidebar.classList.remove('show');
         if (overlay) overlay.classList.remove('show');
         document.body.style.overflow = '';
+        updateMobileMenuIcon();
         console.log('📱 Mobile sidebar hidden');
     }
 
-    // === Toggle Function ===
+    // === Toggle Functions ===
     function toggleSidebarState() {
         if (isMobile) {
             const isVisible = sidebar.classList.contains('show');
@@ -104,7 +109,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // === Update Toggle Icon ===
+    // === Update Icons ===
     function updateToggleIcon() {
         const icon = toggleSidebar?.querySelector('i');
         if (!icon) return;
@@ -115,6 +120,14 @@ document.addEventListener("DOMContentLoaded", function () {
             const isCollapsed = sidebar.classList.contains('collapsed');
             icon.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
         }
+    }
+
+    function updateMobileMenuIcon() {
+        const icon = mobileMenuToggle?.querySelector('i');
+        if (!icon) return;
+        
+        const isVisible = sidebar.classList.contains('show');
+        icon.className = isVisible ? 'fas fa-times' : 'fas fa-bars';
     }
 
     // === Add Tooltips for Collapsed State ===
@@ -129,11 +142,28 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // === Event Listeners ===
+    
+    // Desktop sidebar toggle
     if (toggleSidebar) {
         toggleSidebar.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             toggleSidebarState();
+        });
+    }
+
+    // Mobile menu toggle
+    if (mobileMenuToggle) {
+        mobileMenuToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const isVisible = sidebar.classList.contains('show');
+            if (isVisible) {
+                hideMobileSidebar();
+            } else {
+                showMobileSidebar();
+            }
         });
     }
 
@@ -267,6 +297,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     initializeLayout();
                 }
                 updateToggleIcon();
+                updateMobileMenuIcon();
             }
         }, 100);
     });
@@ -283,6 +314,37 @@ document.addEventListener("DOMContentLoaded", function () {
         if (e.key === 'Escape' && isMobile && sidebar.classList.contains('show')) {
             hideMobileSidebar();
         }
-    })
+    });
 
-})
+    // === Footer Auto-hide on Scroll (Optional Enhancement) ===
+    let lastScrollTop = 0;
+    let footerHideTimer;
+    
+    window.addEventListener('scroll', function() {
+        const footer = document.querySelector('.site-footer');
+        if (!footer) return;
+        
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        
+        // Clear previous timer
+        clearTimeout(footerHideTimer);
+        
+        // Show footer when scrolling stops
+        footerHideTimer = setTimeout(() => {
+            footer.style.transform = 'translateY(0)';
+            footer.style.opacity = '1';
+        }, 150);
+        
+        lastScrollTop = scrollTop;
+    });
+
+    // === Initialize Everything ===
+    initializeLayout();
+    
+    // Page load animations
+    setTimeout(() => {
+        document.body.classList.add('loaded');
+    }, 100);
+    
+    console.log('✅ Layout initialized successfully');
+});
