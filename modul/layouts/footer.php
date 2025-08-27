@@ -10,7 +10,7 @@
         <div class="footer-meta">
             <span class="footer-version">v1.0.0</span>
             <span class="footer-separator">•</span>
-            <span class="footer-author">Developed by Boby & Connor</span>
+            <span class="footer-author">Developed by pr</span>
         </div>
     </div>
 </footer>
