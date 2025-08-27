@@ -23,21 +23,6 @@
         <!-- RIGHT SIDE - Notification & Actions -->
         <div class="header-right">
             <div class="header-actions">
-                <!-- Notification button -->
-                <button class="notification-btn" title="Notifications">
-                    <i class="fas fa-bell"></i>
-                    <span class="notification-badge">3</span>
-                </button>
-                
-                <!-- Quick search -->
-                <button class="icon-btn" title="Search">
-                    <i class="fas fa-search"></i>
-                </button>
-                
-                <!-- Help button -->
-                <button class="icon-btn" title="Help">
-                    <i class="fas fa-question-circle"></i>
-                </button>
             </div>
         </div>
     </div>
@@ -171,55 +156,6 @@
     transform: translateY(-1px);
 }
 
-/* Notification button with badge */
-.notification-btn {
-    position: relative;
-    background: rgba(255,255,255,0.1);
-    border: none;
-    color: rgba(255,255,255,0.9);
-    padding: 8px 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-}
-
-.notification-btn:hover {
-    background: rgba(255,255,255,0.2);
-    color: #fff;
-    transform: translateY(-1px);
-}
-
-.notification-badge {
-    position: absolute;
-    top: -2px;
-    right: -2px;
-    background: #ef4444;
-    color: white;
-    font-size: 0.7rem;
-    font-weight: bold;
-    padding: 2px 6px;
-    border-radius: 10px;
-    min-width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid #fff;
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-}
-
 /* Mobile menu button */
 .mobile-menu-btn {
     background: rgba(255,255,255,0.1);
@@ -277,20 +213,6 @@
     
     .header-actions {
         gap: 8px;
-    }
-    
-    .icon-btn,
-    .notification-btn {
-        width: 32px;
-        height: 32px;
-        font-size: 0.8rem;
-    }
-    
-    .notification-badge {
-        font-size: 0.65rem;
-        min-width: 16px;
-        height: 16px;
-        padding: 1px 4px;
     }
 }
 
@@ -360,21 +282,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Notification click handler
-    document.querySelector('.notification-btn')?.addEventListener('click', function() {
-        alert('📬 Anda memiliki 3 notifikasi baru!');
-    });
-    
     // Search click handler
-    document.querySelectorAll('.icon-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const icon = this.querySelector('i');
-            if (icon.classList.contains('fa-search')) {
-                alert('🔍 Fitur pencarian akan segera tersedia!');
-            } else if (icon.classList.contains('fa-question-circle')) {
-                alert('❓ Hubungi administrator untuk bantuan.');
-            }
-        });
+document.querySelectorAll('.icon-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        // tidak ada aksi lagi
     });
 });
 </script>
