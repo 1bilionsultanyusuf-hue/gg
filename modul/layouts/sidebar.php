@@ -358,17 +358,3 @@
     box-shadow: 0 8px 25px rgba(0,102,255,0.3);
 }
 </style>
-
-
-
-// Add tooltip functionality for collapsed sidebar
-document.addEventListener('DOMContentLoaded', function() {
-    const menuItems = document.querySelectorAll('.menu-item');
-    menuItems.forEach(item => {
-        const textElement = item.querySelector('.nav-text');
-        if (textElement) {
-            item.setAttribute('data-tooltip', textElement.textContent.trim());
-        }
-    });
-});
-</script>
