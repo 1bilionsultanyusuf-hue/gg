@@ -17,14 +17,6 @@
         </div>
     </div>
 
-    <!-- Menu Toggle Button -->
-    <div class="menu-toggle-container p-3 border-b">
-        <button id="toggleSidebar" class="menu-toggle-btn">
-            <i class="fas fa-bars"></i>
-            <span class="nav-text ml-2">Menu</span>
-        </button>
-    </div>
-
     <!-- Navigation Menu -->
     <div class="menu-container overflow-y-auto h-[calc(100%-16rem)]">
         <!-- Dashboard -->
@@ -67,14 +59,6 @@
            class="menu-item <?php echo ($page=='settings') ? 'menu-active' : ''; ?>">
             <i class="fas fa-cog menu-icon"></i>
             <span class="nav-text">Settings</span>
-        </a>
-    </div>
-
-    <!-- Logout Button -->
-    <div class="logout-section p-4 border-t mt-auto">
-        <a href="#" onclick="return confirmLogout(event)" class="logout-btn">
-            <i class="fas fa-sign-out-alt menu-icon"></i>
-            <span class="nav-text">Log OUT</span>
         </a>
     </div>
 </div>
