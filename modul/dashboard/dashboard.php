@@ -66,23 +66,3 @@
     <div class="flex-1">
     </div>
 </div>
-
-        <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold mb-4">Quick Actions</h3>
-            <div class="grid grid-cols-2 gap-2">
-                <button class="p-3 bg-blue-50 text-blue-600 rounded hover:bg-blue-100">
-                    <i class="fas fa-plus"></i> New Task
-                </button>
-                <button class="p-3 bg-green-50 text-green-600 rounded hover:bg-green-100">
-                    <i class="fas fa-file-export"></i> Export Data
-                </button>
-                <button class="p-3 bg-purple-50 text-purple-600 rounded hover:bg-purple-100">
-                    <i class="fas fa-user-plus"></i> Add User
-                </button>
-                <button class="p-3 bg-orange-50 text-orange-600 rounded hover:bg-orange-100">
-                    <i class="fas fa-cog"></i> Setting
-                </button>
-            </div>
-        </div>
-    </div>
-</main>
