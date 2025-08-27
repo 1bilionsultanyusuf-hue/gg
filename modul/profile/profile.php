@@ -14,7 +14,7 @@
             </div>
             <div class="flex-1 flex flex-col">
                 <label class="font-bold text-gray-700 mb-1">Tanggal Lahir</label>
-                <input type="date" value="2000-01-01" class="border rounded p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="date" value="02-03-2008" class="border rounded p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
         </div>
 
