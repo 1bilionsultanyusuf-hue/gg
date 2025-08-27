@@ -1,9 +1,8 @@
 <?php
-// index.php - Updated with fixed layout structure
+// index.php - Fixed with proper layout structure
 
 // Logout handling
 if(isset($_GET['logout'])){
-    // Redirect ke login dummy
     header('Location: modul/auth/login.php');
     exit;
 }
@@ -27,7 +26,7 @@ include 'modul/layouts/header.php';
     <!-- CONTENT AREA -->
     <div class="content">
         <!-- MAIN CONTENT -->
-        <main>
+        <main class="main-content">
             <?php
             switch ($page) {
                 case 'apps': 

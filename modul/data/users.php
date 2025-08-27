@@ -363,28 +363,3 @@
         </div>
     </div>
 </div>
-
-<script>
-// Simple search functionality
-document.querySelector('input[placeholder="Search users..."]').addEventListener('input', function(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const tableRows = document.querySelectorAll('tbody tr');
-    
-    tableRows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(searchTerm)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-});
-
-// Select all checkbox functionality
-document.querySelector('thead input[type="checkbox"]').addEventListener('change', function(e) {
-    const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = e.target.checked;
-    });
-});
-</script>

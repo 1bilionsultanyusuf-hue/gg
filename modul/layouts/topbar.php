@@ -1,12 +1,11 @@
 <?php
-// modul/layouts/topbar.php - Updated with centered logo
+// modul/layouts/topbar.php - Updated without profile section
 ?>
 
 <header class="site-header">
     <div class="header-container">
-        <!-- LEFT SIDE - Mobile menu button atau kosong -->
+        <!-- LEFT SIDE - Mobile menu button -->
         <div class="header-left">
-            <!-- Mobile menu button (hidden on desktop) -->
             <button class="mobile-menu-btn lg:hidden" id="mobileMenuToggle">
                 <i class="fas fa-bars"></i>
             </button>
@@ -21,28 +20,303 @@
             </span>
         </h1>
 
-        <!-- RIGHT SIDE - Profile & Actions -->
+        <!-- RIGHT SIDE - Notification & Actions -->
         <div class="header-right">
             <div class="header-actions">
                 <!-- Notification button -->
-                <button class="icon-btn text-gray-200 hover:text-white" title="Notifications">
+                <button class="notification-btn" title="Notifications">
                     <i class="fas fa-bell"></i>
+                    <span class="notification-badge">3</span>
                 </button>
                 
-                <!-- Profile section -->
-                <div class="profile" title="User Profile">
-                    <img
-                        src="http://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/70d693f7-a49d-4f3c-bb82-4a70c1893573.png"
-                        alt="User Avatar" 
-                        class="profile-img" 
-                        onerror="this.src='https://ui-avatars.com/api/?name=Prototype&background=0066ff&color=fff&size=32'"
-                    />
-                    <span class="profile-name">Prototype</span>
-                </div>
+                <!-- Quick search -->
+                <button class="icon-btn" title="Search">
+                    <i class="fas fa-search"></i>
+                </button>
+                
+                <!-- Help button -->
+                <button class="icon-btn" title="Help">
+                    <i class="fas fa-question-circle"></i>
+                </button>
             </div>
         </div>
     </div>
 </header>
+
+<style>
+/* Header styling updates */
+.site-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: linear-gradient(135deg, #0066ff, #33ccff);
+    color: #fff;
+    padding: 12px 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    height: 60px;
+}
+
+.header-container {
+    max-width: 1200px;
+    margin: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 100%;
+    position: relative;
+}
+
+/* Logo positioning - CENTER */
+.logo-main {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    z-index: 10;
+    cursor: pointer;
+}
+
+.header-left,
+.header-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.header-left {
+    justify-content: flex-start;
+}
+
+.header-right {
+    justify-content: flex-end;
+}
+
+/* Logo styling */
+.logo-it {
+    background: linear-gradient(90deg, #FFD700, #FFB700, #FFA500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-size: 1.6rem;
+    font-weight: bold;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.logo-sep {
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 200;
+    margin: 0 6px;
+    font-size: 1.2rem;
+}
+
+.logo-core {
+    font-weight: bold;
+    font-size: 1.4rem;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Saturn O effect */
+.saturn-o {
+    position: relative;
+    display: inline-block;
+    color: #ffcc00;
+}
+
+.saturn-o::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1.6em;
+    height: 0.35em;
+    border: 2px solid #ffcc00;
+    border-radius: 50%;
+    transform: translate(-50%, -50%) rotate(-25deg);
+    box-shadow: 0 0 8px rgba(255,204,0,0.3);
+}
+
+/* Header actions */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.icon-btn {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: rgba(255,255,255,0.9);
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+}
+
+.icon-btn:hover {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+/* Notification button with badge */
+.notification-btn {
+    position: relative;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: rgba(255,255,255,0.9);
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+}
+
+.notification-btn:hover {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.notification-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #fff;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Mobile menu button */
+.mobile-menu-btn {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    border: none;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-menu-btn:hover {
+    background: rgba(255,255,255,0.2);
+    transform: scale(1.1);
+}
+
+/* Hover effects for logo */
+.logo-main:hover {
+    transform: translate(-50%, -50%) scale(1.05);
+}
+
+.logo-main:hover .saturn-o::before {
+    animation: rotate-ring 2s linear infinite;
+}
+
+@keyframes rotate-ring {
+    0% { transform: translate(-50%, -50%) rotate(-25deg); }
+    100% { transform: translate(-50%, -50%) rotate(335deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .site-header {
+        height: 55px;
+        padding: 8px 15px;
+    }
+    
+    .logo-it {
+        font-size: 1.3rem;
+    }
+    
+    .logo-core {
+        font-size: 1.1rem;
+    }
+    
+    .logo-sep {
+        font-size: 1rem;
+        margin: 0 4px;
+    }
+    
+    .header-actions {
+        gap: 8px;
+    }
+    
+    .icon-btn,
+    .notification-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.8rem;
+    }
+    
+    .notification-badge {
+        font-size: 0.65rem;
+        min-width: 16px;
+        height: 16px;
+        padding: 1px 4px;
+    }
+}
+
+@media (max-width: 480px) {
+    .logo-it {
+        font-size: 1.1rem;
+    }
+    
+    .logo-core {
+        font-size: 0.95rem;
+    }
+    
+    .saturn-o::before {
+        width: 1.3em;
+        height: 0.3em;
+    }
+    
+    .header-actions {
+        gap: 6px;
+    }
+    
+    .icon-btn:last-child {
+        display: none; /* Hide help button on very small screens */
+    }
+}
+</style>
 
 <script>
 // Mobile menu toggle functionality
@@ -85,5 +359,22 @@ document.addEventListener('DOMContentLoaded', function() {
             this.classList.remove('logo-hover');
         });
     }
+    
+    // Notification click handler
+    document.querySelector('.notification-btn')?.addEventListener('click', function() {
+        alert('📬 Anda memiliki 3 notifikasi baru!');
+    });
+    
+    // Search click handler
+    document.querySelectorAll('.icon-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            if (icon.classList.contains('fa-search')) {
+                alert('🔍 Fitur pencarian akan segera tersedia!');
+            } else if (icon.classList.contains('fa-question-circle')) {
+                alert('❓ Hubungi administrator untuk bantuan.');
+            }
+        });
+    });
 });
 </script>
