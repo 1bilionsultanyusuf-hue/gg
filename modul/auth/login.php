@@ -1,38 +1,16 @@
 <?php
-require_once '../../config/config.php';
-
 $error = '';
 $loginSuccess = false;
 
 if(isset($_POST['login'])){
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
-    
-    if (empty($username) || empty($password)) {
-        $error = 'Username dan password harus diisi!';
+    $user = $_POST['username'];
+    $pass = $_POST['password'];
+
+    // Dummy login
+    if($user=='pr' && $pass=='pr'){
+        $loginSuccess = true;
     } else {
-        // Get user from database
-        $user = getUserByUsername($username);
-        
-        if ($user && verifyPassword($password, $user['password'])) {
-            // Check if user is active
-            if ($user['status'] == 'suspended') {
-                $error = 'Akun Anda telah dinonaktifkan!';
-            } else {
-                // Login successful
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $user['name'];
-                $_SESSION['email'] = $user['email'];
-                $_SESSION['role'] = $user['role'];
-                
-                // Update last login
-                updateLastLogin($user['id']);
-                
-                $loginSuccess = true;
-            }
-        } else {
-            $error = 'Username atau password salah!';
-        }
+        $error = 'Username atau password salah!';
     }
 }
 ?>
@@ -42,7 +20,7 @@ if(isset($_POST['login'])){
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login - IT | CORE</title>
+<title>Login</title>
 <style>
 body {
     margin: 0;
@@ -88,10 +66,6 @@ h1 {
     color: #0066ff;
     margin-bottom: 20px;
     font-size: 2.2rem;
-    background: linear-gradient(90deg, #0066ff, #33ccff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
 }
  
 input {
@@ -102,7 +76,6 @@ input {
     border-radius: 10px;
     outline: none;
     font-size: 1rem;
-    box-sizing: border-box;
 }
 
 input:focus {
@@ -125,8 +98,6 @@ button {
 
 button:hover {
     background: linear-gradient(90deg, #0044cc, #00aaff);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,102,255,0.3);
 }
 
 p.info {
@@ -230,10 +201,6 @@ p.info {
     50% { transform: translate(-50%, -50%) scale(1.2); }
     100% { transform: translate(-50%, -50%) scale(1); }
 }
-
-.shake {
-    animation: shake 0.5s ease-in-out;
-}
 </style>
 </head>
 <body>
@@ -247,7 +214,7 @@ p.info {
 
 <!-- Error Popup -->
 <?php if($error): ?>
-    <div class="error-popup" id="errorPopup"><?= htmlspecialchars($error) ?></div>
+    <div class="error-popup" id="errorPopup"><?= $error ?></div>
 <?php endif; ?>
 
 <!-- Login Success Popup -->
@@ -270,13 +237,13 @@ setTimeout(() => {
 <?php endif; ?>
 
 <div class="login-container <?php if($error) echo 'shake'; ?>">
-    <h1>IT | CORE</h1>
+    <h1>SANTAI</h1>
      <form method="post">
-        <input type="text" name="username" placeholder="Username atau Email" value="<?= isset($_POST['username']) ? htmlspecialchars($_POST['username']) : '' ?>" required>
-        <input type="password" name="password" placeholder="Password" required>
+        <input type="text" name="username" placeholder="Username">
+        <input type="password" name="password" placeholder="Password">
         <button type="submit" name="login">Login</button>
     </form>
-    <p class="info">Demo: Username/Email: budi@example.com | Password: 123456</p>
+    <p class="info">Username: ? | Password: ? (dummy/prototype)</p>
 </div>
 
 <script>

@@ -1,7 +1,6 @@
 <?php
 // modul/layouts/topbar.php - Updated without profile section
 ?>
-
 <header class="site-header">
     <div class="header-container">
         <!-- LEFT SIDE - Mobile menu button -->

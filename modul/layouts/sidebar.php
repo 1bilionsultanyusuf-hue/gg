@@ -357,8 +357,4 @@
     transform: scale(1.05);
     box-shadow: 0 8px 25px rgba(0,102,255,0.3);
 }
-<<<<<<< HEAD
 </style>
-=======
-</style>
->>>>>>> 8395581eb6a4dc2cb1e63733ddcb7f86aab172bc
