@@ -1,16 +1,44 @@
 <?php
+session_start();
+require_once '../../config.php'; // path ke config.php, sesuaikan
+
 $error = '';
 $loginSuccess = false;
 
-if(isset($_POST['login'])){
-    $user = $_POST['username'];
-    $pass = $_POST['password'];
+// Jika user sudah login, langsung ke dashboard
+if(isset($_SESSION['user_id'])){
+    header('Location: ../../index.php?page=dashboard');
+    exit;
+}
 
-    // Dummy login
-    if($user=='pr' && $pass=='pr'){
-        $loginSuccess = true;
+// Proses login
+if(isset($_POST['login'])){
+    $user = trim($_POST['username']);
+    $pass = trim($_POST['password']);
+
+    if(empty($user) || empty($pass)){
+        $error = 'Username dan password harus diisi!';
     } else {
-        $error = 'Username atau password salah!';
+        $stmt = $koneksi->prepare("SELECT id, name, password, role FROM users WHERE name=? OR email=? LIMIT 1");
+        $stmt->bind_param("ss", $user, $user);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if($result->num_rows === 1){
+            $row = $result->fetch_assoc();
+            // Cek password (plain text sesuai dummy data)
+            if($pass === $row['password']){
+                $loginSuccess = true;
+                // Simpan session
+                $_SESSION['user_id'] = $row['id'];
+                $_SESSION['user_name'] = $row['name'];
+                $_SESSION['user_role'] = $row['role'];
+            } else {
+                $error = 'Username atau password salah!';
+            }
+        } else {
+            $error = 'Username atau password salah!';
+        }
     }
 }
 ?>
@@ -33,7 +61,7 @@ body {
     overflow: hidden;
 }
 
-/* ===== Bubble Background ===== */
+/* Bubble Background */
 .bubble {
     position: absolute;
     bottom: -100px;
@@ -49,7 +77,7 @@ body {
     100% { transform: translateY(-120vh) scale(0.5); }
 }
 
-/* ===== Login Form ===== */
+/* Login Form */
 .login-container {
     background: white;
     padding: 40px;
@@ -106,7 +134,7 @@ p.info {
     color: #6b7280;
 }
 
-/* ===== Error Popup ===== */
+/* Error Popup */
 .error-popup {
     position: fixed;
     top: 30px;
@@ -146,7 +174,7 @@ p.info {
     100% { opacity: 0; transform: translateX(-50%) translateY(-20px);}
 }
 
-/* ===== Pop-up Login Success ===== */
+/* Login Success Popup */
 .popup-container {
     position: fixed;
     top: 20px;
@@ -224,38 +252,30 @@ p.info {
         <div class="checkmark">✔</div>
     </div>
     <div class="popup-text">Login Berhasil!</div>
-  </div>
- <script>
+</div>
+<script>
 setTimeout(() => {
     document.querySelector('.popup-container').style.opacity = '0';
 }, 1800);
 
 setTimeout(() => {
-    window.location.href='../../index.php?page=dashboard&login=success';
+    window.location.href='../../index.php?page=dashboard';
 }, 2000);
 </script>
 <?php endif; ?>
 
 <div class="login-container <?php if($error) echo 'shake'; ?>">
     <h1>SANTAI</h1>
-     <form method="post">
-        <input type="text" name="username" placeholder="Username">
+    <form method="post">
+        <input type="text" name="username" placeholder="Username atau Email">
         <input type="password" name="password" placeholder="Password">
         <button type="submit" name="login">Login</button>
     </form>
-    <p class="info">Username: ? | Password: ? (dummy/prototype)</p>
+    <p class="info">Username / Password sesuai database (dummy/prototype)</p>
 </div>
 
 <script>
 if(document.getElementById('errorPopup')){
-    // tambahkan class shake
     const form = document.querySelector('.login-container');
     form.style.animation = 'shake 0.5s';
-    setTimeout(() => {
-        form.style.animation = '';
-    }, 500);
-}
-</script>
-
-</body>
-</html>
+    setTimeout(() =>

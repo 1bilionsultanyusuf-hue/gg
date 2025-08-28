@@ -1,3 +1,14 @@
+<?php
+// Mulai session hanya jika belum aktif
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Hapus semua session
+session_unset();
+session_destroy();
+?>
+
 <main class="container mx-auto px-4 py-10">
     <div class="max-w-md mx-auto">
         <h1 class="text-3xl font-bold text-blue-500 mb-8 text-center">⚙️ Pengaturan</h1>
@@ -23,6 +34,7 @@
 <script>
 function confirmLogout(e) {
     e.preventDefault();
+
     if(confirm('YANG BENER 😏?')) {
         const popup = document.createElement('div');
         popup.className = 'popup-logout';
@@ -76,6 +88,7 @@ function confirmLogout(e) {
         setTimeout(() => { popup.style.opacity = '0'; }, 1800);
         setTimeout(() => { window.location.href='modul/auth/login.php'; }, 2000);
     }
+
     return false;
 }
 </script>

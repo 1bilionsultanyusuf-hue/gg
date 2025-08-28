@@ -1,32 +1,46 @@
 <?php
-// index.php - siap pakai
-
-// Mulai session
+// index.php - full ready
 session_start();
 
+// ==========================
+// Pastikan user login
+// ==========================
+if(!isset($_SESSION['user_id'])){
+    header('Location: modul/auth/login.php');
+    exit;
+}
+
+// ==========================
 // Include config database
+// ==========================
 require_once 'config.php';
 
-// Logout handling
+// ==========================
+// Logout
+// ==========================
 if(isset($_GET['logout'])){
     session_destroy();
     header('Location: modul/auth/login.php');
     exit;
 }
 
+// ==========================
 // Tentukan page
+// ==========================
 $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 $allowed_pages = ['dashboard', 'apps', 'users', 'todos', 'pelaporan', 'profile', 'taken', 'settings'];
-if (!in_array($page, $allowed_pages)) $page = 'dashboard';
+if(!in_array($page, $allowed_pages)) $page = 'dashboard';
 
-// Include header (HTML head, CSS)
+// ==========================
+// Include header
+// ==========================
 include 'modul/layouts/header.php';
 ?>
 
 <!-- Topbar -->
 <?php include 'modul/layouts/topbar.php'; ?>
 
-<!-- Main Container -->
+<!-- Main Wrapper -->
 <div class="content-wrapper">
     <!-- Sidebar -->
     <?php include 'modul/layouts/sidebar.php'; ?>
@@ -35,7 +49,7 @@ include 'modul/layouts/header.php';
     <div class="content">
         <main class="main-content">
             <?php
-            switch ($page) {
+            switch($page){
                 case 'apps': 
                     include "modul/data/apps.php"; 
                     break;
