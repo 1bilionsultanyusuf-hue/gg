@@ -1,31 +1,38 @@
 <?php
-// index.php - Fixed with proper layout structure
+// index.php - siap pakai
+
+// Mulai session
+session_start();
+
+// Include config database
+require_once 'config.php';
 
 // Logout handling
 if(isset($_GET['logout'])){
+    session_destroy();
     header('Location: modul/auth/login.php');
     exit;
 }
 
+// Tentukan page
 $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 $allowed_pages = ['dashboard', 'apps', 'users', 'todos', 'pelaporan', 'profile', 'taken', 'settings'];
 if (!in_array($page, $allowed_pages)) $page = 'dashboard';
 
-// Include header (HTML head, styles, dll)
+// Include header (HTML head, CSS)
 include 'modul/layouts/header.php';
 ?>
 
-<!-- FIXED HEADER -->
+<!-- Topbar -->
 <?php include 'modul/layouts/topbar.php'; ?>
 
-<!-- MAIN CONTAINER -->
+<!-- Main Container -->
 <div class="content-wrapper">
-    <!-- FIXED SIDEBAR -->
+    <!-- Sidebar -->
     <?php include 'modul/layouts/sidebar.php'; ?>
 
-    <!-- CONTENT AREA -->
+    <!-- Content Area -->
     <div class="content">
-        <!-- MAIN CONTENT -->
         <main class="main-content">
             <?php
             switch ($page) {
@@ -57,15 +64,15 @@ include 'modul/layouts/header.php';
             ?>
         </main>
 
-        <!-- FOOTER -->
+        <!-- Footer -->
         <?php include 'modul/layouts/footer.php'; ?>
     </div>
 
-    <!-- OVERLAY FOR MOBILE -->
+    <!-- Overlay for Mobile -->
     <div id="overlay" class="overlay"></div>
 </div>
 
-<!-- SCRIPTS -->
+<!-- Scripts -->
 <script src="style/js/main.js"></script>
 
 </body>

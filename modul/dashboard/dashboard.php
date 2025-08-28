@@ -1,21 +1,11 @@
 <?php
-session_start();
-require_once "modul/config/config.php";
+// Jangan panggil session_start() atau require config.php lagi
+// session_start(); // HAPUS
+// require_once('modul/config/config.php'); // HAPUS
 
-// Cek apakah user sudah login
-if (!isset($_SESSION['user'])) {
-    header("Location: index.php");
-    exit;
+// Sekarang langsung pakai $koneksi dari index.php
+$result = $koneksi->query("SELECT * FROM apps");
+while($row = $result->fetch_assoc()){
+    echo $row['name'] . "<br>";
 }
 ?>
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard</title>
-</head>
-<body>
-    <h2>Selamat datang, <?php echo htmlspecialchars($_SESSION['user']); ?>!</h2>
-    <a href="logout.php">Logout</a>
-</body>
-</html>
