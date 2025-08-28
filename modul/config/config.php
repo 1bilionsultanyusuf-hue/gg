@@ -2,7 +2,7 @@
 session_start();
 
 // Database configuration
-require_once 'database.php';
+require_once 'koneksi/database.php';
 
 // Helper functions
 function redirect($url) {
