@@ -1,12 +1,13 @@
 <?php
-// Mulai session hanya jika belum aktif
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
+if (!isset($_SESSION['users'])) {
+    header('Location: modul/auth/login.php');
+}
 
-// Hapus semua session
-session_unset();
-session_destroy();
+//include
+include 'modul/layouts/header.php';
 ?>
 
 <main class="container mx-auto px-4 py-10">
@@ -35,7 +36,6 @@ session_destroy();
 function confirmLogout(e) {
     e.preventDefault();
 
-    if(confirm('YANG BENER 😏?')) {
         const popup = document.createElement('div');
         popup.className = 'popup-logout';
         popup.innerHTML = `<div class="popup-circle"><div class="checkmark">✔</div></div><div class="popup-text">Anda berhasil logout!</div>`;
@@ -90,5 +90,5 @@ function confirmLogout(e) {
     }
 
     return false;
-}
+
 </script>
