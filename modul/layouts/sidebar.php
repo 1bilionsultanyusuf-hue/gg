@@ -54,11 +54,11 @@
             <span class="nav-text">Pelaporan</span>
         </a>
 
-        <!-- Settings -->
-        <a href="?page=settings"
-           class="menu-item <?php echo ($page=='settings') ? 'menu-active' : ''; ?>">
+        <!-- Taken -->
+        <a href="?page=taken"
+           class="menu-item <?php echo ($page=='taken') ? 'menu-active' : ''; ?>">
             <i class="fas fa-cog menu-icon"></i>
-            <span class="nav-text">Settings</span>
+            <span class="nav-text">Taken</span>
         </a>
     </div>
 </div>

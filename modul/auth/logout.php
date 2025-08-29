@@ -5,9 +5,6 @@ if (session_status() == PHP_SESSION_NONE) {
 if (!isset($_SESSION['users'])) {
     header('Location: modul/auth/login.php');
 }
-
-//include
-include 'modul/layouts/header.php';
 ?>
 
 <main class="container mx-auto px-4 py-10">
