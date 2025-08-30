@@ -1,14 +1,12 @@
 <?php
-// modul/layouts/topbar.php - Updated without profile section
+// modul/layouts/topbar.php - Updated with hamburger button
 ?>
 <header class="site-header">
     <div class="header-container">
-        <!-- LEFT SIDE - Mobile menu button -->
-        <div class="header-left">
-            <button class="mobile-menu-btn lg:hidden" id="mobileMenuToggle">
-                <i class="fas fa-bars"></i>
-            </button>
-        </div>
+        <!-- Hamburger Menu Button - LEFT -->
+        <button class="hamburger-menu" id="hamburgerBtn" onclick="toggleSidebar()">
+            <i class="fas fa-bars"></i>
+        </button>
 
         <!-- CENTER - Logo utama -->
         <h1 class="logo-main">
@@ -18,12 +16,6 @@
                 C<span class="saturn-o">O</span>RE
             </span>
         </h1>
-
-        <!-- RIGHT SIDE - Notification & Actions -->
-        <div class="header-right">
-            <div class="header-actions">
-            </div>
-        </div>
     </div>
 </header>
 
@@ -46,39 +38,60 @@
     max-width: 1200px;
     margin: auto;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     height: 100%;
     position: relative;
 }
 
+/* Hamburger Menu Button - Positioned at LEFT */
+.hamburger-menu {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    z-index: 1001;
+}
+
+.hamburger-menu:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-50%) scale(1.05);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}
+
+.hamburger-menu:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+.hamburger-menu i {
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+}
+
+/* Animasi hamburger ketika sidebar terbuka */
+.hamburger-menu.active i {
+    transform: rotate(90deg);
+}
+
 /* Logo positioning - CENTER */
 .logo-main {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
     display: flex;
     align-items: center;
     text-decoration: none;
     transition: all 0.3s ease;
-    z-index: 10;
     cursor: pointer;
-}
-
-.header-left,
-.header-right {
-    flex: 1;
-    display: flex;
-    align-items: center;
-}
-
-.header-left {
-    justify-content: flex-start;
-}
-
-.header-right {
-    justify-content: flex-end;
 }
 
 /* Logo styling */
@@ -126,59 +139,9 @@
     box-shadow: 0 0 8px rgba(255,204,0,0.3);
 }
 
-/* Header actions */
-.header-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.icon-btn {
-    background: rgba(255,255,255,0.1);
-    border: none;
-    color: rgba(255,255,255,0.9);
-    padding: 8px 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-}
-
-.icon-btn:hover {
-    background: rgba(255,255,255,0.2);
-    color: #fff;
-    transform: translateY(-1px);
-}
-
-/* Mobile menu button */
-.mobile-menu-btn {
-    background: rgba(255,255,255,0.1);
-    color: #fff;
-    border: none;
-    padding: 8px 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.mobile-menu-btn:hover {
-    background: rgba(255,255,255,0.2);
-    transform: scale(1.1);
-}
-
 /* Hover effects for logo */
 .logo-main:hover {
-    transform: translate(-50%, -50%) scale(1.05);
+    transform: scale(1.05);
 }
 
 .logo-main:hover .saturn-o::before {
@@ -209,9 +172,14 @@
         font-size: 1rem;
         margin: 0 4px;
     }
-    
-    .header-actions {
-        gap: 8px;
+
+    .hamburger-menu {
+        width: 35px;
+        height: 35px;
+    }
+
+    .hamburger-menu i {
+        font-size: 1rem;
     }
 }
 
@@ -228,63 +196,11 @@
         width: 1.3em;
         height: 0.3em;
     }
-    
-    .header-actions {
-        gap: 6px;
-    }
-    
-    .icon-btn:last-child {
-        display: none; /* Hide help button on very small screens */
-    }
+}
+
+/* Focus states for accessibility */
+.hamburger-menu:focus {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
 }
 </style>
-
-<script>
-// Mobile menu toggle functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const mobileMenuBtn = document.getElementById('mobileMenuToggle');
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('overlay');
-    
-    if (mobileMenuBtn) {
-        mobileMenuBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Toggle mobile sidebar
-            const isVisible = sidebar.classList.contains('show');
-            if (isVisible) {
-                sidebar.classList.remove('show');
-                if (overlay) overlay.classList.remove('show');
-                document.body.style.overflow = '';
-            } else {
-                sidebar.classList.add('show');
-                if (overlay) overlay.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            }
-            
-            // Update icon
-            const icon = this.querySelector('i');
-            icon.className = isVisible ? 'fas fa-bars' : 'fas fa-times';
-        });
-    }
-    
-    // Logo hover effect
-    const logo = document.querySelector('.logo-main');
-    if (logo) {
-        logo.addEventListener('mouseenter', function() {
-            this.classList.add('logo-hover');
-        });
-        
-        logo.addEventListener('mouseleave', function() {
-            this.classList.remove('logo-hover');
-        });
-    }
-    
-    // Search click handler
-document.querySelectorAll('.icon-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        // tidak ada aksi lagi
-    });
-});
-</script>
