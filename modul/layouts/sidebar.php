@@ -8,11 +8,9 @@
                  onerror="this.src='https://ui-avatars.com/api/?name=Prototype&background=0066ff&color=fff&size=80'">
         </div>
         <div class="profile-info">
-            <h3 class="profile-name">Prototype</h3>
-            <p class="profile-email">user@example.com</p>
             <a href="?page=profile" class="profile-edit-btn">
                 <i class="fas fa-user-edit"></i>
-                <span class="nav-text">Lihat Profil</span>
+                <span class="nav-text">Lihat profil</span>
             </a>
         </div>
     </div>
