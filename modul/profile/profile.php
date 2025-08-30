@@ -20,6 +20,6 @@
 
         <textarea placeholder="Catatan tambahan..." class="w-full border rounded p-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
 
-    <button class="bg-blue-500 text-white w-full p-3 rounded hover:bg-blue-600 transition duration-300" onclick="alert('Profil disimpan (dummy)')">Simpan</button>
+    <button class="bg-blue-500 text-white w-full p-3 rounded hover:bg-blue-600 transition duration-300" onclick="alert('Profil disimpan (dummy)')">Edit</button>
     </div>
 </div>

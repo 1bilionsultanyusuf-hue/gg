@@ -28,7 +28,7 @@ if(isset($_GET['logout'])){
 // Tentukan page
 // ==========================
 $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
-$allowed_pages = ['dashboard', 'apps', 'users', 'todos', 'pelaporan', 'profile', 'taken'];
+$allowed_pages = ['dashboard', 'apps', 'users', 'todos', 'pelaporan', 'profile', 'taken', 'logout'];
 if(!in_array($page, $allowed_pages)) $page = 'dashboard';
 
 // ==========================
@@ -67,6 +67,9 @@ include 'modul/layouts/header.php';
                     break;
                 case 'taken':
                     include "modul/takn/taken.php";
+                    break;
+                     case 'logout':
+                    include "modul/auth/logout.php";
                     break;
                 default: 
                     include "modul/dashboard/dashboard.php"; 

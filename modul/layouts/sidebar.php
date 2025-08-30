@@ -66,11 +66,11 @@
         </a>
     </div>
 
-    <!-- Logout Section -->
-    <div class="logout-section">
-        <button class="logout-btn" onclick="handleLogout()">
-            <i class="fas fa-sign-out-alt"></i>
-            <span class="nav-text">Logout</span>
+    <!-- Sidebar Toggle Section (Menggantikan Logout) -->
+    <div class="toggle-section">
+        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" id="sidebarToggleBtn">
+            <i class="fas fa-chevron-left sidebar-toggle-icon"></i>
+            <span class="nav-text">Sembunyikan</span>
         </button>
     </div>
 </div>
@@ -79,7 +79,7 @@
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
 <style>
-/* Enhanced Sidebar Styling - TANPA TOMBOL TOGGLE INTERNAL */
+/* Enhanced Sidebar Styling - DENGAN TOMBOL TOGGLE INTERNAL */
 .sidebar {
     background: white;
     width: 256px;
@@ -243,21 +243,21 @@
     left: 100%;
 }
 
-/* Logout Section */
-.logout-section {
+/* Sidebar Toggle Section (Menggantikan Logout) */
+.toggle-section {
     flex-shrink: 0;
     padding: 16px 20px 20px;
-    background: linear-gradient(135deg, #fafafa, #f1f5f9);
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
     border-top: 1px solid #e2e8f0;
 }
 
-.logout-btn {
+.sidebar-toggle-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
     padding: 10px 16px;
-    background: linear-gradient(90deg, #ef4444, #f87171);
+    background: linear-gradient(90deg, #64748b, #94a3b8);
     color: white;
     text-decoration: none;
     border-radius: 8px;
@@ -266,22 +266,28 @@
     transition: all 0.3s ease;
     border: none;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+    box-shadow: 0 2px 8px rgba(100, 116, 139, 0.2);
 }
 
-.logout-btn:hover {
-    background: linear-gradient(90deg, #dc2626, #ef4444);
+.sidebar-toggle-btn:hover {
+    background: linear-gradient(90deg, #475569, #64748b);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
 }
 
-.logout-btn:active {
+.sidebar-toggle-btn:active {
     transform: translateY(0);
 }
 
-.logout-btn i {
+.sidebar-toggle-icon {
     font-size: 0.85rem;
     margin-right: 8px;
+    transition: transform 0.3s ease;
+}
+
+/* Animasi icon ketika sidebar tersembunyi */
+.sidebar-toggle-btn.rotated .sidebar-toggle-icon {
+    transform: rotate(180deg);
 }
 
 /* Sidebar Hidden State - Controlled by hamburger */
@@ -323,8 +329,13 @@
         height: 90px;
     }
 
-    .logout-section {
+    .toggle-section {
         padding: 20px 24px 24px;
+    }
+
+    /* Di mobile, ubah text tombol toggle */
+    .sidebar-toggle-btn .nav-text::after {
+        content: " Sidebar";
     }
 }
 
@@ -346,11 +357,11 @@
         height: 75px;
     }
 
-    .logout-section {
+    .toggle-section {
         padding: 16px 20px 20px;
     }
 
-    .logout-btn {
+    .sidebar-toggle-btn {
         padding: 8px 14px;
         font-size: 0.85rem;
     }
@@ -383,7 +394,7 @@
 }
 
 .profile-edit-btn:focus,
-.logout-btn:focus {
+.sidebar-toggle-btn:focus {
     outline: 2px solid #fff;
     outline-offset: 2px;
 }
@@ -393,8 +404,11 @@
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const mainContent = document.getElementById('mainContent');
+    const siteFooter = document.getElementById('siteFooter');
     const overlay = document.getElementById('overlay');
     const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+    const toggleText = sidebarToggleBtn?.querySelector('.nav-text');
     
     if (window.innerWidth <= 1024) {
         // Mobile behavior - show/hide sidebar
@@ -404,12 +418,16 @@ function toggleSidebar() {
             sidebar.classList.remove('show');
             overlay.classList.remove('show');
             document.body.style.overflow = '';
-            hamburgerBtn.classList.remove('active');
+            if (hamburgerBtn) hamburgerBtn.classList.remove('active');
+            if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('rotated');
+            if (toggleText) toggleText.textContent = 'Buka';
         } else {
             sidebar.classList.add('show');
             overlay.classList.add('show');
             document.body.style.overflow = 'hidden';
-            hamburgerBtn.classList.add('active');
+            if (hamburgerBtn) hamburgerBtn.classList.add('active');
+            if (sidebarToggleBtn) sidebarToggleBtn.classList.add('rotated');
+            if (toggleText) toggleText.textContent = 'Tutup';
         }
     } else {
         // Desktop behavior - hide/show sidebar completely
@@ -418,20 +436,18 @@ function toggleSidebar() {
         if (isHidden) {
             sidebar.classList.remove('hidden');
             if (mainContent) mainContent.classList.remove('sidebar-hidden');
-            hamburgerBtn.classList.remove('active');
+            if (siteFooter) siteFooter.classList.remove('sidebar-hidden');
+            if (hamburgerBtn) hamburgerBtn.classList.remove('active');
+            if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('rotated');
+            if (toggleText) toggleText.textContent = 'Sembunyikan';
         } else {
             sidebar.classList.add('hidden');
             if (mainContent) mainContent.classList.add('sidebar-hidden');
-            hamburgerBtn.classList.add('active');
+            if (siteFooter) siteFooter.classList.add('sidebar-hidden');
+            if (hamburgerBtn) hamburgerBtn.classList.add('active');
+            if (sidebarToggleBtn) sidebarToggleBtn.classList.add('rotated');
+            if (toggleText) toggleText.textContent = 'Tampilkan';
         }
-    }
-}
-
-function handleLogout() {
-    if (confirm('Apakah Anda yakin ingin logout?')) {
-        alert('Logout berhasil!');
-        // Tambahkan logika logout di sini
-        // window.location.href = 'login.php';
     }
 }
 
@@ -442,11 +458,15 @@ document.querySelectorAll('.menu-item').forEach(item => {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('overlay');
             const hamburgerBtn = document.getElementById('hamburgerBtn');
+            const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+            const toggleText = sidebarToggleBtn?.querySelector('.nav-text');
             
             sidebar.classList.remove('show');
             overlay.classList.remove('show');
             document.body.style.overflow = '';
-            hamburgerBtn.classList.remove('active');
+            if (hamburgerBtn) hamburgerBtn.classList.remove('active');
+            if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('rotated');
+            if (toggleText) toggleText.textContent = 'Buka';
         }
     });
 });
@@ -455,13 +475,40 @@ document.querySelectorAll('.menu-item').forEach(item => {
 window.addEventListener('resize', function() {
     if (window.innerWidth > 1024) {
         const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
+        const siteFooter = document.getElementById('siteFooter');
         const overlay = document.getElementById('overlay');
         const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        const toggleText = sidebarToggleBtn?.querySelector('.nav-text');
         
         sidebar.classList.remove('show');
         overlay.classList.remove('show');
         document.body.style.overflow = '';
-        hamburgerBtn.classList.remove('active');
+        if (hamburgerBtn) hamburgerBtn.classList.remove('active');
+        
+        // Reset footer juga
+        if (siteFooter && !sidebar.classList.contains('hidden')) {
+            siteFooter.classList.remove('sidebar-hidden');
+        }
+        
+        // Reset text tombol toggle
+        if (!sidebar.classList.contains('hidden')) {
+            if (toggleText) toggleText.textContent = 'Sembunyikan';
+            if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('rotated');
+        }
+    }
+});
+
+// Initialize pada load
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+    const toggleText = sidebarToggleBtn?.querySelector('.nav-text');
+    
+    if (window.innerWidth <= 1024) {
+        if (toggleText) toggleText.textContent = 'Buka';
+    } else {
+        if (toggleText) toggleText.textContent = 'Sembunyikan';
     }
 });
 </script>
