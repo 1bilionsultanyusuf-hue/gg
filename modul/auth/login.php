@@ -265,7 +265,7 @@ setTimeout(() => {
 <?php endif; ?>
 
 <div class="login-container <?php if($error) echo 'shake'; ?>">
-    <h1>SANTAI</h1>
+    <h1>LOG IN</h1>
     <form method="post">
         <input type="text" name="username" placeholder="Username atau Email">
         <input type="password" name="password" placeholder="Password">
