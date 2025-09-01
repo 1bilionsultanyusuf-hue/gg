@@ -49,12 +49,12 @@
             <span class="nav-text">Todos</span>
         </a>
 
-    <!-- Todos -->
-        <a href="?page=todos"
-           class="menu-item <?php echo ($page=='todos') ? 'menu-active' : ''; ?>"
-           data-tooltip="Todos">
-            <i class="fas fa-list-check menu-icon"></i>
-            <span class="nav-text">Todos</span>
+    <!-- Taken -->
+        <a href="?page=taken"
+           class="menu-item <?php echo ($page=='taken') ? 'menu-active' : ''; ?>"
+           data-tooltip="Taken">
+            <i class="fas fa-code menu-icon"></i>
+            <span class="nav-text">Taken</span>
         </a>
         </button>
     </div>

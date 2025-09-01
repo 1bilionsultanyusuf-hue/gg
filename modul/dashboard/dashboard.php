@@ -124,10 +124,6 @@ $user_stats = $koneksi->query("
                     <i class="fas fa-user-plus"></i>
                     <span>Tambah User</span>
                 </a>
-                <a href="?page=pelaporan" class="quick-btn btn-orange">
-                    <i class="fas fa-chart-bar"></i>
-                    <span>Laporan</span>
-                </a>
                 <a href="?page=profile" class="quick-btn btn-purple">
                     <i class="fas fa-user-cog"></i>
                     <span>Profile</span>

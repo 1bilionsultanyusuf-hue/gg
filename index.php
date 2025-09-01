@@ -66,7 +66,7 @@ include 'modul/layouts/header.php';
                     include "modul/profile/profile.php"; 
                     break;
                 case 'taken':
-                    include "modul/takn/taken.php";
+                    include "modul/taken/taken.php";
                     break;
                      case 'logout':
                     include "modul/auth/logout.php";
