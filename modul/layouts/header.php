@@ -16,7 +16,7 @@
     />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style/css.css" />
+    <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>

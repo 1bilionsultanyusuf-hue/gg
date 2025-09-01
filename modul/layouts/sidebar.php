@@ -49,28 +49,13 @@
             <span class="nav-text">Todos</span>
         </a>
 
-        <!-- Pelaporan -->
-        <a href="?page=pelaporan"
-           class="menu-item <?php echo ($page=='pelaporan') ? 'menu-active' : ''; ?>"
-           data-tooltip="Pelaporan">
-            <i class="fas fa-chart-line menu-icon"></i>
-            <span class="nav-text">Pelaporan</span>
+    <!-- Todos -->
+        <a href="?page=todos"
+           class="menu-item <?php echo ($page=='todos') ? 'menu-active' : ''; ?>"
+           data-tooltip="Todos">
+            <i class="fas fa-list-check menu-icon"></i>
+            <span class="nav-text">Todos</span>
         </a>
-
-        <!-- Settings -->
-        <a href="?page=taken"
-           class="menu-item <?php echo ($page=='taken') ? 'menu-active' : ''; ?>"
-           data-tooltip="Taken">
-            <i class="fas fa-code menu-icon"></i>
-            <span class="nav-text">Taken</span>
-        </a>
-    </div>
-
-    <!-- Sidebar Toggle Section (Menggantikan Logout) -->
-    <div class="toggle-section">
-        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" id="sidebarToggleBtn">
-            <i class="fas fa-chevron-left sidebar-toggle-icon"></i>
-            <span class="nav-text">Sembunyikan</span>
         </button>
     </div>
 </div>

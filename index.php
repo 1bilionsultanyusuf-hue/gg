@@ -28,7 +28,7 @@ if(isset($_GET['logout'])){
 // Tentukan page
 // ==========================
 $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
-$allowed_pages = ['dashboard', 'apps', 'users', 'todos', 'pelaporan', 'profile', 'taken', 'logout'];
+$allowed_pages = ['dashboard', 'apps', 'users', 'todos', 'profile', 'taken', 'logout'];
 if(!in_array($page, $allowed_pages)) $page = 'dashboard';
 
 // ==========================
