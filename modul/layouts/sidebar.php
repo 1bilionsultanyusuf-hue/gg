@@ -51,29 +51,21 @@
             <span class="nav-text">Todos</span>
         </a>
 
-        <!-- Pelaporan -->
-        <a href="?page=pelaporan"
-           class="menu-item <?php echo ($page=='pelaporan') ? 'menu-active' : ''; ?>"
-           data-tooltip="Pelaporan">
-            <i class="fas fa-chart-line menu-icon"></i>
-            <span class="nav-text">Pelaporan</span>
-        </a>
-
         <!-- Taken -->
         <a href="?page=taken"
            class="menu-item <?php echo ($page=='taken') ? 'menu-active' : ''; ?>"
-           data-tooltip="Taken">
-            <i class="fas fa-code menu-icon"></i>
+           data-tooltip="taken">
+            <i class="fas fa-chart-line menu-icon"></i>
             <span class="nav-text">Taken</span>
         </a>
-    </div>
 
-    <!-- Logout Section -->
-    <div class="logout-section">
-        <button class="logout-btn" onclick="confirmLogout(event)">
-            <i class="fas fa-sign-out-alt logout-icon"></i>
+        <!-- Logout -->
+        <a href="#" onclick="confirmLogout(event); return false;"
+           class="menu-item logout-menu-item"
+           data-tooltip="Logout">
+            <i class="fas fa-sign-out-alt menu-icon"></i>
             <span class="nav-text">Logout</span>
-        </button>
+        </a>
     </div>
 </div>
 
@@ -81,7 +73,7 @@
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
 <style>
-/* Enhanced Sidebar Styling with Logout */
+/* Enhanced Sidebar Styling - No Scroll Version */
 .sidebar {
     background: white;
     width: 256px;
@@ -94,11 +86,12 @@
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     display: flex;
     flex-direction: column;
+    overflow: hidden; /* Prevent any scrolling */
 }
 
-/* Profile Section Styling - Enhanced */
+/* Profile Section Styling - Compact */
 .profile-section {
-    padding: 24px 20px;
+    padding: 16px 20px;
     text-align: center;
     border-bottom: 1px solid #e2e8f0;
     background: linear-gradient(135deg, #f8fafc, #e2e8f0);
@@ -107,17 +100,17 @@
 }
 
 .profile-avatar-container {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     position: relative;
 }
 
 .profile-avatar {
-    width: 80px;
-    height: 80px;
+    width: 60px;
+    height: 60px;
     object-fit: cover;
     margin: 0 auto;
     border-radius: 50%;
-    border: 4px solid #0066ff;
+    border: 3px solid #0066ff;
     box-shadow: 0 4px 12px rgba(0,102,255,0.2);
     transition: all 0.3s ease;
 }
@@ -128,17 +121,17 @@
 }
 
 .profile-name {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: #1e293b;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     transition: opacity 0.3s ease;
 }
 
 .profile-role {
-    font-size: 12px;
+    font-size: 11px;
     color: #64748b;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     transition: opacity 0.3s ease;
     font-weight: 500;
     text-transform: uppercase;
@@ -150,10 +143,10 @@
     align-items: center;
     background: linear-gradient(90deg, #0066ff, #33ccff);
     color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
+    padding: 6px 12px;
+    border-radius: 16px;
     text-decoration: none;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 500;
     transition: all 0.3s ease;
     border: none;
@@ -166,40 +159,29 @@
     box-shadow: 0 4px 12px rgba(0,102,255,0.3);
 }
 
-/* Menu Container */
+/* Menu Container - Fixed Height */
 .menu-container {
     flex: 1;
-    overflow-y: auto;
-    padding: 8px 0;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0,102,255,0.3) transparent;
+    padding: 8px 0 16px 0;
+    overflow: hidden; /* No scroll */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
-.menu-container::-webkit-scrollbar {
-    width: 4px;
-}
-
-.menu-container::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.menu-container::-webkit-scrollbar-thumb {
-    background: rgba(0,102,255,0.3);
-    border-radius: 2px;
-}
-
-/* Menu Items */
+/* Menu Items - Compact */
 .menu-item {
     display: flex;
     align-items: center;
-    padding: 14px 20px;
+    padding: 12px 20px;
     color: #64748b;
     text-decoration: none;
     transition: all 0.3s ease;
     border-left: 4px solid transparent;
-    margin: 2px 0;
+    margin: 1px 0;
     position: relative;
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .menu-item:hover {
@@ -217,62 +199,43 @@
 }
 
 .menu-icon {
-    width: 20px;
+    width: 18px;
     text-align: center;
     margin-right: 12px;
-    font-size: 1rem;
+    font-size: 0.9rem;
     transition: all 0.3s ease;
+    flex-shrink: 0;
 }
 
 .menu-item:hover .menu-icon {
     transform: scale(1.1);
 }
 
-/* Logout Section */
-.logout-section {
-    flex-shrink: 0;
-    padding: 16px 20px 20px;
-    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
-    border-top: 1px solid #e2e8f0;
-}
-
-.logout-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 12px 16px;
-    background: linear-gradient(90deg, #ef4444, #dc2626);
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 500;
+.nav-text {
     font-size: 0.9rem;
-    transition: all 0.3s ease;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
 }
 
-.logout-btn:hover {
-    background: linear-gradient(90deg, #dc2626, #b91c1c);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+/* Logout Menu Item - Red Style */
+.logout-menu-item {
+    color: #ef4444 !important;
+    margin-top: 8px;
+    border-top: 1px solid #fee2e2;
+    padding-top: 16px !important;
 }
 
-.logout-btn:active {
-    transform: translateY(0);
+.logout-menu-item:hover {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.08), rgba(220, 38, 38, 0.04)) !important;
+    color: #dc2626 !important;
+    border-left-color: #ef4444 !important;
 }
 
-.logout-icon {
-    font-size: 0.85rem;
-    margin-right: 8px;
-    transition: transform 0.3s ease;
+.logout-menu-item.menu-active {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.12), rgba(220, 38, 38, 0.06)) !important;
+    color: #dc2626 !important;
+    border-left-color: #ef4444 !important;
 }
 
-.logout-btn:hover .logout-icon {
-    transform: translateX(-2px);
-}
+
 
 /* Sidebar Hidden State */
 .sidebar.hidden {
@@ -295,26 +258,22 @@
     }
     
     .menu-item {
-        padding: 16px 24px;
+        padding: 14px 24px;
         font-size: 1rem;
     }
     
     .menu-icon {
-        font-size: 1.1rem;
+        font-size: 1rem;
         margin-right: 16px;
     }
     
     .profile-section {
-        padding: 24px 20px;
+        padding: 20px;
     }
     
     .profile-avatar {
-        width: 90px;
-        height: 90px;
-    }
-
-    .logout-section {
-        padding: 20px 24px 24px;
+        width: 70px;
+        height: 70px;
     }
 }
 
@@ -324,25 +283,16 @@
     }
     
     .menu-item {
-        padding: 14px 20px;
+        padding: 12px 20px;
     }
     
     .profile-section {
-        padding: 20px 16px;
+        padding: 16px;
     }
     
     .profile-avatar {
-        width: 75px;
-        height: 75px;
-    }
-
-    .logout-section {
-        padding: 16px 20px 20px;
-    }
-
-    .logout-btn {
-        padding: 10px 14px;
-        font-size: 0.85rem;
+        width: 60px;
+        height: 60px;
     }
 }
 
@@ -366,9 +316,13 @@
 }
 
 /* Focus states for accessibility */
-.menu-item:focus,
-.logout-btn:focus {
+.menu-item:focus {
     outline: 2px solid #0066ff;
+    outline-offset: -2px;
+}
+
+.logout-menu-item:focus {
+    outline: 2px solid #ef4444;
     outline-offset: -2px;
 }
 

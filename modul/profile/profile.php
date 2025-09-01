@@ -7,21 +7,6 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $user_data = $stmt->get_result()->fetch_assoc();
 
-// Get user statistics
-$user_stats_query = "
-    SELECT 
-        COUNT(t.id) as total_todos,
-        COUNT(CASE WHEN tk.status = 'in_progress' THEN 1 END) as active_todos,
-        COUNT(CASE WHEN tk.status = 'done' THEN 1 END) as completed_todos
-    FROM todos t
-    LEFT JOIN taken tk ON t.id = tk.id_todos AND tk.user_id = ?
-    WHERE t.user_id = ?
-";
-$stmt = $koneksi->prepare($user_stats_query);
-$stmt->bind_param("ii", $user_id, $user_id);
-$stmt->execute();
-$stats = $stmt->get_result()->fetch_assoc();
-
 // Handle form submission
 if (isset($_POST['update_profile'])) {
     $name = trim($_POST['name']);
@@ -77,6 +62,15 @@ if (isset($_POST['update_profile'])) {
         }
     }
 }
+
+function getRoleIcon($role) {
+    $icons = [
+        'admin' => '<i class="fas fa-crown"></i>',
+        'programmer' => '<i class="fas fa-code"></i>',
+        'support' => '<i class="fas fa-headset"></i>'
+    ];
+    return $icons[$role] ?? '<i class="fas fa-user"></i>';
+}
 ?>
 
 <div class="main-content" style="margin-top: 80px;">
@@ -105,64 +99,32 @@ if (isset($_POST['update_profile'])) {
             </div>
         </div>
 
-        <!-- Statistics Cards -->
-        <div class="profile-stats">
-            <div class="stat-item">
-                <div class="stat-icon bg-blue">
-                    <i class="fas fa-tasks"></i>
-                </div>
-                <div class="stat-content">
-                    <h3><?= $stats['total_todos'] ?></h3>
-                    <p>Total Tugas</p>
-                </div>
+        <!-- Edit Profile Form - Full Width -->
+        <div class="profile-card">
+            <div class="card-header">
+                <h3>Edit Profil</h3>
             </div>
-            <div class="stat-item">
-                <div class="stat-icon bg-orange">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div class="stat-content">
-                    <h3><?= $stats['active_todos'] ?></h3>
-                    <p>Tugas Aktif</p>
-                </div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-icon bg-green">
+            <div class="card-content">
+                <?php if (isset($success_message)): ?>
+                <div class="alert alert-success">
                     <i class="fas fa-check-circle"></i>
+                    <?= $success_message ?>
                 </div>
-                <div class="stat-content">
-                    <h3><?= $stats['completed_todos'] ?></h3>
-                    <p>Tugas Selesai</p>
+                <?php endif; ?>
+                
+                <?php if (!empty($errors)): ?>
+                <div class="alert alert-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <ul>
+                        <?php foreach($errors as $error): ?>
+                        <li><?= $error ?></li>
+                        <?php endforeach; ?>
+                    </ul>
                 </div>
-            </div>
-        </div>
-
-        <!-- Profile Form and Actions -->
-        <div class="profile-content-grid">
-            <!-- Edit Profile Form -->
-            <div class="profile-card">
-                <div class="card-header">
-                    <h3>Edit Profil</h3>
-                </div>
-                <div class="card-content">
-                    <?php if (isset($success_message)): ?>
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i>
-                        <?= $success_message ?>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <?php if (!empty($errors)): ?>
-                    <div class="alert alert-error">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <ul>
-                            <?php foreach($errors as $error): ?>
-                            <li><?= $error ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <form method="POST" class="profile-form">
+                <?php endif; ?>
+                
+                <form method="POST" class="profile-form">
+                    <div class="form-row">
                         <div class="form-group">
                             <label for="name">Nama Lengkap</label>
                             <input type="text" id="name" name="name" 
@@ -174,17 +136,19 @@ if (isset($_POST['update_profile'])) {
                             <input type="email" id="email" name="email" 
                                    value="<?= htmlspecialchars($user_data['email']) ?>" required>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="role">Role</label>
-                            <input type="text" value="<?= ucfirst($user_data['role']) ?>" disabled class="form-disabled">
-                            <small class="form-help">Role tidak dapat diubah</small>
-                        </div>
-                        
-                        <hr class="form-divider">
-                        
-                        <h4 class="form-section-title">Ubah Password (Opsional)</h4>
-                        
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="role">Role</label>
+                        <input type="text" value="<?= ucfirst($user_data['role']) ?>" disabled class="form-disabled">
+                        <small class="form-help">Role tidak dapat diubah</small>
+                    </div>
+                    
+                    <hr class="form-divider">
+                    
+                    <h4 class="form-section-title">Ubah Password (Opsional)</h4>
+                    
+                    <div class="form-row">
                         <div class="form-group">
                             <label for="current_password">Password Lama</label>
                             <input type="password" id="current_password" name="current_password" 
@@ -196,89 +160,30 @@ if (isset($_POST['update_profile'])) {
                             <input type="password" id="new_password" name="new_password" 
                                    placeholder="Masukkan password baru">
                         </div>
-                        
-                        <div class="form-actions">
-                            <button type="submit" name="update_profile" class="btn btn-primary">
-                                <i class="fas fa-save mr-2"></i>
-                                Simpan Perubahan
-                            </button>
-                            <button type="reset" class="btn btn-secondary">
-                                <i class="fas fa-undo mr-2"></i>
-                                Reset
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Account Actions -->
-            <div class="profile-card">
-                <div class="card-header">
-                    <h3>Pengaturan Akun</h3>
-                </div>
-                <div class="card-content">
-                    <div class="account-actions">
-                        <div class="action-item">
-                            <div class="action-icon bg-blue">
-                                <i class="fas fa-key"></i>
-                            </div>
-                            <div class="action-content">
-                                <h4>Keamanan Akun</h4>
-                                <p>Kelola password dan keamanan akun</p>
-                            </div>
-                            <button class="action-btn btn-outline" onclick="focusPasswordSection()">
-                                <i class="fas fa-arrow-right"></i>
-                            </button>
-                        </div>
-                        
-                        <div class="action-item">
-                            <div class="action-icon bg-green">
-                                <i class="fas fa-download"></i>
-                            </div>
-                            <div class="action-content">
-                                <h4>Export Data</h4>
-                                <p>Download data aktivitas Anda</p>
-                            </div>
-                            <button class="action-btn btn-outline" onclick="exportUserData()">
-                                <i class="fas fa-arrow-right"></i>
-                            </button>
-                        </div>
-                        
-                        <div class="action-item danger">
-                            <div class="action-icon bg-red">
-                                <i class="fas fa-sign-out-alt"></i>
-                            </div>
-                            <div class="action-content">
-                                <h4>Logout</h4>
-                                <p>Keluar dari sistem</p>
-                            </div>
-                            <button class="action-btn btn-danger" onclick="confirmLogout(event)">
-                                <i class="fas fa-arrow-right"></i>
-                            </button>
-                        </div>
                     </div>
-                </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" name="update_profile" class="btn btn-primary">
+                            <i class="fas fa-save mr-2"></i>
+                            Simpan Perubahan
+                        </button>
+                        <button type="reset" class="btn btn-secondary">
+                            <i class="fas fa-undo mr-2"></i>
+                            Reset
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 </div>
 
-<?php
-function getRoleIcon($role) {
-    $icons = [
-        'admin' => '<i class="fas fa-crown"></i>',
-        'programmer' => '<i class="fas fa-code"></i>',
-        'support' => '<i class="fas fa-headset"></i>'
-    ];
-    return $icons[$role] ?? '<i class="fas fa-user"></i>';
-}
-?>
-
 <style>
 /* Profile Page Styles */
 .profile-container {
-    max-width: 1200px;
+    max-width: 900px;
     margin: 0 auto;
+    padding: 0 20px;
 }
 
 .profile-header {
@@ -301,8 +206,8 @@ function getRoleIcon($role) {
 }
 
 .profile-avatar-large img {
-    width: 150px;
-    height: 150px;
+    width: 120px;
+    height: 120px;
     border-radius: 50%;
     border: 4px solid rgba(255,255,255,0.3);
     object-fit: cover;
@@ -310,10 +215,10 @@ function getRoleIcon($role) {
 
 .avatar-edit-btn {
     position: absolute;
-    bottom: 10px;
-    right: 10px;
-    width: 40px;
-    height: 40px;
+    bottom: 8px;
+    right: 8px;
+    width: 35px;
+    height: 35px;
     background: rgba(255,255,255,0.9);
     border-radius: 50%;
     display: flex;
@@ -322,6 +227,7 @@ function getRoleIcon($role) {
     color: #0066ff;
     cursor: pointer;
     transition: all 0.3s ease;
+    font-size: 0.9rem;
 }
 
 .avatar-edit-btn:hover {
@@ -330,13 +236,13 @@ function getRoleIcon($role) {
 }
 
 .profile-name {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: 700;
     margin-bottom: 8px;
 }
 
 .profile-email {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     opacity: 0.9;
     margin-bottom: 16px;
 }
@@ -351,62 +257,6 @@ function getRoleIcon($role) {
     font-weight: 500;
     background: rgba(255,255,255,0.2);
     color: white;
-}
-
-.profile-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-    margin-bottom: 32px;
-}
-
-.stat-item {
-    background: white;
-    padding: 24px;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    transition: transform 0.3s ease;
-}
-
-.stat-item:hover {
-    transform: translateY(-4px);
-}
-
-.stat-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.5rem;
-}
-
-.bg-blue { background: linear-gradient(135deg, #667eea, #764ba2); }
-.bg-orange { background: linear-gradient(135deg, #ff7b7b, #ff9999); }
-.bg-green { background: linear-gradient(135deg, #56ab2f, #a8e6cf); }
-.bg-red { background: linear-gradient(135deg, #ff6b6b, #ee5a52); }
-
-.stat-content h3 {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin-bottom: 4px;
-}
-
-.stat-content p {
-    color: #6b7280;
-    font-size: 0.9rem;
-}
-
-.profile-content-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 32px;
 }
 
 .profile-card {
@@ -458,6 +308,13 @@ function getRoleIcon($role) {
     padding-left: 16px;
 }
 
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
 .form-group {
     margin-bottom: 20px;
 }
@@ -476,6 +333,7 @@ function getRoleIcon($role) {
     border-radius: 8px;
     font-size: 0.9rem;
     transition: border-color 0.3s ease;
+    box-sizing: border-box;
 }
 
 .form-group input:focus {
@@ -548,110 +406,18 @@ function getRoleIcon($role) {
     background: #f1f5f9;
 }
 
-.account-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.action-item {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 20px;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    transition: all 0.3s ease;
-}
-
-.action-item:hover {
-    border-color: #d1d5db;
-    background: #f9fafb;
-}
-
-.action-item.danger:hover {
-    border-color: #fca5a5;
-    background: #fef2f2;
-}
-
-.action-icon {
-    width: 50px;
-    height: 50px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.2rem;
-}
-
-.action-content {
-    flex: 1;
-}
-
-.action-content h4 {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 4px;
-}
-
-.action-content p {
-    font-size: 0.85rem;
-    color: #6b7280;
-    margin: 0;
-}
-
-.action-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    background: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.btn-outline:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
-}
-
-.btn-danger {
-    background: #fee2e2;
-    border-color: #fecaca;
-    color: #dc2626;
-}
-
-.btn-danger:hover {
-    background: #fecaca;
-    border-color: #f87171;
-}
-
-/* Single column layout for content grid */
-.content-grid.single-column {
-    display: block;
-}
-
 /* Responsive Design */
 @media (max-width: 768px) {
     .profile-banner {
         flex-direction: column;
         text-align: center;
         gap: 20px;
+        padding: 30px 20px;
     }
     
-    .profile-stats {
+    .form-row {
         grid-template-columns: 1fr;
-        gap: 16px;
-    }
-    
-    .profile-content-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
+        gap: 0;
     }
     
     .form-actions {
@@ -659,7 +425,7 @@ function getRoleIcon($role) {
     }
     
     .profile-name {
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
     
     .profile-email {
@@ -668,45 +434,36 @@ function getRoleIcon($role) {
 }
 
 @media (max-width: 480px) {
+    .profile-container {
+        padding: 0 16px;
+    }
+    
     .profile-banner {
-        padding: 24px;
+        padding: 24px 16px;
     }
     
     .profile-avatar-large img {
-        width: 120px;
-        height: 120px;
+        width: 100px;
+        height: 100px;
     }
     
-    .stat-item {
-        padding: 16px;
-        gap: 16px;
+    .avatar-edit-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 0.8rem;
     }
     
-    .stat-icon {
-        width: 50px;
-        height: 50px;
-        font-size: 1.2rem;
+    .card-content {
+        padding: 20px;
     }
     
-    .stat-content h3 {
+    .profile-name {
         font-size: 1.5rem;
     }
 }
 </style>
 
 <script>
-function focusPasswordSection() {
-    document.getElementById('current_password').focus();
-    document.getElementById('current_password').scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
-    });
-}
-
-function exportUserData() {
-    alert('Export data functionality coming soon!');
-}
-
 function confirmLogout(e) {
     e.preventDefault();
     

@@ -67,9 +67,6 @@ include 'modul/layouts/header.php';
                 case 'todos': 
                     include "modul/todos/todos.php"; 
                     break;
-                case 'pelaporan': 
-                    include "modul/pelaporan/pelaporan.php"; 
-                    break;
                 case 'profile': 
                     include "modul/profile/profile.php"; 
                     break;
