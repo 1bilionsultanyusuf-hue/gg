@@ -13,7 +13,7 @@ $recent_todos = $koneksi->query("
     LEFT JOIN apps a ON t.app_id = a.id 
     LEFT JOIN users u ON t.user_id = u.id 
     ORDER BY t.created_at DESC 
-    LIMIT 5
+    LIMIT 4
 ");
 
 // Get user role statistics
@@ -24,390 +24,321 @@ $user_stats = $koneksi->query("
 ");
 ?>
 
-<div class="main-content">
-    <!-- Welcome Section -->
-    <div class="welcome-banner">
+<div class="dashboard-container">
+    <!-- Welcome Section - Compact -->
+    <div class="welcome-section">
         <div class="welcome-content">
-            <h1 class="welcome-title">
-                <i class="fas fa-tachometer-alt mr-3"></i>
-                Selamat Datang, <?= $_SESSION['user_name'] ?>!
-            </h1>
-            <p class="welcome-subtitle">
-                Dashboard IT Management System - Kelola aplikasi, user, dan tugas dengan mudah
-            </p>
-            <div class="welcome-stats">
-                <span class="welcome-stat">
-                    <i class="fas fa-clock mr-1"></i>
-                    <?= date('l, d F Y') ?>
-                </span>
-                <span class="welcome-stat">
-                    <i class="fas fa-user-circle mr-1"></i>
-                    Role: <?= ucfirst($_SESSION['user_role']) ?>
-                </span>
-            </div>
+            <h1 class="welcome-title">Dashboard IT Management</h1>
+            <p class="welcome-subtitle">Selamat datang, <?= $_SESSION['user_name'] ?> (<?= ucfirst($_SESSION['user_role']) ?>)</p>
         </div>
-        <div class="welcome-graphic">
-            <i class="fas fa-chart-line"></i>
+        <div class="welcome-date">
+            <i class="fas fa-calendar-alt"></i>
+            <?= date('d M Y') ?>
         </div>
     </div>
 
-    <!-- Statistics Cards -->
-    <div class="stats-grid">
-        <div class="stat-card bg-blue">
-            <div class="stat-content">
-                <div class="stat-icon">
-                    <i class="fas fa-th-large"></i>
-                </div>
-                <div class="stat-details">
-                    <h3 class="stat-number"><?= $total_apps ?></h3>
-                    <p class="stat-label">Total Aplikasi</p>
-                    <span class="stat-trend">
-                        <i class="fas fa-arrow-up"></i>
-                        Active
-                    </span>
-                </div>
+    <!-- Statistics Cards - Optimized -->
+    <div class="stats-container">
+        <div class="stat-card stat-blue">
+            <div class="stat-icon">
+                <i class="fas fa-th-large"></i>
+            </div>
+            <div class="stat-info">
+                <h3><?= $total_apps ?></h3>
+                <p>Aplikasi</p>
             </div>
         </div>
 
-        <div class="stat-card bg-green">
-            <div class="stat-content">
-                <div class="stat-icon">
-                    <i class="fas fa-users"></i>
-                </div>
-                <div class="stat-details">
-                    <h3 class="stat-number"><?= $total_users ?></h3>
-                    <p class="stat-label">Total Users</p>
-                    <span class="stat-trend">
-                        <i class="fas fa-user-check"></i>
-                        Registered
-                    </span>
-                </div>
+        <div class="stat-card stat-green">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-info">
+                <h3><?= $total_users ?></h3>
+                <p>Pengguna</p>
             </div>
         </div>
 
-        <div class="stat-card bg-orange">
-            <div class="stat-content">
-                <div class="stat-icon">
-                    <i class="fas fa-tasks"></i>
-                </div>
-                <div class="stat-details">
-                    <h3 class="stat-number"><?= $active_tasks ?></h3>
-                    <p class="stat-label">Tugas Aktif</p>
-                    <span class="stat-trend">
-                        <i class="fas fa-sync"></i>
-                        In Progress
-                    </span>
-                </div>
+        <div class="stat-card stat-orange">
+            <div class="stat-icon">
+                <i class="fas fa-tasks"></i>
+            </div>
+            <div class="stat-info">
+                <h3><?= $active_tasks ?></h3>
+                <p>Tugas Aktif</p>
             </div>
         </div>
 
-        <div class="stat-card bg-purple">
-            <div class="stat-content">
-                <div class="stat-icon">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div class="stat-details">
-                    <h3 class="stat-number"><?= $completed_tasks ?></h3>
-                    <p class="stat-label">Tugas Selesai</p>
-                    <span class="stat-trend">
-                        <i class="fas fa-trophy"></i>
-                        Completed
-                    </span>
-                </div>
+        <div class="stat-card stat-purple">
+            <div class="stat-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-info">
+                <h3><?= $completed_tasks ?></h3>
+                <p>Selesai</p>
             </div>
         </div>
     </div>
 
     <!-- Main Content Grid -->
-    <div class="dashboard-grid">
+    <div class="content-grid">
         <!-- Recent Activities -->
-        <div class="dashboard-card">
+        <div class="content-card">
             <div class="card-header">
-                <h2 class="card-title">
-                    <i class="fas fa-history mr-2"></i>
-                    Aktivitas Terbaru
-                </h2>
-                <a href="?page=todos" class="card-action">Lihat Semua</a>
+                <h3>Aktivitas Terbaru</h3>
+                <a href="?page=todos" class="view-all">Lihat Semua</a>
             </div>
-            <div class="card-content">
-                <div class="activity-list">
-                    <?php while($todo = $recent_todos->fetch_assoc()): ?>
-                    <div class="activity-item">
-                        <div class="activity-icon priority-<?= $todo['priority'] ?>">
-                            <i class="fas fa-<?= $todo['priority'] == 'high' ? 'exclamation' : ($todo['priority'] == 'medium' ? 'minus' : 'arrow-down') ?>"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4 class="activity-title"><?= htmlspecialchars($todo['title']) ?></h4>
-                            <p class="activity-description"><?= htmlspecialchars(substr($todo['description'], 0, 80)) ?>...</p>
-                            <div class="activity-meta">
-                                <span class="meta-app">
-                                    <i class="fas fa-cube mr-1"></i>
-                                    <?= htmlspecialchars($todo['app_name']) ?>
-                                </span>
-                                <span class="meta-user">
-                                    <i class="fas fa-user mr-1"></i>
-                                    <?= htmlspecialchars($todo['user_name']) ?>
-                                </span>
-                                <span class="meta-date">
-                                    <i class="fas fa-calendar mr-1"></i>
-                                    <?= date('d/m/Y H:i', strtotime($todo['created_at'])) ?>
-                                </span>
-                            </div>
-                        </div>
-                        <div class="activity-priority">
-                            <span class="priority-badge priority-<?= $todo['priority'] ?>">
-                                <?= ucfirst($todo['priority']) ?>
-                            </span>
+            <div class="activity-list">
+                <?php while($todo = $recent_todos->fetch_assoc()): ?>
+                <div class="activity-item">
+                    <div class="activity-icon priority-<?= $todo['priority'] ?>">
+                        <i class="fas fa-<?= getPriorityIcon($todo['priority']) ?>"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4><?= htmlspecialchars($todo['title']) ?></h4>
+                        <div class="activity-meta">
+                            <span class="app-name"><?= htmlspecialchars($todo['app_name']) ?></span>
+                            <span class="user-name"><?= htmlspecialchars($todo['user_name']) ?></span>
+                            <span class="date"><?= date('d/m/Y', strtotime($todo['created_at'])) ?></span>
                         </div>
                     </div>
-                    <?php endwhile; ?>
+                    <div class="priority-badge priority-<?= $todo['priority'] ?>">
+                        <?= ucfirst($todo['priority']) ?>
+                    </div>
                 </div>
+                <?php endwhile; ?>
             </div>
         </div>
 
         <!-- Quick Actions -->
-        <div class="dashboard-card">
+        <div class="content-card">
             <div class="card-header">
-                <h2 class="card-title">
-                    <i class="fas fa-bolt mr-2"></i>
-                    Quick Actions
-                </h2>
+                <h3>Quick Actions</h3>
             </div>
-            <div class="card-content">
-                <div class="quick-actions">
-                    <a href="?page=todos" class="quick-action-btn bg-blue">
-                        <i class="fas fa-plus"></i>
-                        <span>Tambah Tugas</span>
-                    </a>
-                    <a href="?page=users" class="quick-action-btn bg-green">
-                        <i class="fas fa-user-plus"></i>
-                        <span>Tambah User</span>
-                    </a>
-                    <a href="?page=pelaporan" class="quick-action-btn bg-orange">
-                        <i class="fas fa-chart-bar"></i>
-                        <span>Lihat Laporan</span>
-                    </a>
-                    <a href="?page=profile" class="quick-action-btn bg-purple">
-                        <i class="fas fa-user-cog"></i>
-                        <span>Edit Profile</span>
-                    </a>
+            <div class="quick-actions">
+                <a href="?page=todos" class="quick-btn btn-blue">
+                    <i class="fas fa-plus"></i>
+                    <span>Tambah Tugas</span>
+                </a>
+                <a href="?page=users" class="quick-btn btn-green">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Tambah User</span>
+                </a>
+                <a href="?page=pelaporan" class="quick-btn btn-orange">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Laporan</span>
+                </a>
+                <a href="?page=profile" class="quick-btn btn-purple">
+                    <i class="fas fa-user-cog"></i>
+                    <span>Profile</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- System Overview -->
+        <div class="content-card overview-card">
+            <div class="card-header">
+                <h3>System Overview</h3>
+            </div>
+            <div class="overview-content">
+                <div class="overview-item">
+                    <div class="overview-label">Database Status</div>
+                    <div class="status-indicator online">Online</div>
+                </div>
+                <div class="overview-item">
+                    <div class="overview-label">Server Performance</div>
+                    <div class="status-indicator good">Good</div>
+                </div>
+                <div class="overview-item">
+                    <div class="overview-label">Total Tasks</div>
+                    <div class="overview-value"><?= $total_todos ?></div>
                 </div>
             </div>
         </div>
 
-        <!-- System Status -->
-        <div class="dashboard-card">
+        <!-- Role Distribution -->
+        <div class="content-card">
             <div class="card-header">
-                <h2 class="card-title">
-                    <i class="fas fa-server mr-2"></i>
-                    System Status
-                </h2>
+                <h3>User Roles</h3>
             </div>
-            <div class="card-content">
-                <div class="system-stats">
-                    <div class="system-item">
-                        <div class="system-icon bg-green">
-                            <i class="fas fa-database"></i>
-                        </div>
-                        <div class="system-info">
-                            <h4>Database</h4>
-                            <p class="status-online">Online</p>
-                        </div>
-                        <div class="system-indicator online"></div>
+            <div class="role-distribution">
+                <?php 
+                $colors = ['admin' => '#ef4444', 'programmer' => '#3b82f6', 'support' => '#10b981'];
+                while($role = $user_stats->fetch_assoc()): 
+                ?>
+                <div class="role-item">
+                    <div class="role-info">
+                        <span class="role-name"><?= ucfirst($role['role']) ?></span>
+                        <span class="role-count"><?= $role['count'] ?></span>
                     </div>
-                    
-                    <div class="system-item">
-                        <div class="system-icon bg-blue">
-                            <i class="fas fa-cloud"></i>
+                    <div class="role-bar">
+                        <div class="role-progress" 
+                             style="width: <?= ($role['count'] / $total_users) * 100 ?>%; background: <?= $colors[$role['role']] ?>">
                         </div>
-                        <div class="system-info">
-                            <h4>Server Status</h4>
-                            <p class="status-online">Operational</p>
-                        </div>
-                        <div class="system-indicator online"></div>
-                    </div>
-                    
-                    <div class="system-item">
-                        <div class="system-icon bg-orange">
-                            <i class="fas fa-memory"></i>
-                        </div>
-                        <div class="system-info">
-                            <h4>Memory Usage</h4>
-                            <p class="status-warning">75%</p>
-                        </div>
-                        <div class="system-indicator warning"></div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- User Role Distribution -->
-        <div class="dashboard-card">
-            <div class="card-header">
-                <h2 class="card-title">
-                    <i class="fas fa-users-cog mr-2"></i>
-                    Distribusi Role User
-                </h2>
-            </div>
-            <div class="card-content">
-                <div class="role-distribution">
-                    <?php 
-                    $colors = ['admin' => 'red', 'programmer' => 'blue', 'support' => 'green'];
-                    while($role = $user_stats->fetch_assoc()): 
-                    ?>
-                    <div class="role-item">
-                        <div class="role-info">
-                            <h4><?= ucfirst($role['role']) ?></h4>
-                            <span class="role-count"><?= $role['count'] ?> users</span>
-                        </div>
-                        <div class="role-bar">
-                            <div class="role-progress bg-<?= $colors[$role['role']] ?>" 
-                                 style="width: <?= ($role['count'] / $total_users) * 100 ?>%"></div>
-                        </div>
-                    </div>
-                    <?php endwhile; ?>
-                </div>
+                <?php endwhile; ?>
             </div>
         </div>
     </div>
 </div>
 
+<?php
+function getPriorityIcon($priority) {
+    $icons = [
+        'high' => 'exclamation-triangle',
+        'medium' => 'minus',
+        'low' => 'arrow-down'
+    ];
+    return $icons[$priority] ?? 'circle';
+}
+?>
+
 <style>
-/* Dashboard Specific Styles */
-.welcome-banner {
+/* Optimized Dashboard Styles */
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px;
+    background: #f8fafc;
+    min-height: calc(100vh - 60px);
+}
+
+/* Welcome Section - More Compact */
+.welcome-section {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 16px;
-    padding: 32px;
-    margin-bottom: 24px;
     color: white;
+    padding: 20px 24px;
+    border-radius: 12px;
+    margin-bottom: 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
 .welcome-title {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-}
-
-.welcome-subtitle {
-    font-size: 1.1rem;
-    opacity: 0.9;
-    margin-bottom: 16px;
-}
-
-.welcome-stats {
-    display: flex;
-    gap: 24px;
-}
-
-.welcome-stat {
-    font-size: 0.9rem;
-    opacity: 0.8;
-}
-
-.welcome-graphic {
-    font-size: 4rem;
-    opacity: 0.3;
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin-bottom: 32px;
-}
-
-.stat-card {
-    border-radius: 16px;
-    padding: 24px;
-    color: white;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    transition: transform 0.3s ease;
-}
-
-.stat-card:hover {
-    transform: translateY(-4px);
-}
-
-.stat-card.bg-blue { background: linear-gradient(135deg, #667eea, #764ba2); }
-.stat-card.bg-green { background: linear-gradient(135deg, #56ab2f, #a8e6cf); }
-.stat-card.bg-orange { background: linear-gradient(135deg, #ff7b7b, #ff9999); }
-.stat-card.bg-purple { background: linear-gradient(135deg, #a18cd1, #fbc2eb); }
-
-.stat-content {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-.stat-icon {
-    font-size: 2.5rem;
-    opacity: 0.8;
-}
-
-.stat-number {
-    font-size: 2.2rem;
-    font-weight: 700;
+    font-size: 1.5rem;
+    font-weight: 600;
     margin-bottom: 4px;
 }
 
-.stat-label {
+.welcome-subtitle {
     font-size: 0.9rem;
     opacity: 0.9;
-    margin-bottom: 8px;
 }
 
-.stat-trend {
-    font-size: 0.8rem;
+.welcome-date {
+    font-size: 0.85rem;
     opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.dashboard-grid {
+/* Stats Container - Smaller Cards */
+.stats-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
 }
 
-.dashboard-card {
+.stat-card {
     background: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: white;
+}
+
+.stat-blue .stat-icon { background: linear-gradient(135deg, #667eea, #764ba2); }
+.stat-green .stat-icon { background: linear-gradient(135deg, #56ab2f, #a8e6cf); }
+.stat-orange .stat-icon { background: linear-gradient(135deg, #ff7b7b, #ff9999); }
+.stat-purple .stat-icon { background: linear-gradient(135deg, #a18cd1, #fbc2eb); }
+
+.stat-info h3 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 2px;
+}
+
+.stat-info p {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: 0;
+}
+
+/* Content Grid - More Compact */
+.content-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.content-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     overflow: hidden;
 }
 
 .card-header {
-    padding: 20px 24px;
-    border-bottom: 1px solid #e5e7eb;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.card-title {
-    font-size: 1.2rem;
+.card-header h3 {
+    font-size: 1rem;
     font-weight: 600;
     color: #1f2937;
+    margin: 0;
 }
 
-.card-action {
-    color: #0066ff;
-    font-size: 0.9rem;
+.view-all {
+    font-size: 0.8rem;
+    color: #3b82f6;
     text-decoration: none;
 }
 
-.card-content {
-    padding: 24px;
+.view-all:hover {
+    text-decoration: underline;
+}
+
+/* Activity List - Compact */
+.activity-list {
+    padding: 16px 20px;
 }
 
 .activity-item {
     display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 16px 0;
-    border-bottom: 1px solid #f3f4f6;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f8fafc;
 }
 
 .activity-item:last-child {
@@ -415,146 +346,157 @@ $user_stats = $koneksi->query("
 }
 
 .activity-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
 }
 
-.activity-icon.priority-high { background: #ef4444; }
-.activity-icon.priority-medium { background: #f59e0b; }
-.activity-icon.priority-low { background: #10b981; }
+.priority-high { background: #ef4444; }
+.priority-medium { background: #f59e0b; }
+.priority-low { background: #10b981; }
 
-.activity-title {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 4px;
+.activity-content {
+    flex: 1;
+}
+
+.activity-content h4 {
+    font-size: 0.9rem;
+    font-weight: 500;
     color: #1f2937;
-}
-
-.activity-description {
-    font-size: 0.9rem;
-    color: #6b7280;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .activity-meta {
     display: flex;
-    gap: 16px;
-    font-size: 0.8rem;
+    gap: 12px;
+    font-size: 0.75rem;
     color: #9ca3af;
 }
 
 .priority-badge {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
     font-weight: 500;
     color: white;
 }
 
-.priority-badge.priority-high { background: #ef4444; }
-.priority-badge.priority-medium { background: #f59e0b; }
-.priority-badge.priority-low { background: #10b981; }
-
+/* Quick Actions - Smaller */
 .quick-actions {
+    padding: 16px 20px;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: 12px;
 }
 
-.quick-action-btn {
+.quick-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px;
-    border-radius: 12px;
+    padding: 16px 12px;
+    border-radius: 8px;
     color: white;
     text-decoration: none;
-    transition: transform 0.3s ease;
-    font-weight: 500;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
 }
 
-.quick-action-btn:hover {
+.quick-btn:hover {
     transform: translateY(-2px);
 }
 
-.quick-action-btn i {
-    font-size: 2rem;
-    margin-bottom: 8px;
+.quick-btn i {
+    font-size: 1.2rem;
+    margin-bottom: 6px;
 }
 
-.system-item {
+.btn-blue { background: linear-gradient(135deg, #667eea, #764ba2); }
+.btn-green { background: linear-gradient(135deg, #56ab2f, #a8e6cf); }
+.btn-orange { background: linear-gradient(135deg, #ff7b7b, #ff9999); }
+.btn-purple { background: linear-gradient(135deg, #a18cd1, #fbc2eb); }
+
+/* Overview Card */
+.overview-content {
+    padding: 16px 20px;
+}
+
+.overview-item {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 16px;
-    padding: 16px 0;
-    border-bottom: 1px solid #f3f4f6;
+    padding: 10px 0;
+    border-bottom: 1px solid #f8fafc;
 }
 
-.system-item:last-child {
+.overview-item:last-child {
     border-bottom: none;
 }
 
-.system-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
+.overview-label {
+    font-size: 0.85rem;
+    color: #6b7280;
 }
 
-.system-info h4 {
-    font-size: 1rem;
+.status-indicator {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.status-indicator.online {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-indicator.good {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.overview-value {
     font-weight: 600;
-    margin-bottom: 4px;
     color: #1f2937;
 }
 
-.status-online { color: #10b981; }
-.status-warning { color: #f59e0b; }
-
-.system-indicator {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    margin-left: auto;
+/* Role Distribution */
+.role-distribution {
+    padding: 16px 20px;
 }
 
-.system-indicator.online { background: #10b981; }
-.system-indicator.warning { background: #f59e0b; }
-
 .role-item {
-    margin-bottom: 16px;
+    margin-bottom: 14px;
+}
+
+.role-item:last-child {
+    margin-bottom: 0;
 }
 
 .role-info {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
 }
 
-.role-info h4 {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1f2937;
+.role-name {
+    color: #374151;
+    font-weight: 500;
 }
 
 .role-count {
-    font-size: 0.9rem;
     color: #6b7280;
 }
 
 .role-bar {
-    height: 8px;
+    height: 6px;
     background: #f3f4f6;
-    border-radius: 4px;
+    border-radius: 3px;
     overflow: hidden;
 }
 
@@ -563,31 +505,55 @@ $user_stats = $koneksi->query("
     transition: width 0.3s ease;
 }
 
-.role-progress.bg-red { background: #ef4444; }
-.role-progress.bg-blue { background: #3b82f6; }
-.role-progress.bg-green { background: #10b981; }
-
+/* Responsive Design */
 @media (max-width: 768px) {
-    .welcome-banner {
-        flex-direction: column;
-        text-align: center;
+    .dashboard-container {
+        padding: 12px;
     }
     
-    .welcome-stats {
+    .welcome-section {
         flex-direction: column;
+        text-align: center;
         gap: 8px;
     }
     
-    .stats-grid {
-        grid-template-columns: 1fr;
+    .stats-container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
     }
     
-    .dashboard-grid {
+    .content-grid {
         grid-template-columns: 1fr;
+        gap: 16px;
     }
     
     .quick-actions {
         grid-template-columns: 1fr;
+    }
+    
+    .stat-card {
+        padding: 16px;
+    }
+    
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+    }
+    
+    .stat-info h3 {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .activity-meta {
+        flex-direction: column;
+        gap: 2px;
     }
 }
 </style>

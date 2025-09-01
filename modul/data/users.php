@@ -25,7 +25,7 @@ $search = isset($_GET['search']) ? $_GET['search'] : '';
 $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
 ?>
 
-<div class="main-content">
+<div class="main-content" style="margin-top: 80px;">
     <!-- Page Header -->
     <div class="page-header">
         <div class="header-content">

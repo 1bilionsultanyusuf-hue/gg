@@ -20,7 +20,7 @@ $high_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE prio
 $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
 ?>
 
-<div class="main-content">
+<div class="main-content" style="margin-top: 80px;">
     <!-- Page Header -->
     <div class="page-header">
         <div class="header-content">
