@@ -80,9 +80,8 @@ $user_stats = $koneksi->query("
         </div>
     </div>
 
-    <!-- Main Content Grid -->
-    <div class="content-grid">
-        <!-- Recent Activities -->
+    <!-- Recent Activities Only -->
+    <div class="content-grid single-column">
         <div class="content-card">
             <div class="card-header">
                 <h3>Aktivitas Terbaru</h3>
@@ -104,73 +103,6 @@ $user_stats = $koneksi->query("
                     </div>
                     <div class="priority-badge priority-<?= $todo['priority'] ?>">
                         <?= ucfirst($todo['priority']) ?>
-                    </div>
-                </div>
-                <?php endwhile; ?>
-            </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="content-card">
-            <div class="card-header">
-                <h3>Quick Actions</h3>
-            </div>
-            <div class="quick-actions">
-                <a href="?page=todos" class="quick-btn btn-blue">
-                    <i class="fas fa-plus"></i>
-                    <span>Tambah Tugas</span>
-                </a>
-                <a href="?page=users" class="quick-btn btn-green">
-                    <i class="fas fa-user-plus"></i>
-                    <span>Tambah User</span>
-                </a>
-                <a href="?page=profile" class="quick-btn btn-purple">
-                    <i class="fas fa-user-cog"></i>
-                    <span>Profile</span>
-                </a>
-            </div>
-        </div>
-
-        <!-- System Overview -->
-        <div class="content-card overview-card">
-            <div class="card-header">
-                <h3>System Overview</h3>
-            </div>
-            <div class="overview-content">
-                <div class="overview-item">
-                    <div class="overview-label">Database Status</div>
-                    <div class="status-indicator online">Online</div>
-                </div>
-                <div class="overview-item">
-                    <div class="overview-label">Server Performance</div>
-                    <div class="status-indicator good">Good</div>
-                </div>
-                <div class="overview-item">
-                    <div class="overview-label">Total Tasks</div>
-                    <div class="overview-value"><?= $total_todos ?></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Role Distribution -->
-        <div class="content-card">
-            <div class="card-header">
-                <h3>User Roles</h3>
-            </div>
-            <div class="role-distribution">
-                <?php 
-                $colors = ['admin' => '#ef4444', 'programmer' => '#3b82f6', 'support' => '#10b981'];
-                while($role = $user_stats->fetch_assoc()): 
-                ?>
-                <div class="role-item">
-                    <div class="role-info">
-                        <span class="role-name"><?= ucfirst($role['role']) ?></span>
-                        <span class="role-count"><?= $role['count'] ?></span>
-                    </div>
-                    <div class="role-bar">
-                        <div class="role-progress" 
-                             style="width: <?= ($role['count'] / $total_users) * 100 ?>%; background: <?= $colors[$role['role']] ?>">
-                        </div>
                     </div>
                 </div>
                 <?php endwhile; ?>

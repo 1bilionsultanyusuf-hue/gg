@@ -1,5 +1,99 @@
 <?php
-// Get users data with todo statistics
+// Handle CRUD Operations
+$message = '';
+$error = '';
+
+// CREATE - Add new user
+if (isset($_POST['add_user'])) {
+    $name = trim($_POST['name']);
+    $email = trim($_POST['email']);
+    $role = $_POST['role'];
+    $password = trim($_POST['password']);
+    
+    if (!empty($name) && !empty($email) && !empty($role) && !empty($password)) {
+        // Check if email already exists
+        $check_email = $koneksi->prepare("SELECT id FROM users WHERE email = ?");
+        $check_email->bind_param("s", $email);
+        $check_email->execute();
+        
+        if ($check_email->get_result()->num_rows == 0) {
+            $stmt = $koneksi->prepare("INSERT INTO users (name, email, role, password) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("ssss", $name, $email, $role, $password);
+            
+            if ($stmt->execute()) {
+                $message = "User '$name' berhasil ditambahkan!";
+            } else {
+                $error = "Gagal menambahkan user!";
+            }
+        } else {
+            $error = "Email sudah terdaftar!";
+        }
+    } else {
+        $error = "Semua field harus diisi!";
+    }
+}
+
+// UPDATE - Edit user
+if (isset($_POST['edit_user'])) {
+    $id = $_POST['user_id'];
+    $name = trim($_POST['name']);
+    $email = trim($_POST['email']);
+    $role = $_POST['role'];
+    $password = trim($_POST['password']);
+    
+    if (!empty($name) && !empty($email) && !empty($role)) {
+        // Check if email already exists for other users
+        $check_email = $koneksi->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
+        $check_email->bind_param("si", $email, $id);
+        $check_email->execute();
+        
+        if ($check_email->get_result()->num_rows == 0) {
+            if (!empty($password)) {
+                $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, role = ?, password = ? WHERE id = ?");
+                $stmt->bind_param("ssssi", $name, $email, $role, $password, $id);
+            } else {
+                $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?");
+                $stmt->bind_param("sssi", $name, $email, $role, $id);
+            }
+            
+            if ($stmt->execute()) {
+                $message = "User berhasil diperbarui!";
+                // Update session if editing own profile
+                if ($id == $_SESSION['user_id']) {
+                    $_SESSION['user_name'] = $name;
+                    $_SESSION['user_role'] = $role;
+                }
+            } else {
+                $error = "Gagal memperbarui user!";
+            }
+        } else {
+            $error = "Email sudah digunakan user lain!";
+        }
+    } else {
+        $error = "Nama, email, dan role harus diisi!";
+    }
+}
+
+// DELETE - Remove user
+if (isset($_POST['delete_user'])) {
+    $id = $_POST['user_id'];
+    
+    // Prevent self-deletion
+    if ($id == $_SESSION['user_id']) {
+        $error = "Tidak dapat menghapus akun sendiri!";
+    } else {
+        $stmt = $koneksi->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        
+        if ($stmt->execute()) {
+            $message = "User berhasil dihapus!";
+        } else {
+            $error = "Gagal menghapus user!";
+        }
+    }
+}
+
+// Get users data with statistics
 $users_query = "
     SELECT u.*, 
            COUNT(t.id) as total_todos,
@@ -14,18 +108,29 @@ $users_query = "
 ";
 $users_result = $koneksi->query($users_query);
 
-// Get user statistics
+// Get statistics
 $total_users = $koneksi->query("SELECT COUNT(*) as count FROM users")->fetch_assoc()['count'];
 $admin_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'admin'")->fetch_assoc()['count'];
 $programmer_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'programmer'")->fetch_assoc()['count'];
 $support_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'support'")->fetch_assoc()['count'];
-
-// Handle search and filter
-$search = isset($_GET['search']) ? $_GET['search'] : '';
-$role_filter = isset($_GET['role']) ? $_GET['role'] : '';
 ?>
 
 <div class="main-content" style="margin-top: 80px;">
+    <!-- Success/Error Messages -->
+    <?php if ($message): ?>
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        <?= $message ?>
+    </div>
+    <?php endif; ?>
+    
+    <?php if ($error): ?>
+    <div class="alert alert-error">
+        <i class="fas fa-exclamation-triangle"></i>
+        <?= $error ?>
+    </div>
+    <?php endif; ?>
+
     <!-- Page Header -->
     <div class="page-header">
         <div class="header-content">
@@ -42,10 +147,6 @@ $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
                 <i class="fas fa-user-plus mr-2"></i>
                 Tambah Pengguna
             </button>
-            <button class="btn btn-secondary" onclick="exportUsers()">
-                <i class="fas fa-download mr-2"></i>
-                Export Data
-            </button>
         </div>
     </div>
 
@@ -58,9 +159,6 @@ $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
             <div class="stat-content">
                 <h3 class="stat-number"><?= $total_users ?></h3>
                 <p class="stat-label">Total Pengguna</p>
-                <span class="stat-change positive">
-                    <i class="fas fa-user-check"></i> Registered
-                </span>
             </div>
         </div>
 
@@ -71,9 +169,6 @@ $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
             <div class="stat-content">
                 <h3 class="stat-number"><?= $admin_count ?></h3>
                 <p class="stat-label">Administrator</p>
-                <span class="stat-change neutral">
-                    <i class="fas fa-crown"></i> Admin Role
-                </span>
             </div>
         </div>
 
@@ -84,9 +179,6 @@ $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
             <div class="stat-content">
                 <h3 class="stat-number"><?= $programmer_count ?></h3>
                 <p class="stat-label">Programmer</p>
-                <span class="stat-change positive">
-                    <i class="fas fa-laptop-code"></i> Dev Team
-                </span>
             </div>
         </div>
 
@@ -97,9 +189,6 @@ $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
             <div class="stat-content">
                 <h3 class="stat-number"><?= $support_count ?></h3>
                 <p class="stat-label">Support</p>
-                <span class="stat-change positive">
-                    <i class="fas fa-hands-helping"></i> Support Team
-                </span>
             </div>
         </div>
     </div>
@@ -108,20 +197,14 @@ $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
     <div class="filter-section">
         <div class="search-box">
             <i class="fas fa-search"></i>
-            <input type="text" id="searchInput" placeholder="Cari nama atau email pengguna..." 
-                   value="<?= htmlspecialchars($search) ?>">
+            <input type="text" id="searchInput" placeholder="Cari nama atau email..." onkeyup="filterUsers()">
         </div>
         <div class="filter-controls">
             <select id="roleFilter" onchange="filterUsers()">
                 <option value="">Semua Role</option>
-                <option value="admin" <?= $role_filter == 'admin' ? 'selected' : '' ?>>Administrator</option>
-                <option value="programmer" <?= $role_filter == 'programmer' ? 'selected' : '' ?>>Programmer</option>
-                <option value="support" <?= $role_filter == 'support' ? 'selected' : '' ?>>Support</option>
-            </select>
-            <select id="sortBy" onchange="sortUsers()">
-                <option value="name">Urutkan: Nama</option>
-                <option value="role">Urutkan: Role</option>
-                <option value="activity">Urutkan: Aktivitas</option>
+                <option value="admin">Administrator</option>
+                <option value="programmer">Programmer</option>
+                <option value="support">Support</option>
             </select>
         </div>
     </div>
@@ -133,8 +216,7 @@ $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
             <div class="user-card-header">
                 <div class="user-avatar">
                     <img src="https://ui-avatars.com/api/?name=<?= urlencode($user['name']) ?>&background=<?= getRoleColor($user['role']) ?>&color=fff&size=80" 
-                         alt="<?= htmlspecialchars($user['name']) ?>"
-                         onerror="this.src='https://ui-avatars.com/api/?name=User&background=0066ff&color=fff&size=80'">
+                         alt="<?= htmlspecialchars($user['name']) ?>">
                 </div>
                 <div class="user-role-badge role-<?= $user['role'] ?>">
                     <?= getRoleIcon($user['role']) ?>
@@ -149,7 +231,7 @@ $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
                 <div class="user-stats">
                     <div class="stat-item">
                         <span class="stat-value"><?= $user['total_todos'] ?></span>
-                        <span class="stat-name">Total Tugas</span>
+                        <span class="stat-name">Total</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-value active"><?= $user['active_todos'] ?></span>
@@ -163,24 +245,16 @@ $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
                 
                 <div class="user-activity">
                     <i class="fas fa-clock"></i>
-                    <span>Aktivitas terakhir: 
-                        <?= $user['last_activity'] ? date('d/m/Y', strtotime($user['last_activity'])) : 'Belum ada' ?>
-                    </span>
+                    <span>Terakhir: <?= $user['last_activity'] ? date('d/m/Y', strtotime($user['last_activity'])) : 'Belum ada' ?></span>
                 </div>
             </div>
             
             <div class="user-actions">
-                <button class="action-btn primary" onclick="viewUser(<?= $user['id'] ?>)" title="Lihat Detail">
-                    <i class="fas fa-eye"></i>
-                </button>
-                <button class="action-btn secondary" onclick="editUser(<?= $user['id'] ?>)" title="Edit">
+                <button class="action-btn primary" onclick="editUser(<?= $user['id'] ?>, '<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($user['email'], ENT_QUOTES) ?>', '<?= $user['role'] ?>')" title="Edit">
                     <i class="fas fa-edit"></i>
                 </button>
-                <button class="action-btn success" onclick="assignTask(<?= $user['id'] ?>)" title="Assign Tugas">
-                    <i class="fas fa-tasks"></i>
-                </button>
-                <?php if($_SESSION['user_role'] == 'admin'): ?>
-                <button class="action-btn danger" onclick="deleteUser(<?= $user['id'] ?>)" title="Hapus">
+                <?php if($_SESSION['user_role'] == 'admin' && $user['id'] != $_SESSION['user_id']): ?>
+                <button class="action-btn danger" onclick="deleteUser(<?= $user['id'] ?>, '<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>')" title="Hapus">
                     <i class="fas fa-trash"></i>
                 </button>
                 <?php endif; ?>
@@ -191,47 +265,37 @@ $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
 </div>
 
 <?php
-// Helper functions
 function getRoleColor($role) {
-    $colors = [
-        'admin' => 'dc2626',
-        'programmer' => '0066ff',
-        'support' => '10b981'
-    ];
+    $colors = ['admin' => 'dc2626', 'programmer' => '0066ff', 'support' => '10b981'];
     return $colors[$role] ?? '6b7280';
 }
 
 function getRoleIcon($role) {
-    $icons = [
-        'admin' => '<i class="fas fa-crown"></i>',
-        'programmer' => '<i class="fas fa-code"></i>',
-        'support' => '<i class="fas fa-headset"></i>'
-    ];
+    $icons = ['admin' => '<i class="fas fa-crown"></i>', 'programmer' => '<i class="fas fa-code"></i>', 'support' => '<i class="fas fa-headset"></i>'];
     return $icons[$role] ?? '<i class="fas fa-user"></i>';
 }
 ?>
 
-<!-- Add User Modal -->
-<div id="addUserModal" class="modal">
+<!-- Add/Edit User Modal -->
+<div id="userModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Tambah Pengguna Baru</h3>
-            <button class="modal-close" onclick="closeAddUserModal()">
+            <h3 id="userModalTitle">Tambah Pengguna Baru</h3>
+            <button class="modal-close" onclick="closeUserModal()">
                 <i class="fas fa-times"></i>
             </button>
         </div>
         <div class="modal-body">
-            <form id="addUserForm" method="POST">
+            <form id="userForm" method="POST">
+                <input type="hidden" id="userId" name="user_id">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="userName">Nama Lengkap *</label>
-                        <input type="text" id="userName" name="name" required 
-                               placeholder="Masukkan nama lengkap">
+                        <input type="text" id="userName" name="name" required>
                     </div>
                     <div class="form-group">
                         <label for="userEmail">Email *</label>
-                        <input type="email" id="userEmail" name="email" required 
-                               placeholder="user@example.com">
+                        <input type="email" id="userEmail" name="email" required>
                     </div>
                 </div>
                 <div class="form-row">
@@ -245,188 +309,46 @@ function getRoleIcon($role) {
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="userPassword">Password *</label>
-                        <input type="password" id="userPassword" name="password" required 
-                               placeholder="Masukkan password">
+                        <label for="userPassword">Password <span id="passwordRequired">*</span></label>
+                        <input type="password" id="userPassword" name="password">
+                        <small class="form-help" id="passwordHelp">Masukkan password</small>
                     </div>
                 </div>
             </form>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeAddUserModal()">
-                Batal
-            </button>
-            <button type="submit" form="addUserForm" class="btn btn-primary">
+            <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Batal</button>
+            <button type="submit" form="userForm" id="userSubmitBtn" name="add_user" class="btn btn-primary">
                 <i class="fas fa-save mr-2"></i>Simpan
             </button>
         </div>
     </div>
 </div>
 
+<!-- Delete User Modal -->
+<div id="deleteUserModal" class="modal">
+    <div class="modal-content delete-modal">
+        <div class="modal-header">
+            <div class="delete-icon">
+                <i class="fas fa-user-times"></i>
+            </div>
+            <h3>Konfirmasi Hapus User</h3>
+            <p id="deleteUserMessage">Apakah Anda yakin ingin menghapus user ini?</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteUserModal()">Batal</button>
+            <form id="deleteUserForm" method="POST" style="display: inline;">
+                <input type="hidden" id="deleteUserId" name="user_id">
+                <button type="submit" name="delete_user" class="btn btn-danger">
+                    <i class="fas fa-trash mr-2"></i>Hapus
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
-/* Users Page Styles */
-.page-header {
-    background: white;
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.header-actions {
-    display: flex;
-    gap: 12px;
-}
-
-.btn {
-    padding: 12px 24px;
-    border-radius: 8px;
-    border: none;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-}
-
-.btn-primary {
-    background: linear-gradient(90deg, #0066ff, #33ccff);
-    color: white;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(90deg, #0044cc, #00aaff);
-    transform: translateY(-2px);
-}
-
-.btn-secondary {
-    background: #f8fafc;
-    color: #64748b;
-    border: 1px solid #e2e8f0;
-}
-
-.btn-secondary:hover {
-    background: #f1f5f9;
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin-bottom: 32px;
-}
-
-.stat-card {
-    background: white;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    transition: transform 0.3s ease;
-}
-
-.stat-card:hover {
-    transform: translateY(-4px);
-}
-
-.bg-gradient-blue { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
-.bg-gradient-red { background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; }
-.bg-gradient-green { background: linear-gradient(135deg, #56ab2f, #a8e6cf); color: white; }
-.bg-gradient-orange { background: linear-gradient(135deg, #ff7b7b, #ff9999); color: white; }
-
-.stat-icon {
-    font-size: 2.5rem;
-    opacity: 0.8;
-}
-
-.stat-number {
-    font-size: 2.2rem;
-    font-weight: 700;
-    margin-bottom: 4px;
-}
-
-.stat-label {
-    font-size: 0.9rem;
-    opacity: 0.9;
-    margin-bottom: 8px;
-}
-
-.filter-section {
-    background: white;
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-    display: flex;
-    gap: 24px;
-    align-items: center;
-}
-
-.search-box {
-    position: relative;
-    flex: 1;
-}
-
-.search-box i {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #9ca3af;
-}
-
-.search-box input {
-    width: 100%;
-    padding: 12px 12px 12px 40px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.9rem;
-}
-
-.search-box input:focus {
-    outline: none;
-    border-color: #0066ff;
-    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
-}
-
-.filter-controls {
-    display: flex;
-    gap: 12px;
-}
-
-.filter-controls select {
-    padding: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    background: white;
-}
-
-.users-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 24px;
-}
-
-.user-card {
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    overflow: hidden;
-    transition: all 0.3s ease;
-}
-
-.user-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-}
-
+/* User Card Styling */
 .user-card-header {
     padding: 24px 24px 0;
     display: flex;
@@ -458,14 +380,6 @@ function getRoleIcon($role) {
     align-items: center;
     gap: 6px;
 }
-
-.user-role-badge i {
-    font-size: 0.7rem;
-}
-
-.role-admin { background: linear-gradient(90deg, #dc2626, #ef4444); }
-.role-programmer { background: linear-gradient(90deg, #0066ff, #33ccff); }
-.role-support { background: linear-gradient(90deg, #10b981, #34d399); }
 
 .user-content {
     padding: 20px 24px;
@@ -504,13 +418,8 @@ function getRoleIcon($role) {
     color: #1f2937;
 }
 
-.stat-value.active {
-    color: #f59e0b;
-}
-
-.stat-value.completed {
-    color: #10b981;
-}
+.stat-value.active { color: #f59e0b; }
+.stat-value.completed { color: #10b981; }
 
 .stat-name {
     font-size: 0.8rem;
@@ -546,7 +455,6 @@ function getRoleIcon($role) {
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    font-size: 0.9rem;
 }
 
 .action-btn.primary {
@@ -554,61 +462,16 @@ function getRoleIcon($role) {
     color: white;
 }
 
-.action-btn.primary:hover {
-    background: #0044cc;
-    transform: translateY(-2px);
-}
-
-.action-btn.secondary {
-    background: #6b7280;
-    color: white;
-}
-
-.action-btn.secondary:hover {
-    background: #4b5563;
-    transform: translateY(-2px);
-}
-
-.action-btn.success {
-    background: #10b981;
-    color: white;
-}
-
-.action-btn.success:hover {
-    background: #059669;
-    transform: translateY(-2px);
-}
-
 .action-btn.danger {
     background: #ef4444;
     color: white;
 }
 
-.action-btn.danger:hover {
-    background: #dc2626;
+.action-btn:hover {
     transform: translateY(-2px);
 }
 
 /* Modal Styles */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 1000;
-    padding: 20px;
-    overflow-y: auto;
-}
-
-.modal.show {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
 .modal-content {
     background: white;
     border-radius: 16px;
@@ -618,6 +481,24 @@ function getRoleIcon($role) {
     animation: slideUp 0.3s ease;
 }
 
+.delete-modal {
+    max-width: 400px;
+    text-align: center;
+}
+
+.delete-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+}
+
 .modal-header {
     padding: 24px 24px 0;
     display: flex;
@@ -625,37 +506,13 @@ function getRoleIcon($role) {
     align-items: center;
 }
 
-.modal-header h3 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #1f2937;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    color: #9ca3af;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-}
-
-.modal-close:hover {
-    background: #f3f4f6;
-    color: #374151;
+.delete-modal .modal-header {
+    flex-direction: column;
+    text-align: center;
 }
 
 .modal-body {
     padding: 24px;
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 16px;
 }
 
 .form-group {
@@ -670,8 +527,7 @@ function getRoleIcon($role) {
 }
 
 .form-group input,
-.form-group select,
-.form-group textarea {
+.form-group select {
     width: 100%;
     padding: 12px;
     border: 1px solid #d1d5db;
@@ -681,8 +537,7 @@ function getRoleIcon($role) {
 }
 
 .form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
+.form-group select:focus {
     outline: none;
     border-color: #0066ff;
     box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
@@ -695,236 +550,108 @@ function getRoleIcon($role) {
     gap: 12px;
 }
 
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .page-header {
-        flex-direction: column;
-        gap: 16px;
-        text-align: center;
-    }
-    
-    .header-actions {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .filter-section {
-        flex-direction: column;
-        gap: 16px;
-    }
-    
-    .filter-controls {
-        width: 100%;
-        flex-direction: column;
-    }
-    
-    .users-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .form-row {
-        grid-template-columns: 1fr;
-        gap: 0;
-    }
-    
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .user-stats {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    .stat-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        text-align: left;
-    }
-}
-
-@media (max-width: 480px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .user-actions {
-        flex-wrap: wrap;
-    }
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 </style>
 
 <script>
-// Users Management JavaScript
-let usersData = [];
+let currentEditUserId = null;
 
-// Initialize users data
-document.addEventListener('DOMContentLoaded', function() {
-    loadUsersData();
-    setupSearchFilter();
-});
-
-function loadUsersData() {
-    const userCards = document.querySelectorAll('.user-card');
-    usersData = Array.from(userCards).map(card => {
-        return {
-            element: card,
-            name: card.dataset.name,
-            role: card.dataset.role,
-            email: card.dataset.email
-        };
-    });
+function openAddUserModal() {
+    document.getElementById('userModalTitle').textContent = 'Tambah Pengguna Baru';
+    document.getElementById('userSubmitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Simpan';
+    document.getElementById('userSubmitBtn').name = 'add_user';
+    document.getElementById('passwordRequired').textContent = '*';
+    document.getElementById('passwordHelp').textContent = 'Masukkan password';
+    document.getElementById('userPassword').required = true;
+    document.getElementById('userForm').reset();
+    document.getElementById('userId').value = '';
+    currentEditUserId = null;
+    document.getElementById('userModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
 }
 
-function setupSearchFilter() {
-    const searchInput = document.getElementById('searchInput');
-    searchInput.addEventListener('input', function() {
-        filterUsers();
-    });
+function editUser(id, name, email, role) {
+    document.getElementById('userModalTitle').textContent = 'Edit Pengguna';
+    document.getElementById('userSubmitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Update';
+    document.getElementById('userSubmitBtn').name = 'edit_user';
+    document.getElementById('passwordRequired').textContent = '';
+    document.getElementById('passwordHelp').textContent = 'Kosongkan jika tidak ingin mengubah password';
+    document.getElementById('userPassword').required = false;
+    
+    document.getElementById('userId').value = id;
+    document.getElementById('userName').value = name;
+    document.getElementById('userEmail').value = email;
+    document.getElementById('userRole').value = role;
+    document.getElementById('userPassword').value = '';
+    
+    currentEditUserId = id;
+    document.getElementById('userModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function deleteUser(id, name) {
+    document.getElementById('deleteUserMessage').textContent = `Apakah Anda yakin ingin menghapus user "${name}"? Semua data terkait akan ikut terhapus.`;
+    document.getElementById('deleteUserId').value = id;
+    document.getElementById('deleteUserModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeUserModal() {
+    document.getElementById('userModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function closeDeleteUserModal() {
+    document.getElementById('deleteUserModal').classList.remove('show');
+    document.body.style.overflow = '';
 }
 
 function filterUsers() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const roleFilter = document.getElementById('roleFilter').value;
+    const userCards = document.querySelectorAll('.user-card');
     
-    usersData.forEach(user => {
-        const matchesSearch = user.name.includes(searchTerm) || user.email.includes(searchTerm);
-        const matchesRole = !roleFilter || user.role === roleFilter;
+    userCards.forEach(card => {
+        const name = card.dataset.name;
+        const email = card.dataset.email;
+        const role = card.dataset.role;
+        
+        const matchesSearch = name.includes(searchTerm) || email.includes(searchTerm);
+        const matchesRole = !roleFilter || role === roleFilter;
         
         if (matchesSearch && matchesRole) {
-            user.element.style.display = 'block';
-            user.element.style.animation = 'fadeIn 0.3s ease';
+            card.style.display = 'block';
         } else {
-            user.element.style.display = 'none';
+            card.style.display = 'none';
         }
     });
-    
-    updateResultsCount();
 }
 
-function sortUsers() {
-    const sortBy = document.getElementById('sortBy').value;
-    const grid = document.getElementById('usersGrid');
-    
-    const sortedUsers = [...usersData].sort((a, b) => {
-        switch(sortBy) {
-            case 'name':
-                return a.name.localeCompare(b.name);
-            case 'role':
-                return a.role.localeCompare(b.role);
-            case 'activity':
-                // This would need actual activity data
-                return Math.random() - 0.5;
-            default:
-                return 0;
-        }
-    });
-    
-    // Reorder DOM elements
-    sortedUsers.forEach(user => {
-        grid.appendChild(user.element);
-    });
-    
-    usersData = sortedUsers;
-}
-
-function updateResultsCount() {
-    const visibleUsers = usersData.filter(user => user.element.style.display !== 'none').length;
-    const totalUsers = usersData.length;
-    
-    // You could add a results counter here
-    console.log(`Showing ${visibleUsers} of ${totalUsers} users`);
-}
-
-function openAddUserModal() {
-    document.getElementById('addUserModal').classList.add('show');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeAddUserModal() {
-    document.getElementById('addUserModal').classList.remove('show');
-    document.body.style.overflow = '';
-    document.getElementById('addUserForm').reset();
-}
-
-function viewUser(userId) {
-    alert('View user details functionality coming soon! User ID: ' + userId);
-}
-
-function editUser(userId) {
-    alert('Edit user functionality coming soon! User ID: ' + userId);
-}
-
-function assignTask(userId) {
-    alert('Assign task functionality coming soon! User ID: ' + userId);
-}
-
-function deleteUser(userId) {
-    if(confirm('Apakah Anda yakin ingin menghapus pengguna ini? Tindakan ini tidak dapat dibatalkan.')) {
-        alert('Delete user functionality coming soon! User ID: ' + userId);
-    }
-}
-
-function exportUsers() {
-    alert('Export users functionality coming soon!');
-}
-
-// Close modal when clicking outside
+// Close modals when clicking outside
 document.addEventListener('click', function(e) {
     if(e.target.classList.contains('modal')) {
-        closeAddUserModal();
+        closeUserModal();
+        closeDeleteUserModal();
     }
 });
 
-// Handle form submission
+// Auto-hide alerts
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('addUserForm');
-    if(form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Get form data
-            const formData = new FormData(form);
-            const userData = {
-                name: formData.get('name'),
-                email: formData.get('email'),
-                role: formData.get('role'),
-                password: formData.get('password')
-            };
-            
-            // Validate form
-            if(!userData.name || !userData.email || !userData.role || !userData.password) {
-                alert('Semua field harus diisi!');
-                return;
-            }
-            
-            // Here you would normally send to server
-            console.log('New user data:', userData);
-            alert('User berhasil ditambahkan! (Demo mode)');
-            closeAddUserModal();
-        });
-    }
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-20px)';
+            setTimeout(() => alert.remove(), 300);
+        }, 5000);
+    });
 });
-
-// Add fade in animation CSS
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-`;
-document.head.appendChild(style);
 </script>

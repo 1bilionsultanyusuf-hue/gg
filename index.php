@@ -1,6 +1,14 @@
 <?php
 // index.php - full ready
 session_start();
+// Handle logout
+if(isset($_GET['logout'])){
+    session_start();
+    session_unset();
+    session_destroy();
+    header('Location: modul/auth/logout.php');
+    exit;
+}
 
 // ==========================
 // Pastikan user login

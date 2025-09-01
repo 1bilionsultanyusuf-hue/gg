@@ -1,91 +1,180 @@
 <?php
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
+// modul/auth/logout.php - Proper logout handling
+session_start();
+
+// Simpan nama user sebelum destroy session untuk pesan
+$user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : 'User';
+
+// Destroy semua session data
+$_SESSION = array();
+
+// Hapus session cookie jika ada
+if (ini_get("session.use_cookies")) {
+    $params = session_get_cookie_params();
+    setcookie(session_name(), '', time() - 42000,
+        $params["path"], $params["domain"],
+        $params["secure"], $params["httponly"]
+    );
 }
-if (!isset($_SESSION['users'])) {
-    header('Location: modul/auth/login.php');
-}
+
+// Destroy session
+session_destroy();
+
+// Set pesan logout untuk ditampilkan
+$logout_message = "Goodbye, $user_name! Anda telah berhasil logout.";
 ?>
 
-<main class="container mx-auto px-4 py-10">
-    <div class="max-w-md mx-auto">
-        <h1 class="text-3xl font-bold text-blue-500 mb-8 text-center">⚙️ Pengaturan</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logout - IT | CORE</title>
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    overflow: hidden;
+}
 
-        <!-- Logout Card -->
-        <div class="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-sign-out-alt text-red-600 text-2xl"></i>
-                </div>
-                <h2 class="text-2xl font-semibold mb-2 text-red-600">Logout</h2>
-                <p class="text-gray-600">Keluar dari akun Anda saat ini</p>
-            </div>
-            
-            <button onclick="confirmLogout(event)"
-                    class="w-full bg-red-500 hover:bg-red-600 text-white py-4 px-6 rounded-lg font-medium transition-colors text-lg">
-                    <i class="fas fa-sign-out-alt mr-2"></i>Logout
-            </button>
-        </div>
+.logout-container {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+    text-align: center;
+    max-width: 400px;
+    width: 100%;
+    position: relative;
+    z-index: 10;
+}
+
+.logout-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.logout-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 12px;
+}
+
+.logout-message {
+    color: #6b7280;
+    margin-bottom: 30px;
+    line-height: 1.5;
+}
+
+.redirect-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #9ca3af;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e5e7eb;
+    border-top: 2px solid #0066ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.login-link {
+    display: inline-flex;
+    align-items: center;
+    background: linear-gradient(90deg, #0066ff, #33ccff);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.login-link:hover {
+    background: linear-gradient(90deg, #0044cc, #00aaff);
+    transform: translateY(-2px);
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.fade-out {
+    animation: fadeOut 0.5s ease forwards;
+}
+
+@keyframes fadeOut {
+    to { opacity: 0; transform: translateY(-20px); }
+}
+</style>
+</head>
+<body>
+
+<div class="logout-container">
+    <div class="logout-icon">
+        <i class="fas fa-sign-out-alt"></i>
     </div>
-</main>
+    
+    <h1 class="logout-title">Logout Berhasil</h1>
+    <p class="logout-message"><?= htmlspecialchars($logout_message) ?></p>
+    
+    <div class="redirect-info">
+        <div class="spinner"></div>
+        <span>Mengalihkan ke halaman login dalam <span id="countdown">3</span> detik...</span>
+    </div>
+    
+    <a href="login.php" class="login-link">
+        <i class="fas fa-sign-in-alt mr-2"></i>
+        Login Kembali
+    </a>
+</div>
 
 <script>
-function confirmLogout(e) {
-    e.preventDefault();
+let countdown = 3;
+const countdownElement = document.getElementById('countdown');
+const container = document.querySelector('.logout-container');
 
-        const popup = document.createElement('div');
-        popup.className = 'popup-logout';
-        popup.innerHTML = `<div class="popup-circle"><div class="checkmark">✔</div></div><div class="popup-text">Anda berhasil logout!</div>`;
-        document.body.appendChild(popup);
-
-        const style = document.createElement('style');
-        style.innerHTML = `
-        .popup-logout {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            border-radius: 12px;
-            padding: 15px 25px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            font-weight: bold;
-            font-family: 'Segoe UI', sans-serif;
-            color: #10b981;
-            z-index: 9999;
-            opacity: 1;
-            transition: all 0.3s ease;
-        }
-        .popup-circle {
-            width: 30px;
-            height: 30px;
-            border: 3px solid #10b981;
-            border-radius: 50%;
-            position: relative;
-            animation: spin 0.5s ease forwards;
-        }
-        .checkmark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0);
-            font-size: 16px;
-            color: #10b981;
-            animation: scaleCheck 0.5s 0.5s forwards;
-        }
-        .popup-text { font-size: 14px; }
-        @keyframes spin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
-        @keyframes scaleCheck { 0%{transform:translate(-50%,-50%) scale(0);} 50%{transform:translate(-50%,-50%) scale(1.2);} 100%{transform:translate(-50%,-50%) scale(1);} }
-        `;
-        document.head.appendChild(style);
-
-        setTimeout(() => { popup.style.opacity = '0'; }, 1800);
-        setTimeout(() => { window.location.href='modul/auth/login.php'; }, 2000);
+const timer = setInterval(() => {
+    countdown--;
+    countdownElement.textContent = countdown;
+    
+    if (countdown <= 0) {
+        clearInterval(timer);
+        container.classList.add('fade-out');
+        setTimeout(() => {
+            window.location.href = 'login.php';
+        }, 500);
     }
-
-    return false;
-
+}, 1000);
 </script>
+
+</body>
+</html>

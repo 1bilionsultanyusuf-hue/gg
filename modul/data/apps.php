@@ -1,4 +1,61 @@
 <?php
+// Handle CRUD Operations
+$message = '';
+$error = '';
+
+// CREATE - Add new app
+if (isset($_POST['add_app'])) {
+    $name = trim($_POST['name']);
+    $description = trim($_POST['description']);
+    
+    if (!empty($name)) {
+        $stmt = $koneksi->prepare("INSERT INTO apps (name, description) VALUES (?, ?)");
+        $stmt->bind_param("ss", $name, $description);
+        
+        if ($stmt->execute()) {
+            $message = "Aplikasi '$name' berhasil ditambahkan!";
+        } else {
+            $error = "Gagal menambahkan aplikasi!";
+        }
+    } else {
+        $error = "Nama aplikasi harus diisi!";
+    }
+}
+
+// UPDATE - Edit app
+if (isset($_POST['edit_app'])) {
+    $id = $_POST['app_id'];
+    $name = trim($_POST['name']);
+    $description = trim($_POST['description']);
+    
+    if (!empty($name)) {
+        $stmt = $koneksi->prepare("UPDATE apps SET name = ?, description = ? WHERE id = ?");
+        $stmt->bind_param("ssi", $name, $description, $id);
+        
+        if ($stmt->execute()) {
+            $message = "Aplikasi berhasil diperbarui!";
+        } else {
+            $error = "Gagal memperbarui aplikasi!";
+        }
+    } else {
+        $error = "Nama aplikasi harus diisi!";
+    }
+}
+
+// DELETE - Remove app
+if (isset($_POST['delete_app'])) {
+    $id = $_POST['app_id'];
+    
+    $stmt = $koneksi->prepare("DELETE FROM apps WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    
+    if ($stmt->execute()) {
+        $message = "Aplikasi berhasil dihapus!";
+    } else {
+        $error = "Gagal menghapus aplikasi!";
+    }
+}
+
 // Get apps data with todo counts
 $apps_query = "
     SELECT a.*, 
@@ -13,7 +70,17 @@ $apps_query = "
 ";
 $apps_result = $koneksi->query($apps_query);
 
-// Get total statistics
+// Get app for editing if requested
+$edit_app = null;
+if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
+    $edit_id = $_GET['edit'];
+    $edit_query = $koneksi->prepare("SELECT * FROM apps WHERE id = ?");
+    $edit_query->bind_param("i", $edit_id);
+    $edit_query->execute();
+    $edit_app = $edit_query->get_result()->fetch_assoc();
+}
+
+// Get statistics
 $total_apps = $koneksi->query("SELECT COUNT(*) as count FROM apps")->fetch_assoc()['count'];
 $total_todos = $koneksi->query("SELECT COUNT(*) as count FROM todos")->fetch_assoc()['count'];
 $high_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'high'")->fetch_assoc()['count'];
@@ -21,12 +88,24 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
 ?>
 
 <div class="main-content" style="margin-top: 80px;">
+    <!-- Success/Error Messages -->
+    <?php if ($message): ?>
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        <?= $message ?>
+    </div>
+    <?php endif; ?>
+    
+    <?php if ($error): ?>
+    <div class="alert alert-error">
+        <i class="fas fa-exclamation-triangle"></i>
+        <?= $error ?>
+    </div>
+    <?php endif; ?>
+
     <!-- Page Header -->
     <div class="page-header">
         <div class="header-content">
-            <h1 class="page-title">
-                <i class="fas fa-th-large mr-3"></i>
-                Manajemen Aplikasi
             </h1>
             <p class="page-subtitle">
                 Kelola dan monitor semua aplikasi dalam sistem
@@ -36,10 +115,6 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
             <button class="btn btn-primary" onclick="openAddAppModal()">
                 <i class="fas fa-plus mr-2"></i>
                 Tambah Aplikasi
-            </button>
-            <button class="btn btn-secondary" onclick="exportApps()">
-                <i class="fas fa-download mr-2"></i>
-                Export Data
             </button>
         </div>
     </div>
@@ -53,9 +128,6 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
             <div class="stat-content">
                 <h3 class="stat-number"><?= $total_apps ?></h3>
                 <p class="stat-label">Total Aplikasi</p>
-                <span class="stat-change positive">
-                    <i class="fas fa-arrow-up"></i> Active
-                </span>
             </div>
         </div>
 
@@ -66,9 +138,6 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
             <div class="stat-content">
                 <h3 class="stat-number"><?= $total_todos ?></h3>
                 <p class="stat-label">Total Tugas</p>
-                <span class="stat-change positive">
-                    <i class="fas fa-plus"></i> All Apps
-                </span>
             </div>
         </div>
 
@@ -79,9 +148,6 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
             <div class="stat-content">
                 <h3 class="stat-number"><?= $high_priority ?></h3>
                 <p class="stat-label">High Priority</p>
-                <span class="stat-change warning">
-                    <i class="fas fa-fire"></i> Urgent
-                </span>
             </div>
         </div>
 
@@ -92,9 +158,6 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
             <div class="stat-content">
                 <h3 class="stat-number"><?= $avg_todos ?></h3>
                 <p class="stat-label">Rata-rata Tugas</p>
-                <span class="stat-change neutral">
-                    <i class="fas fa-equals"></i> Per App
-                </span>
             </div>
         </div>
     </div>
@@ -108,13 +171,10 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
                     <i class="fas fa-<?= getAppIcon($app['name']) ?>"></i>
                 </div>
                 <div class="app-actions">
-                    <button class="action-btn" onclick="editApp(<?= $app['id'] ?>)" title="Edit">
+                    <button class="action-btn" onclick="editApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($app['description'], ENT_QUOTES) ?>')" title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="action-btn" onclick="viewAppDetails(<?= $app['id'] ?>)" title="View Details">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="action-btn danger" onclick="deleteApp(<?= $app['id'] ?>)" title="Delete">
+                    <button class="action-btn danger" onclick="deleteApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Delete">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -131,7 +191,7 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
             <div class="app-stats">
                 <div class="stat-item">
                     <span class="stat-value"><?= $app['total_todos'] ?></span>
-                    <span class="stat-name">Total Tugas</span>
+                    <span class="stat-name">Total</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-value active"><?= $app['active_todos'] ?></span>
@@ -163,14 +223,13 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
                     <i class="fas fa-plus"></i>
                 </div>
                 <h3>Tambah Aplikasi Baru</h3>
-                <p>Klik untuk menambahkan aplikasi baru ke sistem</p>
+                <p>Klik untuk menambahkan aplikasi</p>
             </div>
         </div>
     </div>
 </div>
 
 <?php
-// Function to get appropriate icon for app
 function getAppIcon($appName) {
     $icons = [
         'keuangan' => 'money-bill-wave',
@@ -190,17 +249,18 @@ function getAppIcon($appName) {
 }
 ?>
 
-<!-- Add App Modal -->
-<div id="addAppModal" class="modal">
+<!-- Add/Edit App Modal -->
+<div id="appModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Tambah Aplikasi Baru</h3>
-            <button class="modal-close" onclick="closeAddAppModal()">
+            <h3 id="modalTitle">Tambah Aplikasi Baru</h3>
+            <button class="modal-close" onclick="closeAppModal()">
                 <i class="fas fa-times"></i>
             </button>
         </div>
         <div class="modal-body">
-            <form id="addAppForm" method="POST">
+            <form id="appForm" method="POST">
+                <input type="hidden" id="appId" name="app_id">
                 <div class="form-group">
                     <label for="appName">Nama Aplikasi *</label>
                     <input type="text" id="appName" name="name" required 
@@ -214,18 +274,70 @@ function getAppIcon($appName) {
             </form>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeAddAppModal()">
+            <button type="button" class="btn btn-secondary" onclick="closeAppModal()">
                 Batal
             </button>
-            <button type="submit" form="addAppForm" class="btn btn-primary">
+            <button type="submit" id="submitBtn" form="appForm" name="add_app" class="btn btn-primary">
                 <i class="fas fa-save mr-2"></i>Simpan
             </button>
         </div>
     </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content delete-modal">
+        <div class="modal-header">
+            <div class="delete-icon">
+                <i class="fas fa-trash-alt"></i>
+            </div>
+            <h3>Konfirmasi Hapus</h3>
+            <p id="deleteMessage">Apakah Anda yakin ingin menghapus aplikasi ini?</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
+                Batal
+            </button>
+            <form id="deleteForm" method="POST" style="display: inline;">
+                <input type="hidden" id="deleteAppId" name="app_id">
+                <button type="submit" name="delete_app" class="btn btn-danger">
+                    <i class="fas fa-trash mr-2"></i>Hapus
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
-/* Apps Page Styles */
+/* Alert Messages */
+.alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideDown 0.3s ease;
+}
+
+.alert-success {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.alert-error {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Page Header */
 .page-header {
     background: white;
     border-radius: 16px;
@@ -237,11 +349,6 @@ function getAppIcon($appName) {
     align-items: center;
 }
 
-.header-actions {
-    display: flex;
-    gap: 12px;
-}
-
 .btn {
     padding: 12px 24px;
     border-radius: 8px;
@@ -249,7 +356,6 @@ function getAppIcon($appName) {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
-    text-decoration: none;
     display: inline-flex;
     align-items: center;
 }
@@ -270,10 +376,17 @@ function getAppIcon($appName) {
     border: 1px solid #e2e8f0;
 }
 
-.btn-secondary:hover {
-    background: #f1f5f9;
+.btn-danger {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+    color: white;
 }
 
+.btn-danger:hover {
+    background: linear-gradient(90deg, #dc2626, #b91c1c);
+    transform: translateY(-2px);
+}
+
+/* Statistics Grid */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -315,14 +428,9 @@ function getAppIcon($appName) {
 .stat-label {
     font-size: 0.9rem;
     opacity: 0.9;
-    margin-bottom: 8px;
 }
 
-.stat-change {
-    font-size: 0.8rem;
-    opacity: 0.8;
-}
-
+/* Apps Grid */
 .apps-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -335,7 +443,6 @@ function getAppIcon($appName) {
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     overflow: hidden;
     transition: all 0.3s ease;
-    cursor: pointer;
 }
 
 .app-card:hover {
@@ -430,13 +537,8 @@ function getAppIcon($appName) {
     color: #1f2937;
 }
 
-.stat-value.active {
-    color: #f59e0b;
-}
-
-.stat-value.completed {
-    color: #10b981;
-}
+.stat-value.active { color: #f59e0b; }
+.stat-value.completed { color: #10b981; }
 
 .stat-name {
     font-size: 0.8rem;
@@ -502,11 +604,6 @@ function getAppIcon($appName) {
     margin: 0 auto 16px;
 }
 
-.add-new-content h3 {
-    color: #374151;
-    margin-bottom: 8px;
-}
-
 /* Modal Styles */
 .modal {
     display: none;
@@ -536,6 +633,24 @@ function getAppIcon($appName) {
     animation: slideUp 0.3s ease;
 }
 
+.delete-modal {
+    max-width: 400px;
+    text-align: center;
+}
+
+.delete-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+}
+
 .modal-header {
     padding: 24px 24px 0;
     display: flex;
@@ -547,6 +662,16 @@ function getAppIcon($appName) {
     font-size: 1.3rem;
     font-weight: 600;
     color: #1f2937;
+}
+
+.delete-modal .modal-header {
+    flex-direction: column;
+    text-align: center;
+}
+
+.delete-modal .modal-header p {
+    margin: 8px 0 0 0;
+    color: #6b7280;
 }
 
 .modal-close {
@@ -605,26 +730,16 @@ function getAppIcon($appName) {
 }
 
 @keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
+/* Responsive */
 @media (max-width: 768px) {
     .page-header {
         flex-direction: column;
         gap: 16px;
         text-align: center;
-    }
-    
-    .header-actions {
-        width: 100%;
-        justify-content: center;
     }
     
     .apps-grid {
@@ -638,39 +753,65 @@ function getAppIcon($appName) {
 </style>
 
 <script>
-// Apps Management JavaScript
+let currentEditId = null;
+
 function openAddAppModal() {
-    document.getElementById('addAppModal').classList.add('show');
+    document.getElementById('modalTitle').textContent = 'Tambah Aplikasi Baru';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Simpan';
+    document.getElementById('submitBtn').name = 'add_app';
+    document.getElementById('appForm').reset();
+    document.getElementById('appId').value = '';
+    currentEditId = null;
+    document.getElementById('appModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
-function closeAddAppModal() {
-    document.getElementById('addAppModal').classList.remove('show');
+function editApp(id, name, description) {
+    document.getElementById('modalTitle').textContent = 'Edit Aplikasi';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Update';
+    document.getElementById('submitBtn').name = 'edit_app';
+    document.getElementById('appId').value = id;
+    document.getElementById('appName').value = name;
+    document.getElementById('appDescription').value = description;
+    currentEditId = id;
+    document.getElementById('appModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function deleteApp(id, name) {
+    document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus aplikasi "${name}"? Semua data terkait akan ikut terhapus.`;
+    document.getElementById('deleteAppId').value = id;
+    document.getElementById('deleteModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeAppModal() {
+    document.getElementById('appModal').classList.remove('show');
     document.body.style.overflow = '';
 }
 
-function editApp(appId) {
-    alert('Edit app functionality coming soon! App ID: ' + appId);
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('show');
+    document.body.style.overflow = '';
 }
 
-function viewAppDetails(appId) {
-    alert('View app details functionality coming soon! App ID: ' + appId);
-}
-
-function deleteApp(appId) {
-    if(confirm('Apakah Anda yakin ingin menghapus aplikasi ini?')) {
-        alert('Delete app functionality coming soon! App ID: ' + appId);
-    }
-}
-
-function exportApps() {
-    alert('Export functionality coming soon!');
-}
-
-// Close modal when clicking outside
+// Close modals when clicking outside
 document.addEventListener('click', function(e) {
     if(e.target.classList.contains('modal')) {
-        closeAddAppModal();
+        closeAppModal();
+        closeDeleteModal();
     }
+});
+
+// Auto-hide alerts after 5 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-20px)';
+            setTimeout(() => alert.remove(), 300);
+        }, 5000);
+    });
 });
 </script>
