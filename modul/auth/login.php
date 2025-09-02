@@ -337,20 +337,6 @@ setTimeout(() => {
             <i class="fas fa-sign-in-alt mr-2"></i>Login
         </button>
     </form>
-    
-    <!-- Test Accounts Info -->
-    <div class="test-accounts">
-        <h4><i class="fas fa-info-circle mr-2"></i>Akun Testing:</h4>
-        <?php while($test_user = $test_users->fetch_assoc()): ?>
-        <div class="test-account">
-            <span class="account-info"><?= htmlspecialchars($test_user['name']) ?></span>
-            <span class="account-role"><?= ucfirst($test_user['role']) ?></span>
-        </div>
-        <?php endwhile; ?>
-        <div style="margin-top: 8px; font-size: 0.75rem; color: #9ca3af;">
-            Password: gunakan nama user atau lihat db.sql
-        </div>
-    </div>
 </div>
 
 </body>
