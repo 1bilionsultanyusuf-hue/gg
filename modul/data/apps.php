@@ -106,7 +106,7 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
     <!-- Page Header -->
     <div class="page-header">
         <div class="header-content">
-            </h1>
+            <h1 class="page-title">Manajemen Aplikasi</h1>
             <p class="page-subtitle">
                 Kelola dan monitor semua aplikasi dalam sistem
             </p>
@@ -150,7 +150,18 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
                 <p class="stat-label">High Priority</p>
             </div>
         </div>
-        
+
+        <div class="stat-card bg-gradient-purple">
+            <div class="stat-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number"><?= $avg_todos ?></h3>
+                <p class="stat-label">Rata-rata Tugas</p>
+            </div>
+        </div>
+    </div>
+    
     <!-- Applications Grid -->
     <div class="apps-grid">
         <?php while($app = $apps_result->fetch_assoc()): ?>
@@ -338,6 +349,19 @@ function getAppIcon($appName) {
     align-items: center;
 }
 
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 4px;
+}
+
+.page-subtitle {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
 .btn {
     padding: 12px 24px;
     border-radius: 8px;
@@ -375,6 +399,10 @@ function getAppIcon($appName) {
     transform: translateY(-2px);
 }
 
+.mr-2 {
+    margin-right: 8px;
+}
+
 /* Statistics Grid */
 .stats-grid {
     display: grid;
@@ -398,7 +426,7 @@ function getAppIcon($appName) {
     transform: translateY(-4px);
 }
 
-.bg-gradient-blue { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+.bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
 .bg-gradient-green { background: linear-gradient(135deg, #56ab2f, #a8e6cf); color: white; }
 .bg-gradient-orange { background: linear-gradient(135deg, #ff7b7b, #ff9999); color: white; }
 .bg-gradient-purple { background: linear-gradient(135deg, #a18cd1, #fbc2eb); color: white; }
@@ -702,6 +730,7 @@ function getAppIcon($appName) {
     border-radius: 8px;
     font-size: 0.9rem;
     transition: border-color 0.3s ease;
+    box-sizing: border-box;
 }
 
 .form-group input:focus,
