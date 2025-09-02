@@ -91,17 +91,18 @@ body {
 /* Animated Background */
 .bubble {
     position: absolute;
-    border-radius: 50%;
-    opacity: 0.1;
+    bottom: -100px; /* start dari bawah layar */
+    border-radius: 50%; /* bulat sempurna */
     background: white;
-    animation: float 20s linear infinite;
+    opacity: 0.2;
+    animation: float 18s linear infinite;
 }
 
 @keyframes float {
-    0% { transform: translateY(100vh) scale(0); opacity: 0; }
-    10% { opacity: 0.1; }
-    90% { opacity: 0.1; }
-    100% { transform: translateY(-100vh) scale(1); opacity: 0; }
+    0%   { transform: translateY(0) scale(0.8); opacity: 0; }
+    10%  { opacity: 0.2; }
+    90%  { opacity: 0.2; }
+    100% { transform: translateY(-110vh) scale(1); opacity: 0; }
 }
 
 /* Login Container */
