@@ -77,120 +77,184 @@ $test_users = $koneksi->query("SELECT name, email, role FROM users LIMIT 5");
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login - IT | CORE</title>
 <style>
+* {
+    box-sizing: border-box;
+}
+
 body {
     margin: 0;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #0066ff, #33ccff);
+    background: linear-gradient(135deg, #0066ff 0%, #33ccff 100%);
     overflow: hidden;
+    position: relative;
 }
 
-/* Animated Background */
+/* Realistic Animated Background */
 .bubble {
     position: absolute;
-    bottom: -100px; /* start dari bawah layar */
-    border-radius: 50%; /* bulat sempurna */
-    background: white;
-    opacity: 0.2;
-    animation: float 18s linear infinite;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    animation: float 15s infinite linear;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+.bubble::before {
+    content: '';
+    position: absolute;
+    top: 10%;
+    left: 10%;
+    width: 20%;
+    height: 20%;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    filter: blur(1px);
+}
+
+.bubble::after {
+    content: '';
+    position: absolute;
+    top: 20%;
+    right: 15%;
+    width: 15%;
+    height: 15%;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    filter: blur(1px);
 }
 
 @keyframes float {
-    0%   { transform: translateY(0) scale(0.8); opacity: 0; }
-    10%  { opacity: 0.2; }
-    90%  { opacity: 0.2; }
-    100% { transform: translateY(-110vh) scale(1); opacity: 0; }
+    0% {
+        transform: translateY(100vh) translateX(0px) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-100px) translateX(100px) rotate(360deg);
+        opacity: 0;
+    }
 }
 
 /* Login Container */
 .login-container {
-    background: white;
-    padding: 40px;
-    border-radius: 20px;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 50px 40px;
+    border-radius: 24px;
+    box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
     width: 100%;
-    max-width: 400px;
-    text-align: center;
+    max-width: 420px;
     position: relative;
     z-index: 10;
-    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .login-title {
     color: #0066ff;
-    margin-bottom: 30px;
-    font-size: 2.5rem;
-    font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0,102,255,0.2);
+    margin-bottom: 40px;
+    font-size: 2.8rem;
+    font-weight: 800;
+    text-align: center;
+    text-shadow: 0 2px 4px rgba(76, 29, 149, 0.1);
+    letter-spacing: -0.02em;
 }
 
 .form-group {
-    margin-bottom: 20px;
-    text-align: left;
+    margin-bottom: 24px;
+    position: relative;
 }
 
 .form-group input {
     width: 100%;
-    padding: 15px;
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
+    padding: 18px 20px;
+    border: 2px solid rgba(107, 114, 128, 0.2);
+    border-radius: 16px;
     font-size: 1rem;
-    transition: all 0.3s ease;
-    background: #f8fafc;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(255, 255, 255, 0.8);
+    color: #374151;
+    outline: none;
+}
+
+.form-group input::placeholder {
+    color: #0066ff;
+    font-weight: 400;
 }
 
 .form-group input:focus {
-    outline: none;
     border-color: #0066ff;
-    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
-    background: white;
+    box-shadow: 
+        0 0 0 4px rgba(102, 126, 234, 0.1),
+        0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
 }
 
 .login-btn {
     width: 100%;
-    padding: 15px;
+    padding: 18px 20px;
     border: none;
-    border-radius: 12px;
-    background: linear-gradient(90deg, #0066ff, #33ccff);
+    border-radius: 16px;
+    background: linear-gradient(135deg, #33ccff 0%, #0044cc 100%);
     color: white;
     font-size: 1.1rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin-bottom: 20px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-bottom: 24px;
+    box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.4);
+    letter-spacing: 0.025em;
 }
 
 .login-btn:hover {
-    background: linear-gradient(90deg, #0044cc, #00aaff);
+    background: linear-gradient(135deg, #00aaff 0%, #0066ff 100%);
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,102,255,0.3);
+    box-shadow: 0 15px 35px -5px rgba(102, 126, 234, 0.5);
+}
+
+.login-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 5px 15px -3px rgba(102, 126, 234, 0.4);
 }
 
 .test-accounts {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 16px;
-    margin-top: 20px;
+    background: rgba(249, 250, 251, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(229, 231, 235, 0.5);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 24px;
     text-align: left;
 }
 
 .test-accounts h4 {
-    margin: 0 0 10px 0;
+    margin: 0 0 16px 0;
     color: #374151;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 600;
+    text-align: center;
 }
 
 .test-account {
     display: flex;
     justify-content: space-between;
-    padding: 6px 0;
-    font-size: 0.8rem;
-    border-bottom: 1px solid #e5e7eb;
+    align-items: center;
+    padding: 10px 0;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(229, 231, 235, 0.5);
 }
 
 .test-account:last-child {
@@ -199,11 +263,16 @@ body {
 
 .account-info {
     color: #6b7280;
+    font-weight: 500;
 }
 
 .account-role {
-    color: #0066ff;
-    font-weight: 500;
+    color: #667eea;
+    font-weight: 600;
+    padding: 4px 8px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 8px;
+    font-size: 0.75rem;
 }
 
 /* Error & Success Styles */
@@ -212,14 +281,16 @@ body {
     top: 30px;
     left: 50%;
     transform: translateX(-50%);
-    background: #fee2e2;
-    color: #dc2626;
-    padding: 15px 25px;
-    border-radius: 12px;
-    box-shadow: 0 8px 25px rgba(220,38,38,0.3);
+    background: rgba(248, 113, 113, 0.95);
+    backdrop-filter: blur(10px);
+    color: white;
+    padding: 16px 28px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px -10px rgba(248, 113, 113, 0.4);
     font-weight: 600;
     z-index: 9999;
-    animation: slideDown 0.5s ease, fadeOut 0.5s ease 4s forwards;
+    animation: slideDown 0.5s cubic-bezier(0.4, 0, 0.2, 1), fadeOut 0.5s ease 4s forwards;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .success-popup {
@@ -227,23 +298,25 @@ body {
     top: 30px;
     left: 50%;
     transform: translateX(-50%);
-    background: white;
-    border-radius: 12px;
-    padding: 15px 25px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 16px 28px;
     display: flex;
     align-items: center;
-    gap: 10px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    gap: 12px;
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.2);
     font-weight: 600;
-    color: #10b981;
+    color: #059669;
     z-index: 9999;
-    animation: slideDown 0.5s ease;
+    animation: slideDown 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .success-icon {
-    width: 30px;
-    height: 30px;
-    border: 3px solid #10b981;
+    width: 32px;
+    height: 32px;
+    border: 3px solid #059669;
     border-radius: 50%;
     position: relative;
     animation: spin 0.6s ease;
@@ -254,18 +327,27 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) scale(0);
-    font-size: 16px;
-    color: #10b981;
+    font-size: 18px;
+    color: #059669;
     animation: scaleUp 0.4s 0.6s forwards;
 }
 
 @keyframes slideDown {
-    from { opacity: 0; transform: translateX(-50%) translateY(-30px); }
-    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    from { 
+        opacity: 0; 
+        transform: translateX(-50%) translateY(-30px) scale(0.95); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateX(-50%) translateY(0) scale(1); 
+    }
 }
 
 @keyframes fadeOut {
-    to { opacity: 0; transform: translateX(-50%) translateY(-30px); }
+    to { 
+        opacity: 0; 
+        transform: translateX(-50%) translateY(-30px) scale(0.95); 
+    }
 }
 
 @keyframes spin {
@@ -280,31 +362,54 @@ body {
 }
 
 .shake {
-    animation: shake 0.5s ease-in-out;
+    animation: shake 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-10px); }
-    75% { transform: translateX(10px); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+    .login-container {
+        margin: 20px;
+        padding: 40px 24px;
+    }
+    
+    .login-title {
+        font-size: 2.2rem;
+    }
+    
+    .form-group input,
+    .login-btn {
+        padding: 16px 18px;
+    }
 }
 </style>
 </head>
 <body>
 
-<!-- Animated Background -->
-<?php for($i = 0; $i < 8; $i++): ?>
+<!-- Realistic Animated Background -->
+<?php 
+$bubbleSizes = [40, 60, 80, 100, 120, 140, 30, 50];
+$bubbleDelays = [0, 3, 6, 9, 12, 15, 18, 21];
+$bubblePositions = [10, 25, 40, 55, 70, 85, 95, 15];
+for($i = 0; $i < 8; $i++): 
+?>
 <div class="bubble" style="
-    width: <?= rand(30, 80) ?>px; 
-    height: <?= rand(30, 80) ?>px; 
-    left: <?= rand(0, 100) ?>%; 
-    animation-delay: <?= rand(0, 10) ?>s;
+    width: <?= $bubbleSizes[$i] ?>px; 
+    height: <?= $bubbleSizes[$i] ?>px; 
+    left: <?= $bubblePositions[$i] ?>%; 
+    animation-delay: <?= $bubbleDelays[$i] ?>s;
+    animation-duration: <?= rand(20, 30) ?>s;
 "></div>
 <?php endfor; ?>
 
 <!-- Error Popup -->
 <?php if($error): ?>
-    <div class="error-popup"><?= $error ?></div>
+    <div class="error-popup"><?= htmlspecialchars($error) ?></div>
 <?php endif; ?>
 
 <!-- Success Popup -->
@@ -335,10 +440,8 @@ setTimeout(() => {
             <input type="password" name="password" placeholder="Password" required>
         </div>
         <button type="submit" name="login" class="login-btn">
-            <i class="fas fa-sign-in-alt mr-2"></i>Login
+            Login
         </button>
     </form>
-</div>
-
 </body>
 </html>
