@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 <?php
 // Handle CRUD Operations for Todos
 $message = '';
@@ -132,7 +131,7 @@ $low_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE prior
             <div class="stat-content">
                 <h3 class="stat-number"><?= $total_todos ?></h3>
                 <p class="stat-label">Total Todo</p>
-=======
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -270,12 +269,10 @@ $low_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE prior
                         <!-- Todos will be populated by JavaScript -->
                     </div>
                 </div>
->>>>>>> 1b6cbc8ff0044b888a53f3e9a7ee332bc8ff4f6c
             </div>
         </div>
     </main>
 
-<<<<<<< HEAD
         <div class="stat-card bg-gradient-red">
             <div class="stat-icon">
                 <i class="fas fa-exclamation-triangle"></i>
@@ -1001,7 +998,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-=======
     <script>
         // Simulated database data
         let apps = [
@@ -1250,4 +1246,3 @@ document.addEventListener('DOMContentLoaded', function() {
     </script>
 </body>
 </html>
->>>>>>> 1b6cbc8ff0044b888a53f3e9a7ee332bc8ff4f6c
