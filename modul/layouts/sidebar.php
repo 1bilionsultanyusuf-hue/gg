@@ -1,28 +1,11 @@
-<?php
-function getProfilePhotoUrl($session_data) {
-    // Get user data from database
-    global $koneksi;
-    $user_query = "SELECT profile_photo, name FROM users WHERE id = ?";
-    $stmt = $koneksi->prepare($user_query);
-    $stmt->bind_param("i", $session_data['user_id']);
-    $stmt->execute();
-    $user_data = $stmt->get_result()->fetch_assoc();
-    
-    if (!empty($user_data['profile_photo']) && file_exists($user_data['profile_photo'])) {
-        return $user_data['profile_photo'] . '?v=' . time(); // Cache busting
-    }
-    return "https://ui-avatars.com/api/?name=" . urlencode($user_data['name']) . "&background=0066ff&color=fff&size=80";
-}
-?>
-
 <div class="sidebar" id="sidebar">
     <!-- Profile Section -->
     <div class="profile-section">
         <div class="profile-avatar-container">
-            <img src="<?= getProfilePhotoUrl($_SESSION) ?>" 
+            <img src="<?= getProfilePhotoUrl($_SESSION['user_id']) ?>" 
                  alt="<?= htmlspecialchars($_SESSION['user_name']) ?>" 
                  class="profile-avatar"
-                 onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['user_name']) ?>&background=0066ff&color=fff&size=80'">
+                 onerror="this.src='<?= asset('images/default_profile_' . getUserGender($_SESSION['user_id']) . '.jpg') ?>'">
         </div>
         <div class="profile-name"><?= htmlspecialchars($_SESSION['user_name']) ?></div>
         <div class="profile-role"><?= ucfirst($_SESSION['user_role']) ?></div>

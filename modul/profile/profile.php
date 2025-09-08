@@ -74,10 +74,9 @@ if (isset($_POST['upload_photo'])) {
 if (isset($_POST['update_profile'])) {
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
+    $gender = $_POST['gender'];
     $current_password = trim($_POST['current_password']);
     $new_password = trim($_POST['new_password']);
-    
-    $errors = [];
     
     // Validation
     if (empty($name)) {

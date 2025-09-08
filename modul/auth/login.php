@@ -19,7 +19,7 @@ if(isset($_POST['login'])){
     if(empty($user) || empty($pass)){
         $error = 'Username dan password harus diisi!';
     } else {
-        $stmt = $koneksi->prepare("SELECT id, name, email, password, role FROM users WHERE name=? OR email=? LIMIT 1");
+        $stmt = $koneksi->prepare("SELECT id, name, email, password, role, gender FROM users WHERE name=? OR email=? LIMIT 1");
         $stmt->bind_param("ss", $user, $user);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -51,6 +51,7 @@ if(isset($_POST['login'])){
                 $_SESSION['user_email'] = $row['email'];
                 $_SESSION['user_role'] = $row['role'];
                 $_SESSION['login_time'] = time();
+                $_SESSION['user_gender'] = $row['gender'];
                 
                 // Update last login (optional)
                 $update_login = $koneksi->prepare("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?");
