@@ -780,3 +780,4 @@ function getProfilePhoto($user) {
 .modal-header h3 {
     font-size: 1.3rem;
     font-weight: 600;
+}
