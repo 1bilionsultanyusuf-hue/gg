@@ -1,20 +1,35 @@
+<?php
+function getProfilePhotoUrl($session_data) {
+    // Get user data from database
+    global $koneksi;
+    $user_query = "SELECT profile_photo, name FROM users WHERE id = ?";
+    $stmt = $koneksi->prepare($user_query);
+    $stmt->bind_param("i", $session_data['user_id']);
+    $stmt->execute();
+    $user_data = $stmt->get_result()->fetch_assoc();
+    
+    if (!empty($user_data['profile_photo']) && file_exists($user_data['profile_photo'])) {
+        return $user_data['profile_photo'] . '?v=' . time(); // Cache busting
+    }
+    return "https://ui-avatars.com/api/?name=" . urlencode($user_data['name']) . "&background=0066ff&color=fff&size=80";
+}
+?>
+
 <div class="sidebar" id="sidebar">
     <!-- Profile Section -->
     <div class="profile-section">
         <div class="profile-avatar-container">
-            <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['user_name']) ?>&background=0066ff&color=fff&size=80" 
+            <img src="<?= getProfilePhotoUrl($_SESSION) ?>" 
                  alt="<?= htmlspecialchars($_SESSION['user_name']) ?>" 
                  class="profile-avatar"
-                 onerror="this.src='https://ui-avatars.com/api/?name=User&background=0066ff&color=fff&size=80'">
+                 onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['user_name']) ?>&background=0066ff&color=fff&size=80'">
         </div>
-        <div class="profile-info">
-            <h4 class="profile-name"><?= htmlspecialchars($_SESSION['user_name']) ?></h4>
-            <p class="profile-role"><?= ucfirst($_SESSION['user_role']) ?></p>
-            <a href="?page=profile" class="profile-edit-btn">
-                <i class="fas fa-user-edit"></i>
-                <span class="nav-text">Edit Profil</span>
-            </a>
-        </div>
+        <div class="profile-name"><?= htmlspecialchars($_SESSION['user_name']) ?></div>
+        <div class="profile-role"><?= ucfirst($_SESSION['user_role']) ?></div>
+        <a href="?page=profile" class="profile-edit-btn">
+            <i class="fas fa-edit"></i>
+            Edit Profile
+        </a>
     </div>
 
     <!-- Navigation Menu -->
@@ -121,10 +136,10 @@
 }
 
 .profile-name {
-    font-size: 2rem;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     color: #1e293b;
-    margin-bottom: 8px;
+    margin-bottom: 2px;
     transition: opacity 0.3s ease;
 }
 
@@ -151,12 +166,15 @@
     transition: all 0.3s ease;
     border: none;
     cursor: pointer;
+    gap: 6px;
 }
 
 .profile-edit-btn:hover {
     background: linear-gradient(90deg, #0044cc, #00aaff);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0,102,255,0.3);
+    color: white;
+    text-decoration: none;
 }
 
 /* Menu Container - Fixed Height */
@@ -189,6 +207,7 @@
     color: #334155;
     border-left-color: #0066ff;
     transform: translateX(2px);
+    text-decoration: none;
 }
 
 .menu-item.menu-active {
@@ -234,8 +253,6 @@
     color: #dc2626 !important;
     border-left-color: #ef4444 !important;
 }
-
-
 
 /* Sidebar Hidden State */
 .sidebar.hidden {
