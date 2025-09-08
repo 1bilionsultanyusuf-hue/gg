@@ -121,10 +121,10 @@
 }
 
 .profile-name {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 2rem;
+    font-weight: 700;
     color: #1e293b;
-    margin-bottom: 2px;
+    margin-bottom: 8px;
     transition: opacity 0.3s ease;
 }
 
