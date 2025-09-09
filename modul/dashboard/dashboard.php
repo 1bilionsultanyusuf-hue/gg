@@ -74,11 +74,6 @@ $app_performance = $koneksi->query("
             <p class="welcome-subtitle">
                 Selamat datang, <?= $_SESSION['user_name'] ?> (<?= ucfirst($_SESSION['user_role']) ?>)
             </p>
-            <div class="quick-stats">
-                <span><?= $total_apps ?> Apps</span>
-                <span><?= $total_users ?> Users</span>
-                <span><?= $active_tasks ?> Active Tasks</span>
-            </div>
         </div>
         <div class="welcome-date">
             <div class="date-info">
