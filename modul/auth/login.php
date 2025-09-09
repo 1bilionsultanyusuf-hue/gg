@@ -459,29 +459,3 @@ setTimeout(() => {
             Login
         </button>
     </form>
-    
-    <!-- Test Accounts Display -->
-    <?php if($test_users && $test_users->num_rows > 0): ?>
-    <div class="test-accounts">
-        <h4>👤 Akun Test yang Tersedia</h4>
-        <?php while($test_user = $test_users->fetch_assoc()): ?>
-        <div class="test-account">
-            <span class="account-info">
-                <?= htmlspecialchars($test_user['name']) ?>
-                <span class="gender-badge <?= $test_user['gender'] ?? 'male' ?>">
-                    <?= ($test_user['gender'] ?? 'male') === 'female' ? '👩' : '👨' ?>
-                    <?= ucfirst($test_user['gender'] ?? 'male') ?>
-                </span>
-            </span>
-            <span class="account-role"><?= ucfirst($test_user['role']) ?></span>
-        </div>
-        <?php endwhile; ?>
-        <small style="text-align: center; display: block; margin-top: 12px; color: #9ca3af; font-size: 0.8rem;">
-            Password: hashed_pw1, hashed_pw2, dll. (sesuai dummy data)
-        </small>
-    </div>
-    <?php endif; ?>
-</div>
-
-</body>
-</html>
