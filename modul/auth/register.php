@@ -3,7 +3,7 @@ session_start();
 require_once '../../config.php';
 
 $error = '';
-$loginSuccess = false;
+$success = '';
 
 // Jika user sudah login, langsung ke dashboard
 if(isset($_SESSION['user_id'])){
@@ -11,64 +11,49 @@ if(isset($_SESSION['user_id'])){
     exit;
 }
 
-// Proses login
-if(isset($_POST['login'])){
-    $user = trim($_POST['username']);
-    $pass = trim($_POST['password']);
+// Proses registrasi
+if(isset($_POST['register'])){
+    $name = trim($_POST['name']);
+    $email = trim($_POST['email']);
+    $password = trim($_POST['password']);
+    $gender = trim($_POST['gender']);
+    $role = 'user'; // Default role untuk user baru
 
-    if(empty($user) || empty($pass)){
-        $error = 'Username dan password harus diisi!';
-    } else {
-        $stmt = $koneksi->prepare("SELECT id, name, email, password, role, gender FROM users WHERE name=? OR email=? LIMIT 1");
-        $stmt->bind_param("ss", $user, $user);
-        $stmt->execute();
-        $result = $stmt->get_result();
+    // Validasi input
+    if(empty($name) || empty($email) || empty($password) || empty($gender)){
+        $error = 'Semua field harus diisi!';
+    } 
+    elseif(!filter_var($email, FILTER_VALIDATE_EMAIL)){
+        $error = 'Format email tidak valid!';
+    }
+    elseif(strlen($password) < 6){
+        $error = 'Password minimal 6 karakter!';
+    }
+    else {
+        // Cek apakah email atau username sudah ada
+        $check_stmt = $koneksi->prepare("SELECT id FROM users WHERE name=? OR email=? LIMIT 1");
+        $check_stmt->bind_param("ss", $name, $email);
+        $check_stmt->execute();
+        $check_result = $check_stmt->get_result();
 
-        if($result->num_rows === 1){
-            $row = $result->fetch_assoc();
-            
-            // Cek password - PERBAIKAN: gunakan password_verify() untuk hash atau plain text
-            $password_match = false;
-            
-            // Jika password di database sudah di-hash
-            if (password_verify($pass, $row['password'])) {
-                $password_match = true;
-            } 
-            // Jika masih plain text (untuk development/dummy data)
-            elseif ($pass === $row['password']) {
-                $password_match = true;
-            }
-            
-            if($password_match){
-                $loginSuccess = true;
-                
-                // Regenerate session ID untuk keamanan
-                session_regenerate_id(true);
-                
-                // Simpan session dengan gender support
-                $_SESSION['user_id'] = $row['id'];
-                $_SESSION['user_name'] = $row['name'];
-                $_SESSION['user_email'] = $row['email'];
-                $_SESSION['user_role'] = $row['role'];
-                $_SESSION['user_gender'] = $row['gender'] ?? 'male'; // Default to male
-                $_SESSION['login_time'] = time();
-                
-                // Update last login (optional)
-                $update_login = $koneksi->prepare("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?");
-                $update_login->bind_param("i", $row['id']);
-                $update_login->execute();
-                
-            } else {
-                $error = 'Username atau password salah!';
-            }
+        if($check_result->num_rows > 0){
+            $error = 'Username atau email sudah digunakan!';
         } else {
-            $error = 'Username atau password salah!';
+            // Hash password
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            
+            // Insert user baru
+            $insert_stmt = $koneksi->prepare("INSERT INTO users (name, email, password, role, gender, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
+            $insert_stmt->bind_param("sssss", $name, $email, $hashed_password, $role, $gender);
+            
+            if($insert_stmt->execute()){
+                $success = 'Registrasi berhasil! Silakan login dengan akun Anda.';
+            } else {
+                $error = 'Terjadi kesalahan saat registrasi. Silakan coba lagi.';
+            }
         }
     }
 }
-
-// Untuk testing, tampilkan user yang tersedia
-$test_users = $koneksi->query("SELECT name, email, role, gender FROM users LIMIT 5");
 ?>
 
 <!DOCTYPE html>
@@ -76,7 +61,7 @@ $test_users = $koneksi->query("SELECT name, email, role, gender FROM users LIMIT
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login - IT | CORE</title>
+<title>Register - IT | CORE</title>
 <style>
 * {
     box-sizing: border-box;
@@ -146,8 +131,8 @@ body {
     }
 }
 
-/* Login Container */
-.login-container {
+/* Register Container - sama dengan login container */
+.register-container {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     padding: 50px 40px;
@@ -162,7 +147,7 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.login-title {
+.register-title {
     color: #0066ff;
     margin-bottom: 40px;
     font-size: 2.8rem;
@@ -177,7 +162,8 @@ body {
     position: relative;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
     width: 100%;
     padding: 18px 20px;
     border: 2px solid rgba(107, 114, 128, 0.2);
@@ -195,7 +181,19 @@ body {
     font-weight: 400;
 }
 
-.form-group input:focus {
+.form-group select {
+    color: #374151;
+    cursor: pointer;
+}
+
+.form-group select option {
+    padding: 10px;
+    background: white;
+    color: #374151;
+}
+
+.form-group input:focus,
+.form-group select:focus {
     border-color: #0066ff;
     box-shadow: 
         0 0 0 4px rgba(102, 126, 234, 0.1),
@@ -204,7 +202,7 @@ body {
     transform: translateY(-1px);
 }
 
-.login-btn {
+.register-btn {
     width: 100%;
     padding: 18px 20px;
     border: none;
@@ -220,19 +218,19 @@ body {
     letter-spacing: 0.025em;
 }
 
-.login-btn:hover {
+.register-btn:hover {
     background: linear-gradient(135deg, #00aaff 0%, #0066ff 100%);
     transform: translateY(-2px);
     box-shadow: 0 15px 35px -5px rgba(102, 126, 234, 0.5);
 }
 
-.login-btn:active {
+.register-btn:active {
     transform: translateY(0);
     box-shadow: 0 5px 15px -3px rgba(102, 126, 234, 0.4);
 }
 
-/* Register Link */
-.register-link {
+/* Login Link - sama dengan register link di login */
+.login-link {
     text-align: center;
     margin-bottom: 24px;
     padding: 16px;
@@ -241,83 +239,23 @@ body {
     border: 1px solid rgba(102, 126, 234, 0.2);
 }
 
-.register-link p {
+.login-link p {
     margin: 0;
     color: #374151;
     font-size: 0.95rem;
     font-weight: 500;
 }
 
-.register-link a {
+.login-link a {
     color: #0066ff;
     text-decoration: none;
     font-weight: 700;
     transition: color 0.3s ease;
 }
 
-.register-link a:hover {
+.login-link a:hover {
     color: #0044cc;
     text-decoration: underline;
-}
-
-.test-accounts {
-    background: rgba(249, 250, 251, 0.8);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(229, 231, 235, 0.5);
-    border-radius: 16px;
-    padding: 20px;
-    margin-top: 24px;
-    text-align: left;
-}
-
-.test-accounts h4 {
-    margin: 0 0 16px 0;
-    color: #374151;
-    font-size: 0.95rem;
-    font-weight: 600;
-    text-align: center;
-}
-
-.test-account {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    font-size: 0.85rem;
-    border-bottom: 1px solid rgba(229, 231, 235, 0.5);
-}
-
-.test-account:last-child {
-    border-bottom: none;
-}
-
-.account-info {
-    color: #6b7280;
-    font-weight: 500;
-}
-
-.account-role {
-    color: #667eea;
-    font-weight: 600;
-    padding: 4px 8px;
-    background: rgba(102, 126, 234, 0.1);
-    border-radius: 8px;
-    font-size: 0.75rem;
-}
-
-.gender-badge {
-    color: #ec4899;
-    font-weight: 500;
-    padding: 2px 6px;
-    background: rgba(236, 72, 153, 0.1);
-    border-radius: 6px;
-    font-size: 0.7rem;
-    margin-left: 4px;
-}
-
-.gender-badge.male {
-    color: #3b82f6;
-    background: rgba(59, 130, 246, 0.1);
 }
 
 /* Error & Success Styles */
@@ -418,17 +356,18 @@ body {
 
 /* Responsive Design */
 @media (max-width: 480px) {
-    .login-container {
+    .register-container {
         margin: 20px;
         padding: 40px 24px;
     }
     
-    .login-title {
+    .register-title {
         font-size: 2.2rem;
     }
     
     .form-group input,
-    .login-btn {
+    .form-group select,
+    .register-btn {
         padding: 16px 18px;
     }
 }
@@ -458,59 +397,56 @@ for($i = 0; $i < 8; $i++):
 <?php endif; ?>
 
 <!-- Success Popup -->
-<?php if($loginSuccess): ?>
+<?php if($success): ?>
 <div class="success-popup">
     <div class="success-icon">
         <div class="checkmark">✓</div>
     </div>
-    <div>Login Berhasil!</div>
+    <div>Registrasi Berhasil!</div>
 </div>
 <script>
 setTimeout(() => {
-    window.location.href = '../../index.php?page=dashboard';
+    window.location.href = 'login.php';
 }, 2000);
 </script>
 <?php endif; ?>
 
-<!-- Login Form -->
-<div class="login-container <?= $error ? 'shake' : '' ?>">
-    <h1 class="login-title">IT | CORE</h1>
+<!-- Register Form -->
+<div class="register-container <?= $error ? 'shake' : '' ?>">
+    <h1 class="register-title">Sign Up</h1>
     
     <form method="post">
         <div class="form-group">
-            <input type="text" name="username" placeholder="Username atau Email" required 
-                   value="<?= isset($_POST['username']) ? htmlspecialchars($_POST['username']) : '' ?>">
+            <input type="text" name="name" placeholder="Username" required 
+                   value="<?= isset($_POST['name']) ? htmlspecialchars($_POST['name']) : '' ?>">
         </div>
+        
         <div class="form-group">
-            <input type="password" name="password" placeholder="Password" required>
+            <input type="email" name="email" placeholder="Email address" required 
+                   value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>">
         </div>
-        <button type="submit" name="login" class="login-btn">
-            Login
+        
+        <div class="form-group">
+            <select name="gender" required>
+                <option value="">Choose Gender</option>
+                <option value="male" <?= (isset($_POST['gender']) && $_POST['gender'] == 'male') ? 'selected' : '' ?>>Male</option>
+                <option value="female" <?= (isset($_POST['gender']) && $_POST['gender'] == 'female') ? 'selected' : '' ?>>Female</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <input type="password" name="password" placeholder="Create password" required>
+        </div>
+        
+        <button type="submit" name="register" class="register-btn">
+            Sign Up
         </button>
     </form>
-
-    <!-- Register Link -->
-    <div class="register-link">
-        <p>Belum punya akun? <a href="register.php">Daftar di sini</a></p>
+    
+    <!-- Login Link -->
+    <div class="login-link">
+        <p>Already have an account? <a href="login.php">Login here</a></p>
     </div>
-
-    <!-- Test Accounts (untuk development) -->
-    <?php if($test_users && $test_users->num_rows > 0): ?>
-    <div class="test-accounts">
-        <h4>👤 Test Accounts (Development)</h4>
-        <?php while($test_user = $test_users->fetch_assoc()): ?>
-        <div class="test-account">
-            <div class="account-info">
-                <?= htmlspecialchars($test_user['name']) ?> | <?= htmlspecialchars($test_user['email']) ?>
-            </div>
-            <div>
-                <span class="account-role"><?= htmlspecialchars($test_user['role']) ?></span>
-                <span class="gender-badge <?= $test_user['gender'] ?>"><?= ucfirst($test_user['gender']) ?></span>
-            </div>
-        </div>
-        <?php endwhile; ?>
-    </div>
-    <?php endif; ?>
 </div>
 
 </body>
