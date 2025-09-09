@@ -45,13 +45,13 @@ if(isset($_POST['login'])){
                 // Regenerate session ID untuk keamanan
                 session_regenerate_id(true);
                 
-                // Simpan session
+                // Simpan session dengan gender support
                 $_SESSION['user_id'] = $row['id'];
                 $_SESSION['user_name'] = $row['name'];
                 $_SESSION['user_email'] = $row['email'];
                 $_SESSION['user_role'] = $row['role'];
+                $_SESSION['user_gender'] = $row['gender'] ?? 'male'; // Default to male
                 $_SESSION['login_time'] = time();
-                $_SESSION['user_gender'] = $row['gender'];
                 
                 // Update last login (optional)
                 $update_login = $koneksi->prepare("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?");
@@ -68,7 +68,7 @@ if(isset($_POST['login'])){
 }
 
 // Untuk testing, tampilkan user yang tersedia
-$test_users = $koneksi->query("SELECT name, email, role FROM users LIMIT 5");
+$test_users = $koneksi->query("SELECT name, email, role, gender FROM users LIMIT 5");
 ?>
 
 <!DOCTYPE html>
@@ -276,6 +276,21 @@ body {
     font-size: 0.75rem;
 }
 
+.gender-badge {
+    color: #ec4899;
+    font-weight: 500;
+    padding: 2px 6px;
+    background: rgba(236, 72, 153, 0.1);
+    border-radius: 6px;
+    font-size: 0.7rem;
+    margin-left: 4px;
+}
+
+.gender-badge.male {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+}
+
 /* Error & Success Styles */
 .error-popup {
     position: fixed;
@@ -444,5 +459,29 @@ setTimeout(() => {
             Login
         </button>
     </form>
+    
+    <!-- Test Accounts Display -->
+    <?php if($test_users && $test_users->num_rows > 0): ?>
+    <div class="test-accounts">
+        <h4>👤 Akun Test yang Tersedia</h4>
+        <?php while($test_user = $test_users->fetch_assoc()): ?>
+        <div class="test-account">
+            <span class="account-info">
+                <?= htmlspecialchars($test_user['name']) ?>
+                <span class="gender-badge <?= $test_user['gender'] ?? 'male' ?>">
+                    <?= ($test_user['gender'] ?? 'male') === 'female' ? '👩' : '👨' ?>
+                    <?= ucfirst($test_user['gender'] ?? 'male') ?>
+                </span>
+            </span>
+            <span class="account-role"><?= ucfirst($test_user['role']) ?></span>
+        </div>
+        <?php endwhile; ?>
+        <small style="text-align: center; display: block; margin-top: 12px; color: #9ca3af; font-size: 0.8rem;">
+            Password: hashed_pw1, hashed_pw2, dll. (sesuai dummy data)
+        </small>
+    </div>
+    <?php endif; ?>
+</div>
+
 </body>
 </html>
