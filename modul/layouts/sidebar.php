@@ -29,7 +29,7 @@ $menu_items = [
     ],
     'taken' => [
         'icon' => 'fas fa-chart-line',
-        'text' => 'Progress',
+        'text' => 'Taken',
         'roles' => ['admin', 'programmer', 'support'],
         'tooltip' => 'Progress Tugas'
     ],
