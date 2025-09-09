@@ -1,3 +1,58 @@
+<?php
+// Role-based menu configuration
+$user_role = $_SESSION['user_role'];
+
+$menu_items = [
+    'dashboard' => [
+        'icon' => 'fas fa-home',
+        'text' => 'Dashboard',
+        'roles' => ['admin', 'programmer', 'support'],
+        'tooltip' => 'Dashboard'
+    ],
+    'apps' => [
+        'icon' => 'fas fa-th-large',
+        'text' => 'Apps',
+        'roles' => ['admin', 'programmer'],
+        'tooltip' => 'Kelola Aplikasi'
+    ],
+    'users' => [
+        'icon' => 'fas fa-users',
+        'text' => 'Users',
+        'roles' => ['admin'],
+        'tooltip' => 'Kelola Pengguna'
+    ],
+    'todos' => [
+        'icon' => 'fas fa-list-check',
+        'text' => 'Todos',
+        'roles' => ['admin', 'programmer', 'support'],
+        'tooltip' => 'Kelola Tugas'
+    ],
+    'taken' => [
+        'icon' => 'fas fa-chart-line',
+        'text' => 'Progress',
+        'roles' => ['admin', 'programmer', 'support'],
+        'tooltip' => 'Progress Tugas'
+    ],
+    'reports' => [
+        'icon' => 'fas fa-chart-bar',
+        'text' => 'Reports',
+        'roles' => ['admin', 'programmer'],
+        'tooltip' => 'Laporan Sistem'
+    ],
+    'settings' => [
+        'icon' => 'fas fa-cog',
+        'text' => 'Settings',
+        'roles' => ['admin'],
+        'tooltip' => 'Pengaturan Sistem'
+    ]
+];
+
+// Function to check if user has access to a menu item
+function hasAccess($menu_roles, $user_role) {
+    return in_array($user_role, $menu_roles);
+}
+?>
+
 <div class="sidebar" id="sidebar">
     <!-- Profile Section -->
     <div class="profile-section">
@@ -6,6 +61,15 @@
                  alt="<?= htmlspecialchars($_SESSION['user_name']) ?>" 
                  class="profile-avatar"
                  onerror="this.src='<?= asset('images/default_profile_' . getUserGender($_SESSION['user_id']) . '.jpg') ?>'">
+            <div class="role-indicator role-<?= $user_role ?>">
+                <?php if($user_role == 'admin'): ?>
+                    <i class="fas fa-crown"></i>
+                <?php elseif($user_role == 'programmer'): ?>
+                    <i class="fas fa-code"></i>
+                <?php else: ?>
+                    <i class="fas fa-headset"></i>
+                <?php endif; ?>
+            </div>
         </div>
         <div class="profile-name"><?= htmlspecialchars($_SESSION['user_name']) ?></div>
         <div class="profile-role"><?= ucfirst($_SESSION['user_role']) ?></div>
@@ -17,45 +81,64 @@
 
     <!-- Navigation Menu -->
     <div class="menu-container">
-        <!-- Dashboard -->
-        <a href="?page=dashboard"
-           class="menu-item <?php echo ($page=='dashboard') ? 'menu-active' : ''; ?>"
-           data-tooltip="Dashboard">
-            <i class="fas fa-home menu-icon"></i>
-            <span class="nav-text">Dashboard</span>
-        </a>
+        <?php foreach($menu_items as $page_key => $menu_item): ?>
+            <?php if(hasAccess($menu_item['roles'], $user_role)): ?>
+                <a href="?page=<?= $page_key ?>"
+                   class="menu-item <?php echo ($page == $page_key) ? 'menu-active' : ''; ?>"
+                   data-tooltip="<?= $menu_item['tooltip'] ?>">
+                    <i class="<?= $menu_item['icon'] ?> menu-icon"></i>
+                    <span class="nav-text"><?= $menu_item['text'] ?></span>
+                    
+                    <!-- Access indicator untuk role tertentu -->
+                    <?php if($page_key == 'users' && $user_role == 'admin'): ?>
+                        <span class="access-badge admin-only">Admin</span>
+                    <?php elseif($page_key == 'apps' && in_array($user_role, ['admin', 'programmer'])): ?>
+                        <span class="access-badge dev-only">Dev</span>
+                    <?php elseif($page_key == 'reports' && in_array($user_role, ['admin', 'programmer'])): ?>
+                        <span class="access-badge dev-only">Dev</span>
+                    <?php elseif($page_key == 'settings' && $user_role == 'admin'): ?>
+                        <span class="access-badge admin-only">Admin</span>
+                    <?php endif; ?>
+                </a>
+            <?php endif; ?>
+        <?php endforeach; ?>
+        
+        <!-- Divider -->
+        <div class="menu-divider"></div>
+        
+        <!-- Role-specific additional menus -->
+        <?php if($user_role == 'support'): ?>
+            <a href="?page=tickets" class="menu-item <?php echo ($page=='tickets') ? 'menu-active' : ''; ?>">
+                <i class="fas fa-ticket-alt menu-icon"></i>
+                <span class="nav-text">Support Tickets</span>
+                <span class="access-badge support-only">Support</span>
+            </a>
+            <a href="?page=knowledge" class="menu-item <?php echo ($page=='knowledge') ? 'menu-active' : ''; ?>">
+                <i class="fas fa-book menu-icon"></i>
+                <span class="nav-text">Knowledge Base</span>
+            </a>
+        <?php endif; ?>
 
-        <!-- Apps -->
-        <a href="?page=apps"
-           class="menu-item <?php echo ($page=='apps') ? 'menu-active' : ''; ?>"
-           data-tooltip="Apps">
-            <i class="fas fa-th-large menu-icon"></i>
-            <span class="nav-text">Apps</span>
-        </a>
+        <?php if($user_role == 'programmer'): ?>
+            <a href="?page=deployments" class="menu-item <?php echo ($page=='deployments') ? 'menu-active' : ''; ?>">
+                <i class="fas fa-rocket menu-icon"></i>
+                <span class="nav-text">Deployments</span>
+                <span class="access-badge dev-only">Dev</span>
+            </a>
+        <?php endif; ?>
 
-        <!-- Users -->
-        <a href="?page=users"
-           class="menu-item <?php echo ($page=='users') ? 'menu-active' : ''; ?>"
-           data-tooltip="Users">
-            <i class="fas fa-users menu-icon"></i>
-            <span class="nav-text">Users</span>
-        </a>
-
-        <!-- Todos -->
-        <a href="?page=todos"
-           class="menu-item <?php echo ($page=='todos') ? 'menu-active' : ''; ?>"
-           data-tooltip="Todos">
-            <i class="fas fa-list-check menu-icon"></i>
-            <span class="nav-text">Todos</span>
-        </a>
-
-        <!-- Taken -->
-        <a href="?page=taken"
-           class="menu-item <?php echo ($page=='taken') ? 'menu-active' : ''; ?>"
-           data-tooltip="taken">
-            <i class="fas fa-chart-line menu-icon"></i>
-            <span class="nav-text">Taken</span>
-        </a>
+        <?php if($user_role == 'admin'): ?>
+            <a href="?page=logs" class="menu-item <?php echo ($page=='logs') ? 'menu-active' : ''; ?>">
+                <i class="fas fa-file-alt menu-icon"></i>
+                <span class="nav-text">System Logs</span>
+                <span class="access-badge admin-only">Admin</span>
+            </a>
+            <a href="?page=backup" class="menu-item <?php echo ($page=='backup') ? 'menu-active' : ''; ?>">
+                <i class="fas fa-database menu-icon"></i>
+                <span class="nav-text">Backup</span>
+                <span class="access-badge admin-only">Admin</span>
+            </a>
+        <?php endif; ?>
 
         <!-- Logout -->
         <a href="#" onclick="confirmLogout(event); return false;"
@@ -71,7 +154,7 @@
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
 <style>
-/* Enhanced Sidebar Styling - No Scroll Version */
+/* Enhanced Sidebar Styling dengan Role-Based Features */
 .sidebar {
     background: white;
     width: 256px;
@@ -84,10 +167,10 @@
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Prevent any scrolling */
+    overflow: hidden;
 }
 
-/* Profile Section Styling - Compact */
+/* Profile Section dengan Role Indicator */
 .profile-section {
     padding: 16px 20px;
     text-align: center;
@@ -113,9 +196,32 @@
     transition: all 0.3s ease;
 }
 
-.profile-avatar:hover {
-    transform: scale(1.05);
-    box-shadow: 0 8px 25px rgba(0,102,255,0.3);
+/* Role Indicator pada Avatar */
+.role-indicator {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: white;
+    border: 2px solid white;
+}
+
+.role-indicator.role-admin {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+}
+
+.role-indicator.role-programmer {
+    background: linear-gradient(135deg, #0066ff, #33ccff);
+}
+
+.role-indicator.role-support {
+    background: linear-gradient(135deg, #10b981, #34d399);
 }
 
 .profile-name {
@@ -160,17 +266,17 @@
     text-decoration: none;
 }
 
-/* Menu Container - Fixed Height */
+/* Menu Container */
 .menu-container {
     flex: 1;
     padding: 8px 0 16px 0;
-    overflow: hidden; /* No scroll */
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
 }
 
-/* Menu Items - Compact */
+/* Menu Items dengan Access Badges */
 .menu-item {
     display: flex;
     align-items: center;
@@ -215,12 +321,53 @@
 
 .nav-text {
     font-size: 0.9rem;
+    flex: 1;
 }
 
-/* Logout Menu Item - Red Style */
+/* Access Badges */
+.access-badge {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.3s ease;
+}
+
+.menu-item:hover .access-badge {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.admin-only {
+    background: linear-gradient(90deg, #dc2626, #ef4444);
+    color: white;
+}
+
+.dev-only {
+    background: linear-gradient(90deg, #0066ff, #33ccff);
+    color: white;
+}
+
+.support-only {
+    background: linear-gradient(90deg, #10b981, #34d399);
+    color: white;
+}
+
+/* Menu Divider */
+.menu-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+    margin: 8px 16px;
+}
+
+/* Logout Menu Item */
 .logout-menu-item {
     color: #ef4444 !important;
-    margin-top: 8px;
+    margin-top: auto;
     border-top: 1px solid #fee2e2;
     padding-top: 16px !important;
 }
@@ -229,17 +376,6 @@
     background: linear-gradient(90deg, rgba(239, 68, 68, 0.08), rgba(220, 38, 38, 0.04)) !important;
     color: #dc2626 !important;
     border-left-color: #ef4444 !important;
-}
-
-.logout-menu-item.menu-active {
-    background: linear-gradient(90deg, rgba(239, 68, 68, 0.12), rgba(220, 38, 38, 0.06)) !important;
-    color: #dc2626 !important;
-    border-left-color: #ef4444 !important;
-}
-
-/* Sidebar Hidden State */
-.sidebar.hidden {
-    transform: translateX(-100%);
 }
 
 /* Mobile Responsiveness */
@@ -275,6 +411,12 @@
         width: 70px;
         height: 70px;
     }
+    
+    .role-indicator {
+        width: 22px;
+        height: 22px;
+        font-size: 0.75rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -293,6 +435,12 @@
     .profile-avatar {
         width: 60px;
         height: 60px;
+    }
+    
+    .role-indicator {
+        width: 18px;
+        height: 18px;
+        font-size: 0.65rem;
     }
 }
 
@@ -329,6 +477,24 @@
 .profile-edit-btn:focus {
     outline: 2px solid #fff;
     outline-offset: 2px;
+}
+
+/* Scrollbar untuk menu container */
+.menu-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.menu-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.menu-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 2px;
+}
+
+.menu-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }
 </style>
 
@@ -386,7 +552,7 @@ document.querySelectorAll('.menu-item').forEach(item => {
     });
 });
 
-// Logout confirmation function
+// Rest of the logout confirmation functions remain the same...
 function confirmLogout(e) {
     e.preventDefault();
     
