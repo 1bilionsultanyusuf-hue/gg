@@ -493,24 +493,6 @@ setTimeout(() => {
     <div class="register-link">
         <p>Belum punya akun? <a href="register.php">Daftar di sini</a></p>
     </div>
-
-    <!-- Test Accounts (untuk development) -->
-    <?php if($test_users && $test_users->num_rows > 0): ?>
-    <div class="test-accounts">
-        <h4>👤 Test Accounts (Development)</h4>
-        <?php while($test_user = $test_users->fetch_assoc()): ?>
-        <div class="test-account">
-            <div class="account-info">
-                <?= htmlspecialchars($test_user['name']) ?> | <?= htmlspecialchars($test_user['email']) ?>
-            </div>
-            <div>
-                <span class="account-role"><?= htmlspecialchars($test_user['role']) ?></span>
-                <span class="gender-badge <?= $test_user['gender'] ?>"><?= ucfirst($test_user['gender']) ?></span>
-            </div>
-        </div>
-        <?php endwhile; ?>
-    </div>
-    <?php endif; ?>
 </div>
 
 </body>
