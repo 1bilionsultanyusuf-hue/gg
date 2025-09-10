@@ -21,13 +21,16 @@ if (isset($_POST['add_user'])) {
         if ($result->num_rows > 0) {
             $error = "Email sudah terdaftar!";
         } else {
+            // Hash password untuk keamanan
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            
             $stmt = $koneksi->prepare("INSERT INTO users (name, email, role, password, gender) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssss", $name, $email, $role, $password, $gender);
+            $stmt->bind_param("sssss", $name, $email, $role, $hashed_password, $gender);
             
             if ($stmt->execute()) {
                 $message = "Pengguna '$name' berhasil ditambahkan!";
             } else {
-                $error = "Gagal menambahkan pengguna!";
+                $error = "Gagal menambahkan pengguna: " . $stmt->error;
             }
         }
     } else {
@@ -54,8 +57,10 @@ if (isset($_POST['edit_user'])) {
             $error = "Email sudah digunakan pengguna lain!";
         } else {
             if (!empty($password)) {
+                // Hash password baru
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                 $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, role = ?, password = ?, gender = ? WHERE id = ?");
-                $stmt->bind_param("sssssi", $name, $email, $role, $password, $gender, $id);
+                $stmt->bind_param("sssssi", $name, $email, $role, $hashed_password, $gender, $id);
             } else {
                 $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, role = ?, gender = ? WHERE id = ?");
                 $stmt->bind_param("ssssi", $name, $email, $role, $gender, $id);
@@ -64,7 +69,7 @@ if (isset($_POST['edit_user'])) {
             if ($stmt->execute()) {
                 $message = "Pengguna berhasil diperbarui!";
             } else {
-                $error = "Gagal memperbarui pengguna!";
+                $error = "Gagal memperbarui pengguna: " . $stmt->error;
             }
         }
     } else {
@@ -85,7 +90,7 @@ if (isset($_POST['delete_user'])) {
         if ($stmt->execute()) {
             $message = "Pengguna berhasil dihapus!";
         } else {
-            $error = "Gagal menghapus pengguna!";
+            $error = "Gagal menghapus pengguna: " . $stmt->error;
         }
     }
 }
@@ -373,6 +378,79 @@ function getProfilePhoto($user) {
     </div>
 </div>
 
+<script>
+// JavaScript functions untuk modal dan CRUD operations
+function openAddUserModal() {
+    document.getElementById('userModal').classList.add('show');
+    document.getElementById('modalTitle').textContent = 'Tambah Pengguna Baru';
+    document.getElementById('userForm').reset();
+    document.getElementById('userId').value = '';
+    document.getElementById('submitBtn').name = 'add_user';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Simpan';
+    document.getElementById('passwordRequiredText').style.display = 'inline';
+    document.getElementById('passwordHelp').style.display = 'none';
+    document.getElementById('userPassword').required = true;
+}
+
+function editUser(id, name, email, role, gender) {
+    document.getElementById('userModal').classList.add('show');
+    document.getElementById('modalTitle').textContent = 'Edit Pengguna';
+    document.getElementById('userId').value = id;
+    document.getElementById('userName').value = name;
+    document.getElementById('userEmail').value = email;
+    document.getElementById('userRole').value = role;
+    document.getElementById('userGender').value = gender;
+    document.getElementById('submitBtn').name = 'edit_user';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Perbarui';
+    document.getElementById('passwordRequiredText').style.display = 'none';
+    document.getElementById('passwordHelp').style.display = 'block';
+    document.getElementById('userPassword').required = false;
+    document.getElementById('userPassword').value = '';
+}
+
+function closeUserModal() {
+    document.getElementById('userModal').classList.remove('show');
+    document.getElementById('userForm').reset();
+}
+
+function deleteUser(id, name) {
+    document.getElementById('deleteModal').classList.add('show');
+    document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus pengguna "${name}"?`;
+    document.getElementById('deleteUserId').value = id;
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('show');
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const userModal = document.getElementById('userModal');
+    const deleteModal = document.getElementById('deleteModal');
+    
+    if (event.target === userModal) {
+        closeUserModal();
+    }
+    if (event.target === deleteModal) {
+        closeDeleteModal();
+    }
+});
+
+// Auto-hide alerts after 5 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(function(alert) {
+        setTimeout(function() {
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-20px)';
+            setTimeout(function() {
+                alert.remove();
+            }, 300);
+        }, 5000);
+    });
+});
+</script>
+
 <style>
 /* Alert Messages */
 .alert {
@@ -383,6 +461,7 @@ function getProfilePhoto($user) {
     align-items: center;
     gap: 10px;
     animation: slideDown 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .alert-success {
@@ -765,6 +844,11 @@ function getProfilePhoto($user) {
     animation: slideUp 0.3s ease;
 }
 
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .delete-modal {
     max-width: 400px;
     text-align: center;
@@ -774,10 +858,189 @@ function getProfilePhoto($user) {
     padding: 24px 24px 0;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .modal-header h3 {
     font-size: 1.3rem;
     font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+    flex: 1;
+}
+
+.modal-close {
+    background: #f3f4f6;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #6b7280;
+    transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.modal-body {
+    padding: 20px 24px;
+}
+
+.modal-footer {
+    padding: 0 24px 24px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+/* Form Styles */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+}
+
+.form-group input::placeholder {
+    color: #9ca3af;
+}
+
+.form-help {
+    display: block;
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* Delete Modal Specific */
+.delete-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin: 0 auto 20px;
+}
+
+.delete-modal .modal-header {
+    flex-direction: column;
+    text-align: center;
+    padding: 24px;
+}
+
+.delete-modal .modal-header h3 {
+    margin-bottom: 8px;
+}
+
+.delete-modal .modal-header p {
+    color: #6b7280;
+    margin: 0;
+}
+
+.delete-modal .modal-footer {
+    padding: 0 24px 24px;
+    justify-content: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .main-content {
+        padding: 0 16px;
+    }
+    
+    .page-header {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+    
+    .users-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .modal-content {
+        margin: 10px;
+        max-width: none;
+        width: calc(100% - 20px);
+    }
+    
+    .user-actions {
+        opacity: 1;
+        position: static;
+        justify-content: center;
+        margin-top: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-card {
+        padding: 16px;
+    }
+    
+    .page-title {
+        font-size: 1.5rem;
+    }
+    
+    .user-card-header {
+        padding: 16px 20px 12px;
+    }
+    
+    .user-content {
+        padding: 0 20px 16px;
+    }
 }
