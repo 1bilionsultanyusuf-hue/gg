@@ -377,7 +377,7 @@ body {
     animation: scaleUp 0.4s 0.6s forwards;
 }
 
-@keyframes slideDown {
+@keyframes slideDown {g
     from { 
         opacity: 0; 
         transform: translateX(-50%) translateY(-30px) scale(0.95); 
