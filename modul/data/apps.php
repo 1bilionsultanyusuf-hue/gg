@@ -150,16 +150,6 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
                 <p class="stat-label">High Priority</p>
             </div>
         </div>
-
-        <div class="stat-card bg-gradient-purple">
-            <div class="stat-icon">
-                <i class="fas fa-chart-line"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $avg_todos ?></h3>
-                <p class="stat-label">Rata-rata Tugas</p>
-            </div>
-        </div>
     </div>
     
     <!-- Applications Grid -->
