@@ -183,29 +183,29 @@ include 'modul/layouts/header.php';
                 case 'dashboard':
                     include "modul/dashboard/dashboard.php"; // Dashboard khusus admin
                     break;
-                case 'dashboard_manager':
-                    include "modul/dashboard/dashboard_manager.php"; // Dashboard khusus manager
+                case 'dashboard_cl':
+                    include "modul/dashboard/dashboard_cl.php"; // Dashboard khusus client
                     break;
                 case 'dashboard_pr':
                     include "modul/dashboard/dashboard_pr.php"; // Dashboard khusus programmer
                     break;
-                case 'dashboard_support':
-                    include "modul/dashboard/dashboard_support.php"; // Dashboard khusus support
+                case 'dashboard_sp':
+                    include "modul/dashboard/dashboard_sp.php"; // Dashboard khusus support
                     break;
                 default:
                     // Default dashboard based on role
                     switch($user_role) {
                         case 'admin':
-                            include "modul/dashboard/dashboard_admin.php";
+                            include "modul/dashboard/dashboard.php";
                             break;
-                        case 'manager':
-                            include "modul/dashboard/dashboard_manager.php";
+                        case 'client':
+                            include "modul/dashboard/dashboard_cl.php";
                             break;
                         case 'programmer':
-                            include "modul/dashboard/dashboard_programmer.php";
+                            include "modul/dashboard/dashboard_pr.php";
                             break;
                         case 'support':
-                            include "modul/dashboard/dashboard_support.php";
+                            include "modul/dashboard/dashboard_sp.php";
                             break;
                         default:
                             include "modul/dashboard/dashboard_admin.php";
