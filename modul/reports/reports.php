@@ -253,6 +253,38 @@ $system_health = [
                     </div>
                 </div>
             </div>
+
+            <!-- Recent Issues -->
+            <div class="report-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-bug"></i> Recent Issues</h3>
+                </div>
+                <div class="card-content">
+                    <div class="issues-list">
+                        <div class="issue-item severity-high">
+                            <div class="issue-info">
+                                <span class="issue-title">Export PDF Memory Error</span>
+                                <span class="issue-app">Aplikasi Keuangan</span>
+                            </div>
+                            <span class="issue-status open">Open</span>
+                        </div>
+                        <div class="issue-item severity-medium">
+                            <div class="issue-info">
+                                <span class="issue-title">Slow Query on Reports</span>
+                                <span class="issue-app">Aplikasi CRM</span>
+                            </div>
+                            <span class="issue-status resolved">Resolved</span>
+                        </div>
+                        <div class="issue-item severity-low">
+                            <div class="issue-info">
+                                <span class="issue-title">UI Layout Issue Mobile</span>
+                                <span class="issue-app">Dashboard</span>
+                            </div>
+                            <span class="issue-status in-progress">In Progress</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

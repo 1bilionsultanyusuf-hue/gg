@@ -31,16 +31,13 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 // Role-based page access control
 $role_access = [
     'dashboard' => ['admin', 'programmer', 'support'],
-    'apps' => ['admin', 'programmer'],
+    'apps' => ['admin', 'programmer', 'support'],
     'users' => ['admin'],
     'todos' => ['admin', 'programmer', 'support'],
-    'profile' => ['admin', 'programmer', 'support'],
+    'profile' => ['admin', 'programmer'],
     'taken' => ['admin', 'programmer', 'support'],
     'reports' => ['admin', 'programmer'],
     'settings' => ['admin'],
-    'tickets' => ['support'],
-    'knowledge' => ['support'],
-    'deployments' => ['programmer'],
     'logs' => ['admin'],
     'backup' => ['admin'],
     'logout' => ['admin', 'programmer', 'support']
@@ -115,15 +112,6 @@ include 'modul/layouts/header.php';
                     break;
                 case 'settings':
                     include "modul/settings/settings.php";
-                    break;
-                case 'tickets':
-                    include "modul/support/tickets.php";
-                    break;
-                case 'knowledge':
-                    include "modul/support/knowledge.php";
-                    break;
-                case 'deployments':
-                    include "modul/dev/deployments.php";
                     break;
                 case 'logs':
                     include "modul/admin/logs.php";

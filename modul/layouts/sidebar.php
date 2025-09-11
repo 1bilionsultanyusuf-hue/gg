@@ -12,7 +12,7 @@ $menu_items = [
     'apps' => [
         'icon' => 'fas fa-th-large',
         'text' => 'Apps',
-        'roles' => ['admin', 'programmer'],
+        'roles' => ['admin', 'programmer', 'support'],
         'tooltip' => 'Kelola Aplikasi'
     ],
     'users' => [
@@ -107,26 +107,6 @@ function hasAccess($menu_roles, $user_role) {
         <div class="menu-divider"></div>
         
         <!-- Role-specific additional menus -->
-        <?php if($user_role == 'support'): ?>
-            <a href="?page=tickets" class="menu-item <?php echo ($page=='tickets') ? 'menu-active' : ''; ?>">
-                <i class="fas fa-ticket-alt menu-icon"></i>
-                <span class="nav-text">Support Tickets</span>
-                <span class="access-badge support-only">Support</span>
-            </a>
-            <a href="?page=knowledge" class="menu-item <?php echo ($page=='knowledge') ? 'menu-active' : ''; ?>">
-                <i class="fas fa-book menu-icon"></i>
-                <span class="nav-text">Knowledge Base</span>
-            </a>
-        <?php endif; ?>
-
-        <?php if($user_role == 'programmer'): ?>
-            <a href="?page=deployments" class="menu-item <?php echo ($page=='deployments') ? 'menu-active' : ''; ?>">
-                <i class="fas fa-rocket menu-icon"></i>
-                <span class="nav-text">Deployments</span>
-                <span class="access-badge dev-only">Dev</span>
-            </a>
-        <?php endif; ?>
-
         <?php if($user_role == 'admin'): ?>
             <a href="?page=logs" class="menu-item <?php echo ($page=='logs') ? 'menu-active' : ''; ?>">
                 <i class="fas fa-file-alt menu-icon"></i>
