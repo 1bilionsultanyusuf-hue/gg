@@ -1,5 +1,5 @@
 <?php
-// index.php - full ready with role-based access
+// index.php - Modified untuk 4 dashboard berbeda
 session_start();
 
 // Handle logout
@@ -28,37 +28,95 @@ require_once 'config.php';
 // ==========================
 $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 
-// Role-based page access control
+// Role-based page access control - dengan 4 role berbeda
 $role_access = [
-    'dashboard' => ['admin', 'programmer', 'support'],
-    'apps' => ['admin', 'programmer', 'support'],
-    'users' => ['admin'],
-    'todos' => ['admin', 'programmer', 'support'],
-    'profile' => ['admin', 'programmer'],
-    'taken' => ['admin', 'programmer', 'support'],
-    'reports' => ['admin', 'programmer'],
+    'dashboard' => ['admin'],           // Dashboard khusus admin
+    'dashboard_manager' => ['manager'], // Dashboard khusus manager 
+    'dashboard_pr' => ['programmer'],   // Dashboard khusus programmer
+    'dashboard_support' => ['support'], // Dashboard khusus support
+    'apps' => ['admin', 'manager', 'programmer', 'support'],
+    'users' => ['admin', 'manager'],
+    'todos' => ['admin', 'manager'],
+    'profile' => ['admin', 'manager', 'programmer', 'support'],
+    'taken' => ['admin', 'manager', 'programmer', 'support'],
+    'reports' => ['admin', 'manager', 'programmer'],
     'settings' => ['admin'],
     'logs' => ['admin'],
     'backup' => ['admin'],
-    'logout' => ['admin', 'programmer', 'support']
+    'logout' => ['admin', 'manager', 'programmer', 'support']
 ];
 
-// Get allowed pages for current user role
+// Get user role and determine default dashboard
 $user_role = $_SESSION['user_role'];
+
+// Auto-redirect ke dashboard sesuai role jika mengakses halaman umum 'dashboard'
+if($page == 'dashboard') {
+    switch($user_role) {
+        case 'admin':
+            $page = 'dashboard';
+            break;
+        case 'manager':
+            $page = 'dashboard_manager';
+            break;
+        case 'programmer':
+            $page = 'dashboard_pr';
+            break;
+        case 'support':
+            $page = 'dashboard_support';
+            break;
+        default:
+            $page = 'dashboard';
+    }
+}
+
+// Get allowed pages for current user role
 $allowed_pages = array_keys(array_filter($role_access, function($roles) use ($user_role) {
     return in_array($user_role, $roles);
 }));
 
 // Check if user has access to requested page
 if (isset($role_access[$page]) && !in_array($user_role, $role_access[$page])) {
-    // Redirect to dashboard with access denied message
+    // Redirect to appropriate dashboard with access denied message
     $_SESSION['access_error'] = "Anda tidak memiliki akses ke halaman tersebut.";
-    header('Location: index.php?page=dashboard');
+    
+    // Redirect ke dashboard sesuai role
+    switch($user_role) {
+        case 'admin':
+            header('Location: index.php?page=dashboard');
+            break;
+        case 'manager':
+            header('Location: index.php?page=dashboard_manager');
+            break;
+        case 'programmer':
+            header('Location: index.php?page=dashboard_pr');
+            break;
+        case 'support':
+            header('Location: index.php?page=dashboard_support');
+            break;
+    }
     exit;
 }
 
 // Validate page exists in allowed pages
-if(!in_array($page, $allowed_pages)) $page = 'dashboard';
+if(!in_array($page, $allowed_pages)) {
+    // Default ke dashboard sesuai role
+    switch($user_role) {
+        case 'admin':
+            $page = 'dashboard';
+            break;
+        case 'manager':
+            $page = 'dashboard_manager';
+            break;
+        case 'programmer':
+            $page = 'dashboard_pr';
+            break;
+        case 'support':
+            $page = 'dashboard_support';
+            break;
+        default:
+            $page = 'dashboard';
+    }
+}
 
 // ==========================
 // Include header
@@ -122,9 +180,36 @@ include 'modul/layouts/header.php';
                 case 'logout':
                     include "modul/auth/logout.php";
                     break;
-                default: 
-                    include "modul/dashboard/dashboard.php"; 
+                case 'dashboard':
+                    include "modul/dashboard/dashboard.php"; // Dashboard khusus admin
                     break;
+                case 'dashboard_manager':
+                    include "modul/dashboard/dashboard_manager.php"; // Dashboard khusus manager
+                    break;
+                case 'dashboard_pr':
+                    include "modul/dashboard/dashboard_pr.php"; // Dashboard khusus programmer
+                    break;
+                case 'dashboard_support':
+                    include "modul/dashboard/dashboard_support.php"; // Dashboard khusus support
+                    break;
+                default:
+                    // Default dashboard based on role
+                    switch($user_role) {
+                        case 'admin':
+                            include "modul/dashboard/dashboard_admin.php";
+                            break;
+                        case 'manager':
+                            include "modul/dashboard/dashboard_manager.php";
+                            break;
+                        case 'programmer':
+                            include "modul/dashboard/dashboard_programmer.php";
+                            break;
+                        case 'support':
+                            include "modul/dashboard/dashboard_support.php";
+                            break;
+                        default:
+                            include "modul/dashboard/dashboard_admin.php";
+                    }
             }
             ?>
         </main>

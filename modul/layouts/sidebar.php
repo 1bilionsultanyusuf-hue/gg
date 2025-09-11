@@ -24,7 +24,7 @@ $menu_items = [
     'todos' => [
         'icon' => 'fas fa-list-check',
         'text' => 'Todos',
-        'roles' => ['admin', 'programmer', 'support'],
+        'roles' => ['admin'],
         'tooltip' => 'Kelola Tugas'
     ],
     'taken' => [
