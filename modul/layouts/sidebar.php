@@ -81,52 +81,56 @@ function hasAccess($menu_roles, $user_role) {
 
     <!-- Navigation Menu -->
     <div class="menu-container">
-        <?php foreach($menu_items as $page_key => $menu_item): ?>
-            <?php if(hasAccess($menu_item['roles'], $user_role)): ?>
-                <a href="?page=<?= $page_key ?>"
-                   class="menu-item <?php echo ($page == $page_key) ? 'menu-active' : ''; ?>"
-                   data-tooltip="<?= $menu_item['tooltip'] ?>">
-                    <i class="<?= $menu_item['icon'] ?> menu-icon"></i>
-                    <span class="nav-text"><?= $menu_item['text'] ?></span>
-                    
-                    <!-- Access indicator untuk role tertentu -->
-                    <?php if($page_key == 'users' && $user_role == 'admin'): ?>
-                        <span class="access-badge admin-only">Admin</span>
-                    <?php elseif($page_key == 'apps' && in_array($user_role, ['admin', 'programmer'])): ?>
-                        <span class="access-badge dev-only">Dev</span>
-                    <?php elseif($page_key == 'reports' && in_array($user_role, ['admin', 'programmer'])): ?>
-                        <span class="access-badge dev-only">Dev</span>
-                    <?php elseif($page_key == 'settings' && $user_role == 'admin'): ?>
-                        <span class="access-badge admin-only">Admin</span>
-                    <?php endif; ?>
+        <div class="menu-items">
+            <?php foreach($menu_items as $page_key => $menu_item): ?>
+                <?php if(hasAccess($menu_item['roles'], $user_role)): ?>
+                    <a href="?page=<?= $page_key ?>"
+                       class="menu-item <?php echo ($page == $page_key) ? 'menu-active' : ''; ?>"
+                       data-tooltip="<?= $menu_item['tooltip'] ?>">
+                        <i class="<?= $menu_item['icon'] ?> menu-icon"></i>
+                        <span class="nav-text"><?= $menu_item['text'] ?></span>
+                        
+                        <!-- Access indicator untuk role tertentu -->
+                        <?php if($page_key == 'users' && $user_role == 'admin'): ?>
+                            <span class="access-badge admin-only">Admin</span>
+                        <?php elseif($page_key == 'apps' && in_array($user_role, ['admin', 'programmer'])): ?>
+                            <span class="access-badge dev-only">Dev</span>
+                        <?php elseif($page_key == 'reports' && in_array($user_role, ['admin', 'programmer'])): ?>
+                            <span class="access-badge dev-only">Dev</span>
+                        <?php elseif($page_key == 'settings' && $user_role == 'admin'): ?>
+                            <span class="access-badge admin-only">Admin</span>
+                        <?php endif; ?>
+                    </a>
+                <?php endif; ?>
+            <?php endforeach; ?>
+            
+            <!-- Divider -->
+            <div class="menu-divider"></div>
+            
+            <!-- Role-specific additional menus -->
+            <?php if($user_role == 'admin'): ?>
+                <a href="?page=logs" class="menu-item <?php echo ($page=='logs') ? 'menu-active' : ''; ?>">
+                    <i class="fas fa-file-alt menu-icon"></i>
+                    <span class="nav-text">System Logs</span>
+                    <span class="access-badge admin-only">Admin</span>
+                </a>
+                <a href="?page=backup" class="menu-item <?php echo ($page=='backup') ? 'menu-active' : ''; ?>">
+                    <i class="fas fa-database menu-icon"></i>
+                    <span class="nav-text">Backup</span>
+                    <span class="access-badge admin-only">Admin</span>
                 </a>
             <?php endif; ?>
-        <?php endforeach; ?>
-        
-        <!-- Divider -->
-        <div class="menu-divider"></div>
-        
-        <!-- Role-specific additional menus -->
-        <?php if($user_role == 'admin'): ?>
-            <a href="?page=logs" class="menu-item <?php echo ($page=='logs') ? 'menu-active' : ''; ?>">
-                <i class="fas fa-file-alt menu-icon"></i>
-                <span class="nav-text">System Logs</span>
-                <span class="access-badge admin-only">Admin</span>
-            </a>
-            <a href="?page=backup" class="menu-item <?php echo ($page=='backup') ? 'menu-active' : ''; ?>">
-                <i class="fas fa-database menu-icon"></i>
-                <span class="nav-text">Backup</span>
-                <span class="access-badge admin-only">Admin</span>
-            </a>
-        <?php endif; ?>
+        </div>
 
-        <!-- Logout -->
-        <a href="#" onclick="confirmLogout(event); return false;"
-           class="menu-item logout-menu-item"
-           data-tooltip="Logout">
-            <i class="fas fa-sign-out-alt menu-icon"></i>
-            <span class="nav-text">Logout</span>
-        </a>
+        <!-- Logout - Always at bottom -->
+        <div class="logout-section">
+            <a href="#" onclick="confirmLogout(event); return false;"
+               class="menu-item logout-menu-item"
+               data-tooltip="Logout">
+                <i class="fas fa-sign-out-alt menu-icon"></i>
+                <span class="nav-text">Logout</span>
+            </a>
+        </div>
     </div>
 </div>
 
@@ -134,7 +138,7 @@ function hasAccess($menu_roles, $user_role) {
 <div class="overlay" id="overlay"></div>
 
 <style>
-/* Enhanced Sidebar Styling dengan Role-Based Features - FIXED VERSION */
+/* Enhanced Sidebar Styling dengan Role-Based Features - COMPLETELY FIXED VERSION */
 .sidebar {
     background: white;
     width: 256px;
@@ -155,16 +159,25 @@ function hasAccess($menu_roles, $user_role) {
     transform: translateX(-100%);
 }
 
-/* Main content adjustment - Add this class to your main content div */
+/* Main content adjustment - FIXED VERSION */
 .main-content {
     margin-left: 256px;
     min-height: calc(100vh - 60px);
-    transition: margin-left 0.3s ease;
+    transition: margin-left 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     padding: 20px;
+    width: calc(100% - 256px);
+    box-sizing: border-box;
 }
 
 .main-content.sidebar-hidden {
     margin-left: 0;
+    width: 100%;
+}
+
+/* Untuk memastikan konten di tengah saat sidebar hidden */
+body.sidebar-hidden .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
 }
 
 /* Profile Section dengan Role Indicator */
@@ -265,14 +278,29 @@ function hasAccess($menu_roles, $user_role) {
     text-decoration: none;
 }
 
-/* Menu Container */
+/* Menu Container - FIXED VERSION */
 .menu-container {
     flex: 1;
-    padding: 8px 0 16px 0;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Menu Items Container - Scrollable area */
+.menu-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+    min-height: 0;
+}
+
+/* Logout Section - Always at bottom */
+.logout-section {
+    flex-shrink: 0;
+    border-top: 1px solid #fee2e2;
+    padding: 8px 0;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(254,242,242,0.3));
 }
 
 /* Menu Items dengan Access Badges */
@@ -361,20 +389,51 @@ function hasAccess($menu_roles, $user_role) {
     height: 1px;
     background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
     margin: 8px 16px;
+    flex-shrink: 0;
 }
 
-/* Logout Menu Item */
+/* Logout Menu Item - FIXED VERSION */
 .logout-menu-item {
     color: #ef4444 !important;
-    margin-top: auto;
-    border-top: 1px solid #fee2e2;
-    padding-top: 16px !important;
+    background: rgba(254, 242, 242, 0.3) !important;
+    margin: 0 !important;
+    border-left: 4px solid transparent !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.logout-menu-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.05), rgba(220, 38, 38, 0.02));
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
 .logout-menu-item:hover {
-    background: linear-gradient(90deg, rgba(239, 68, 68, 0.08), rgba(220, 38, 38, 0.04)) !important;
+    background: rgba(254, 242, 242, 0.6) !important;
     color: #dc2626 !important;
     border-left-color: #ef4444 !important;
+    transform: translateX(2px);
+    text-decoration: none;
+}
+
+.logout-menu-item:hover::before {
+    opacity: 1;
+}
+
+.logout-menu-item:hover .menu-icon {
+    transform: scale(1.1);
+    color: #dc2626;
+}
+
+.logout-menu-item:active {
+    transform: translateX(0);
+    background: rgba(254, 226, 226, 0.8) !important;
 }
 
 /* Mobile Responsiveness */
@@ -394,6 +453,16 @@ function hasAccess($menu_roles, $user_role) {
     
     .main-content {
         margin-left: 0 !important;
+        width: 100% !important;
+    }
+    
+    .page-content {
+        align-items: stretch; /* Full width di mobile */
+    }
+    
+    .content-wrapper {
+        max-width: none; /* Full width di mobile */
+        padding: 0 16px;
     }
     
     .menu-item {
@@ -494,27 +563,37 @@ function hasAccess($menu_roles, $user_role) {
     outline-offset: 2px;
 }
 
-/* Scrollbar untuk menu container */
-.menu-container::-webkit-scrollbar {
+/* Scrollbar untuk menu items - FIXED VERSION */
+.menu-items::-webkit-scrollbar {
     width: 4px;
 }
 
-.menu-container::-webkit-scrollbar-track {
+.menu-items::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.menu-container::-webkit-scrollbar-thumb {
+.menu-items::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 2px;
 }
 
-.menu-container::-webkit-scrollbar-thumb:hover {
+.menu-items::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+}
+
+/* Smooth transitions for all elements */
+* {
+    box-sizing: border-box;
+}
+
+/* Prevent horizontal scroll on body */
+body {
+    overflow-x: hidden;
 }
 </style>
 
 <script>
-// ENHANCED SIDEBAR TOGGLE SCRIPT - FIXED VERSION
+// ENHANCED SIDEBAR TOGGLE SCRIPT - COMPLETELY FIXED VERSION
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Sidebar script loaded');
     
@@ -522,12 +601,53 @@ document.addEventListener('DOMContentLoaded', function() {
     const sidebar = document.getElementById('sidebar');
     const hamburgerBtn = document.getElementById('hamburgerBtn');
     const overlay = document.getElementById('overlay');
+    const mainContent = document.querySelector('.main-content');
     
     console.log('Elements found:', {
         sidebar: !!sidebar,
         hamburgerBtn: !!hamburgerBtn,
-        overlay: !!overlay
+        overlay: !!overlay,
+        mainContent: !!mainContent
     });
+    
+    // Initialize main content if not exists and wrap existing content
+    if (!mainContent) {
+        // Buat wrapper untuk main content
+        const existingContent = Array.from(document.body.children).filter(child => 
+            !child.classList.contains('sidebar') && 
+            !child.classList.contains('overlay') && 
+            child.tagName !== 'SCRIPT' &&
+            child.tagName !== 'STYLE'
+        );
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'main-content';
+        
+        // Buat page-content wrapper untuk centering
+        const pageContentDiv = document.createElement('div');
+        pageContentDiv.className = 'page-content';
+        
+        // Pindahkan konten yang ada ke dalam wrapper
+        existingContent.forEach(element => {
+            pageContentDiv.appendChild(element);
+        });
+        
+        contentDiv.appendChild(pageContentDiv);
+        document.body.appendChild(contentDiv);
+        console.log('Main content wrapper created with page-content centering');
+    } else if (!mainContent.querySelector('.page-content')) {
+        // Jika main-content ada tapi belum ada page-content wrapper
+        const pageContentDiv = document.createElement('div');
+        pageContentDiv.className = 'page-content';
+        
+        // Pindahkan semua children ke dalam page-content
+        while (mainContent.firstChild) {
+            pageContentDiv.appendChild(mainContent.firstChild);
+        }
+        
+        mainContent.appendChild(pageContentDiv);
+        console.log('Page-content wrapper added to existing main-content');
+    }
     
     // Initialize overlay click handler
     if (overlay) {
@@ -548,10 +668,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // Set initial state based on screen size
+    if (window.innerWidth > 1024) {
+        showDesktopSidebar();
+    }
+    
     console.log('Sidebar initialization complete');
 });
 
-// Main toggle function
+// Main toggle function - FIXED VERSION
 function toggleSidebar() {
     console.log('toggleSidebar called, window width:', window.innerWidth);
     
@@ -615,13 +740,17 @@ function closeMobileSidebar() {
     console.log('Mobile sidebar closed');
 }
 
-// Desktop sidebar functions
+// Desktop sidebar functions - FIXED VERSION
 function showDesktopSidebar() {
     const sidebar = document.getElementById('sidebar');
     const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const mainContent = document.querySelector('.main-content');
     
     sidebar.classList.remove('hidden');
     document.body.classList.remove('sidebar-hidden');
+    if (mainContent) {
+        mainContent.classList.remove('sidebar-hidden');
+    }
     if (hamburgerBtn) hamburgerBtn.classList.remove('active');
     
     console.log('Desktop sidebar shown');
@@ -630,24 +759,29 @@ function showDesktopSidebar() {
 function hideDesktopSidebar() {
     const sidebar = document.getElementById('sidebar');
     const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const mainContent = document.querySelector('.main-content');
     
     sidebar.classList.add('hidden');
     document.body.classList.add('sidebar-hidden');
+    if (mainContent) {
+        mainContent.classList.add('sidebar-hidden');
+    }
     if (hamburgerBtn) hamburgerBtn.classList.add('active');
     
     console.log('Desktop sidebar hidden');
 }
 
-// Handle window resize
+// Handle window resize - FIXED VERSION
 window.addEventListener('resize', function() {
     console.log('Window resized to:', window.innerWidth);
     
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const mainContent = document.querySelector('.main-content');
+    
     if (window.innerWidth > 1024) {
         // Switch to desktop mode - close mobile sidebar if open
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('overlay');
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
-        
         if (sidebar && sidebar.classList.contains('show')) {
             sidebar.classList.remove('show');
             if (overlay) overlay.classList.remove('show');
@@ -655,17 +789,29 @@ window.addEventListener('resize', function() {
             if (hamburgerBtn) hamburgerBtn.classList.remove('active');
             console.log('Closed mobile sidebar on resize');
         }
+        
+        // Ensure proper desktop state
+        if (sidebar && !sidebar.classList.contains('hidden')) {
+            showDesktopSidebar();
+        }
+    } else {
+        // Mobile mode - ensure main content takes full width
+        if (mainContent) {
+            mainContent.classList.remove('sidebar-hidden');
+        }
+        document.body.classList.remove('sidebar-hidden');
     }
 });
 
-// Logout confirmation functions
+// Logout confirmation functions - ENHANCED VERSION
 function confirmLogout(e) {
     e.preventDefault();
+    e.stopPropagation();
     
     const confirmModal = document.createElement('div');
     confirmModal.className = 'logout-confirm-modal';
     confirmModal.innerHTML = `
-        <div class="modal-overlay"></div>
+        <div class="modal-overlay" onclick="cancelLogout()"></div>
         <div class="modal-content">
             <div class="modal-header">
                 <div class="logout-icon">
@@ -676,10 +822,12 @@ function confirmLogout(e) {
             </div>
             <div class="modal-actions">
                 <button onclick="proceedLogout()" class="btn-confirm">
-                    <i class="fas fa-check mr-2"></i>Ya, Logout
+                    <i class="fas fa-check"></i>
+                    <span>Ya, Logout</span>
                 </button>
                 <button onclick="cancelLogout()" class="btn-cancel">
-                    <i class="fas fa-times mr-2"></i>Batal
+                    <i class="fas fa-times"></i>
+                    <span>Batal</span>
                 </button>
             </div>
         </div>
@@ -687,107 +835,135 @@ function confirmLogout(e) {
     
     document.body.appendChild(confirmModal);
     
-    // Add modal styles
-    const style = document.createElement('style');
-    style.id = 'logout-modal-styles';
-    style.innerHTML = `
-    .logout-confirm-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
+    // Add modal styles if not exists
+    if (!document.getElementById('logout-modal-styles')) {
+        const style = document.createElement('style');
+        style.id = 'logout-modal-styles';
+        style.innerHTML = `
+        .logout-confirm-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .logout-confirm-modal .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            animation: fadeIn 0.3s ease;
+            cursor: pointer;
+        }
+        .logout-confirm-modal .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 100%;
+            z-index: 10000;
+        }
+        .logout-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+        }
+        .logout-confirm-modal h3 {
+            margin: 0 0 10px 0;
+            color: #1f2937;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        .logout-confirm-modal p {
+            margin: 0 0 25px 0;
+            color: #6b7280;
+            font-size: 1rem;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        .btn-confirm, .btn-cancel {
+            padding: 12px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 100px;
+            justify-content: center;
+        }
+        .btn-confirm {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+            color: white;
+        }
+        .btn-confirm:hover {
+            background: linear-gradient(90deg, #dc2626, #b91c1c);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        .btn-confirm:active {
+            transform: translateY(0);
+        }
+        .btn-cancel {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        .btn-cancel:hover {
+            background: #e5e7eb;
+            transform: translateY(-1px);
+        }
+        .btn-cancel:active {
+            transform: translateY(0);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 480px) {
+            .modal-actions {
+                flex-direction: column;
+            }
+            .btn-confirm, .btn-cancel {
+                width: 100%;
+            }
+        }
+        `;
+        document.head.appendChild(style);
     }
-    .logout-confirm-modal .modal-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.6);
-        animation: fadeIn 0.3s ease;
-    }
-    .logout-confirm-modal .modal-content {
-        background: white;
-        border-radius: 16px;
-        padding: 30px;
-        text-align: center;
-        position: relative;
-        animation: slideUp 0.3s ease;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-        max-width: 400px;
-        width: 100%;
-    }
-    .logout-icon {
-        width: 60px;
-        height: 60px;
-        background: linear-gradient(135deg, #ef4444, #dc2626);
-        border-radius: 50%;
-        margin: 0 auto 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 1.5rem;
-    }
-    .logout-confirm-modal h3 {
-        margin: 0 0 10px 0;
-        color: #1f2937;
-        font-size: 1.3rem;
-        font-weight: 600;
-    }
-    .logout-confirm-modal p {
-        margin: 0 0 25px 0;
-        color: #6b7280;
-        font-size: 1rem;
-    }
-    .modal-actions {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
-    }
-    .btn-confirm, .btn-cancel {
-        padding: 10px 20px;
-        border-radius: 8px;
-        border: none;
-        cursor: pointer;
-        font-size: 0.9rem;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .btn-confirm {
-        background: linear-gradient(90deg, #ef4444, #dc2626);
-        color: white;
-    }
-    .btn-confirm:hover {
-        background: linear-gradient(90deg, #dc2626, #b91c1c);
-        transform: translateY(-1px);
-    }
-    .btn-cancel {
-        background: #f3f4f6;
-        color: #374151;
-    }
-    .btn-cancel:hover {
-        background: #e5e7eb;
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-    @keyframes slideUp {
-        from { opacity: 0; transform: translateY(30px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    `;
-    document.head.appendChild(style);
+    
+    // Focus on confirm button
+    setTimeout(() => {
+        const confirmBtn = confirmModal.querySelector('.btn-confirm');
+        if (confirmBtn) confirmBtn.focus();
+    }, 100);
     
     return false;
 }
@@ -796,12 +972,12 @@ function proceedLogout() {
     const modal = document.querySelector('.logout-confirm-modal');
     const styles = document.getElementById('logout-modal-styles');
     
-    // Remove modal
+    // Remove modal with animation
     if (modal) {
         modal.style.opacity = '0';
+        modal.style.transform = 'scale(0.95)';
         setTimeout(() => {
             modal.remove();
-            if (styles) styles.remove();
         }, 300);
     }
     
@@ -809,80 +985,121 @@ function proceedLogout() {
     const popup = document.createElement('div');
     popup.className = 'logout-success-popup';
     popup.innerHTML = `
-        <div class="popup-circle">
-            <div class="checkmark">✓</div>
+        <div class="popup-content">
+            <div class="popup-circle">
+                <div class="checkmark">✓</div>
+            </div>
+            <div class="popup-text">Logout berhasil!</div>
         </div>
-        <div class="popup-text">Logout berhasil!</div>
     `;
     document.body.appendChild(popup);
 
-    // Add success popup styles
-    const successStyles = document.createElement('style');
-    successStyles.innerHTML = `
-    .logout-success-popup {
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: white;
-        border-radius: 12px;
-        padding: 15px 25px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        font-weight: bold;
-        color: #10b981;
-        z-index: 10000;
-        opacity: 1;
-        transition: all 0.3s ease;
+    // Add success popup styles if not exists
+    if (!document.getElementById('success-popup-styles')) {
+        const successStyles = document.createElement('style');
+        successStyles.id = 'success-popup-styles';
+        successStyles.innerHTML = `
+        .logout-success-popup {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            opacity: 1;
+            transition: all 0.3s ease;
+        }
+        .popup-content {
+            background: white;
+            border-radius: 12px;
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            border: 1px solid #d1fae5;
+        }
+        .popup-circle {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #10b981;
+            border-radius: 50%;
+            position: relative;
+            animation: spin 0.5s ease forwards;
+            flex-shrink: 0;
+        }
+        .checkmark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 16px;
+            color: #10b981;
+            font-weight: bold;
+            animation: scaleCheck 0.5s 0.5s forwards;
+        }
+        .popup-text { 
+            font-size: 14px;
+            font-weight: 600;
+            color: #10b981;
+        }
+        @keyframes spin { 
+            0%{transform:rotate(0deg);} 
+            100%{transform:rotate(360deg);} 
+        }
+        @keyframes scaleCheck { 
+            0%{transform:translate(-50%,-50%) scale(0);} 
+            50%{transform:translate(-50%,-50%) scale(1.2);} 
+            100%{transform:translate(-50%,-50%) scale(1);} 
+        }
+        `;
+        document.head.appendChild(successStyles);
     }
-    .popup-circle {
-        width: 30px;
-        height: 30px;
-        border: 3px solid #10b981;
-        border-radius: 50%;
-        position: relative;
-        animation: spin 0.5s ease forwards;
-    }
-    .checkmark {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%) scale(0);
-        font-size: 16px;
-        color: #10b981;
-        animation: scaleCheck 0.5s 0.5s forwards;
-    }
-    .popup-text { font-size: 14px; }
-    @keyframes spin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
-    @keyframes scaleCheck { 
-        0%{transform:translate(-50%,-50%) scale(0);} 
-        50%{transform:translate(-50%,-50%) scale(1.2);} 
-        100%{transform:translate(-50%,-50%) scale(1);} 
-    }
-    `;
-    document.head.appendChild(successStyles);
 
-    // Redirect after animation
-    setTimeout(() => { popup.style.opacity = '0'; }, 1800);
+    // Animate popup out and redirect
+    setTimeout(() => { 
+        popup.style.opacity = '0';
+        popup.style.transform = 'translateX(-50%) translateY(-20px)';
+    }, 1800);
+    
     setTimeout(() => { 
         window.location.href = '?logout=1'; 
-    }, 2000);
+    }, 2200);
 }
 
 function cancelLogout() {
     const modal = document.querySelector('.logout-confirm-modal');
-    const styles = document.getElementById('logout-modal-styles');
     
     if (modal) {
         modal.style.opacity = '0';
+        modal.style.transform = 'scale(0.95)';
         setTimeout(() => {
             modal.remove();
-            if (styles) styles.remove();
         }, 300);
     }
 }
+
+// Keyboard navigation for modal
+document.addEventListener('keydown', function(e) {
+    const modal = document.querySelector('.logout-confirm-modal');
+    if (!modal) return;
+    
+    if (e.key === 'Escape') {
+        cancelLogout();
+    } else if (e.key === 'Enter') {
+        const confirmBtn = modal.querySelector('.btn-confirm');
+        if (confirmBtn && document.activeElement === confirmBtn) {
+            proceedLogout();
+        }
+    } else if (e.key === 'Tab') {
+        e.preventDefault();
+        const buttons = modal.querySelectorAll('.btn-confirm, .btn-cancel');
+        const currentIndex = Array.from(buttons).indexOf(document.activeElement);
+        const nextIndex = e.shiftKey ? 
+            (currentIndex <= 0 ? buttons.length - 1 : currentIndex - 1) :
+            (currentIndex >= buttons.length - 1 ? 0 : currentIndex + 1);
+        buttons[nextIndex].focus();
+    }
+});
 
 // Test function for debugging
 function testToggle() {
@@ -899,6 +1116,23 @@ window.debugSidebar = function() {
     console.log('Overlay element:', document.getElementById('overlay'));
     console.log('Main content:', document.querySelector('.main-content'));
     console.log('Sidebar classes:', document.getElementById('sidebar')?.className);
+    console.log('Body classes:', document.body.className);
+    console.log('Main content classes:', document.querySelector('.main-content')?.className);
     console.log('========================');
 }
+
+// Auto-adjust on page load - SIMPLIFIED
+window.addEventListener('load', function() {
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent && window.innerWidth > 1024) {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && sidebar.classList.contains('hidden')) {
+            eleme.classList.add('sidebar-hidden');
+            document.body.classList.add('sidebar-hidden');
+        } else {
+            mainContent.classList.remove('sidebar-hidden');
+            document.body.classList.remove('sidebar-hidden');
+        }
+    }
+});
 </script>
