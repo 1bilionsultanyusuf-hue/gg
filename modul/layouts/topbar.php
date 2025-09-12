@@ -1,10 +1,20 @@
 <?php
 // modul/layouts/topbar.php - Updated with hamburger button
 ?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- FontAwesome untuk ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
 <header class="site-header">
     <div class="header-container">
         <!-- Hamburger Menu Button - LEFT -->
-        <button class="hamburger-menu" id="hamburgerBtn" onclick="toggleSidebar()">
+        <button class="hamburger-menu" id="hamburgerBtn" type="button" aria-label="Toggle Menu">
             <i class="fas fa-bars"></i>
         </button>
 
@@ -92,6 +102,7 @@
     text-decoration: none;
     transition: all 0.3s ease;
     cursor: pointer;
+    margin: 0;
 }
 
 /* Logo styling */
@@ -203,4 +214,32 @@
     outline: 2px solid #fff;
     outline-offset: 2px;
 }
+
+/* Body padding untuk fixed header - REMOVED untuk menghindari konflik */
+/* Padding akan diatur di main-content saja */
 </style>
+
+<script>
+// Initialize hamburger button functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    
+    if (hamburgerBtn) {
+        hamburgerBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Call toggleSidebar function if it exists
+            if (typeof toggleSidebar === 'function') {
+                toggleSidebar();
+            } else {
+                console.warn('toggleSidebar function not found');
+            }
+        });
+        
+        console.log('Hamburger button initialized successfully');
+    } else {
+        console.error('Hamburger button not found');
+    }
+});
+</script>

@@ -133,7 +133,7 @@ include 'modul/layouts/header.php';
     <?php include 'modul/layouts/sidebar.php'; ?>
 
     <!-- Content Area -->
-    <div class="content">
+    <div class="main-content">
         <main class="main-content">
             <?php
             // Display access error message if exists
