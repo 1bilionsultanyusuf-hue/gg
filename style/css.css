@@ -12,29 +12,44 @@ body {
     background: #f9fafb;
     overflow-x: hidden;
     transition: all 0.3s ease;
+    padding-top: 60px; /* Fixed header space */
+}
+
+/* ===== MAIN CONTENT LAYOUT - UNIVERSAL FIX ===== */
+.main-content,
+.content-wrapper,
+main,
+#main-content,
+.page-content,
+.dashboard-container,
+.content {
+    margin-left: 256px;
+    min-height: calc(100vh - 60px);
+    transition: margin-left 0.3s ease;
+    padding: 20px;
+    width: calc(100% - 256px);
+    background: #f9fafb;
+    position: relative;
+}
+
+/* Ketika sidebar hidden di desktop */
+body.sidebar-hidden .main-content,
+body.sidebar-hidden .content-wrapper,
+body.sidebar-hidden main,
+body.sidebar-hidden #main-content,
+body.sidebar-hidden .page-content,
+body.sidebar-hidden .dashboard-container,
+body.sidebar-hidden .content {
+    margin-left: 0;
+    width: 100%;
 }
 
 /* ===== LAYOUT STRUCTURE ===== */
 .content-wrapper {
-    padding-top: 60px;
+    padding-top: 0; /* Reset karena sudah ada di body */
     min-height: 100vh;
     display: flex;
-}
-
-.content {
-    flex: 1;
-    margin-left: 256px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
     flex-direction: column;
-    min-height: calc(100vh - 60px);
-    background: #f9fafb;
-}
-
-main {
-    flex: 1;
-    padding: 2rem;
-    overflow-y: auto;
 }
 
 /* ===== FOOTER STYLING ===== */
@@ -47,6 +62,8 @@ main {
     flex-shrink: 0;
     border-top: 1px solid rgba(255,255,255,0.1);
     box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 10;
 }
 
 .footer-content {
@@ -102,44 +119,56 @@ main {
 
 /* ===== MOBILE RESPONSIVENESS ===== */
 @media (max-width: 1024px) {
-    .content {
-        margin-left: 0 !important;
-        min-height: calc(100vh - 55px);
+    body {
+        padding-top: 55px;
     }
     
-    .content-wrapper {
-        padding-top: 55px;
+    .main-content,
+    .content-wrapper,
+    main,
+    #main-content,
+    .page-content,
+    .dashboard-container,
+    .content {
+        margin-left: 0 !important;
+        width: 100% !important;
+        min-height: calc(100vh - 55px);
+        padding: 15px;
     }
     
     .sidebar {
         top: 55px;
         height: calc(100vh - 55px);
         transform: translateX(-100%);
-        z-index: 50;
+        z-index: 1100;
         width: 280px;
     }
     
     .sidebar.show {
         transform: translateX(0);
         animation: slideInLeft 0.3s ease-out;
+        top: 0;
+        height: 100vh;
     }
     
     .overlay {
         position: fixed;
-        top: 55px;
+        top: 0;
         left: 0;
         right: 0;
         bottom: 0;
         background: rgba(0,0,0,0.5);
-        z-index: 45;
+        z-index: 1050;
         opacity: 0;
         visibility: hidden;
         transition: all 0.3s ease;
+        display: none;
     }
     
     .overlay.show {
         opacity: 1;
         visibility: visible;
+        display: block;
     }
     
     .site-header {
@@ -159,13 +188,19 @@ main {
         font-size: 1rem;
         margin: 0 4px;
     }
-    
-    main {
-        padding: 1.5rem;
-    }
 }
 
 @media (max-width: 768px) {
+    .main-content,
+    .content-wrapper,
+    main,
+    #main-content,
+    .page-content,
+    .dashboard-container,
+    .content {
+        padding: 12px;
+    }
+    
     .sidebar {
         width: 260px;
     }
@@ -204,13 +239,19 @@ main {
         height: 16px;
         padding: 1px 4px;
     }
-    
-    main {
-        padding: 1rem;
-    }
 }
 
 @media (max-width: 480px) {
+    .main-content,
+    .content-wrapper,
+    main,
+    #main-content,
+    .page-content,
+    .dashboard-container,
+    .content {
+        padding: 10px;
+    }
+    
     .sidebar {
         width: 240px;
     }
@@ -244,10 +285,6 @@ main {
     .icon-btn:last-child {
         display: none;
     }
-    
-    main {
-        padding: 0.75rem;
-    }
 }
 
 /* ===== SCROLLBAR STYLING ===== */
@@ -269,15 +306,16 @@ main {
     background: #94a3b8;
 }
 
-/* ===== ADDITIONAL ENHANCEMENTS ===== */
-
-/* Welcome animation for first load */
-body.loaded .sidebar {
-    animation: slideInFromLeft 0.8s ease-out;
-}
-
-body.loaded .content {
-    animation: fadeInContent 0.8s ease-out 0.2s both;
+/* ===== ANIMATIONS ===== */
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+        opacity: 0.8;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 
 @keyframes slideInFromLeft {
@@ -299,5 +337,73 @@ body.loaded .content {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+/* Welcome animation for first load */
+body.loaded .sidebar {
+    animation: slideInFromLeft 0.8s ease-out;
+}
+
+body.loaded .content {
+    animation: fadeInContent 0.8s ease-out 0.2s both;
+}
+
+/* ===== UTILITY CLASSES ===== */
+.no-margin-left {
+    margin-left: 0 !important;
+    width: 100% !important;
+}
+
+.full-width {
+    width: 100% !important;
+    margin-left: 0 !important;
+}
+
+/* Emergency responsive fix */
+@media (max-width: 1024px) {
+    .container,
+    .wrapper,
+    .page-wrapper,
+    .app-container {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+}
+
+/* Make sure all content areas work properly */
+.dashboard-container,
+.profile-container,
+.settings-container,
+.reports-container,
+.backup-container,
+.logs-container,
+.apps-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+@media (max-width: 768px) {
+    .dashboard-container,
+    .profile-container,
+    .settings-container,
+    .reports-container,
+    .backup-container,
+    .logs-container,
+    .apps-container {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-container,
+    .profile-container,
+    .settings-container,
+    .reports-container,
+    .backup-container,
+    .logs-container,
+    .apps-container {
+        padding: 12px;
     }
 }
