@@ -40,9 +40,6 @@ $role_access = [
     'profile' => ['admin', 'manager', 'programmer', 'support'],
     'taken' => ['admin', 'manager', 'programmer', 'support'],
     'reports' => ['admin', 'manager', 'programmer'],
-    'settings' => ['admin'],
-    'logs' => ['admin'],
-    'backup' => ['admin'],
     'logout' => ['admin', 'manager', 'programmer', 'support']
 ];
 
@@ -168,15 +165,6 @@ include 'modul/layouts/header.php';
             case 'reports':
                 include "modul/reports/reports.php";
                 break;
-            case 'settings':
-                include "modul/settings/settings.php";
-                break;
-            case 'logs':
-                include "modul/admin/logs.php";
-                break;
-            case 'backup':
-                include "modul/admin/backup.php";
-                break;
             case 'logout':
                 include "modul/auth/logout.php";
                 break;
@@ -220,9 +208,6 @@ include 'modul/layouts/header.php';
     <!-- Overlay for Mobile -->
     <div id="overlay" class="overlay"></div>
 </div>
-
-<!-- Scripts -->
-<script src="style/js/main.js"></script>
 
 <!-- Access Error Alert Styles -->
 <style>

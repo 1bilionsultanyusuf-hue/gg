@@ -1015,15 +1015,6 @@ function exportReport() {
         summary: 'Development Reports - ' + new Date().toLocaleDateString()
     };
     
-    // Create downloadable JSON file
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "development_report_" + new Date().toISOString().split('T')[0] + ".json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-    
     // You can replace this with actual PDF/Excel export functionality
     setTimeout(() => {
         alert('Report exported successfully! You can integrate this with libraries like jsPDF or xlsx for PDF/Excel export.');

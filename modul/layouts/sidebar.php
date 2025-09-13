@@ -104,23 +104,7 @@ function hasAccess($menu_roles, $user_role) {
                 <?php endif; ?>
             <?php endforeach; ?>
             
-            <!-- Divider -->
-            <div class="menu-divider"></div>
-            
-            <!-- Role-specific additional menus -->
-            <?php if($user_role == 'admin'): ?>
-                <a href="?page=logs" class="menu-item <?php echo ($page=='logs') ? 'menu-active' : ''; ?>">
-                    <i class="fas fa-file-alt menu-icon"></i>
-                    <span class="nav-text">System Logs</span>
-                    <span class="access-badge admin-only">Admin</span>
-                </a>
-                <a href="?page=backup" class="menu-item <?php echo ($page=='backup') ? 'menu-active' : ''; ?>">
-                    <i class="fas fa-database menu-icon"></i>
-                    <span class="nav-text">Backup</span>
-                    <span class="access-badge admin-only">Admin</span>
-                </a>
-            <?php endif; ?>
-        </div>
+          
 
         <!-- Logout - Always at bottom -->
         <div class="logout-section">
