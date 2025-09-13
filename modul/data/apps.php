@@ -152,69 +152,81 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
         </div>
     </div>
     
-    <!-- Applications Grid -->
-    <div class="apps-grid">
-        <?php while($app = $apps_result->fetch_assoc()): ?>
-        <div class="app-card" data-app-id="<?= $app['id'] ?>">
-            <div class="app-card-header">
-                <div class="app-icon">
-                    <i class="fas fa-<?= getAppIcon($app['name']) ?>"></i>
-                </div>
-                <div class="app-actions">
-                    <button class="action-btn" onclick="editApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($app['description'], ENT_QUOTES) ?>')" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="action-btn danger" onclick="deleteApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            
-            <div class="app-content">
-                <h3 class="app-title"><?= htmlspecialchars($app['name']) ?></h3>
-                <p class="app-description">
-                    <?= htmlspecialchars(substr($app['description'], 0, 120)) ?>
-                    <?= strlen($app['description']) > 120 ? '...' : '' ?>
-                </p>
-            </div>
-            
-            <div class="app-stats">
-                <div class="stat-item">
-                    <span class="stat-value"><?= $app['total_todos'] ?></span>
-                    <span class="stat-name">Total</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-value active"><?= $app['active_todos'] ?></span>
-                    <span class="stat-name">Aktif</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-value completed"><?= $app['completed_todos'] ?></span>
-                    <span class="stat-name">Selesai</span>
-                </div>
-            </div>
-            
-            <div class="app-footer">
-                <div class="progress-bar">
-                    <div class="progress-fill" 
-                         style="width: <?= $app['total_todos'] > 0 ? ($app['completed_todos'] / $app['total_todos']) * 100 : 0 ?>%">
-                    </div>
-                </div>
-                <span class="progress-text">
-                    <?= $app['total_todos'] > 0 ? round(($app['completed_todos'] / $app['total_todos']) * 100) : 0 ?>% Complete
-                </span>
-            </div>
+    <!-- Applications List -->
+    <div class="apps-container">
+        <div class="section-header">
+            <h2 class="section-title">Daftar Aplikasi</h2>
+            <span class="section-count"><?= $total_apps ?> aplikasi</span>
         </div>
-        <?php endwhile; ?>
         
-        <!-- Add New App Card -->
-        <div class="app-card add-new-card" onclick="openAddAppModal()">
+        <!-- Add New App Button -->
+        <div class="app-list-item add-new-item" onclick="openAddAppModal()">
             <div class="add-new-content">
                 <div class="add-new-icon">
                     <i class="fas fa-plus"></i>
                 </div>
-                <h3>Tambah Aplikasi Baru</h3>
-                <p>Klik untuk menambahkan aplikasi</p>
+                <div class="add-new-text">
+                    <h3>Tambah Aplikasi Baru</h3>
+                    <p>Klik untuk menambahkan aplikasi</p>
+                </div>
             </div>
+        </div>
+        
+        <div class="apps-list">
+            <?php while($app = $apps_result->fetch_assoc()): ?>
+            <div class="app-list-item" data-app-id="<?= $app['id'] ?>">
+                <div class="app-list-icon">
+                    <i class="fas fa-<?= getAppIcon($app['name']) ?>"></i>
+                </div>
+                
+                <div class="app-list-content">
+                    <div class="app-list-main">
+                        <h3 class="app-list-title"><?= htmlspecialchars($app['name']) ?></h3>
+                        <p class="app-list-description">
+                            <?= htmlspecialchars(substr($app['description'], 0, 80)) ?>
+                            <?= strlen($app['description']) > 80 ? '...' : '' ?>
+                        </p>
+                    </div>
+                    
+                    <div class="app-list-stats">
+                        <div class="stat-badge total">
+                            <span class="stat-number"><?= $app['total_todos'] ?></span>
+                            <span class="stat-label">Total</span>
+                        </div>
+                        <div class="stat-badge active">
+                            <span class="stat-number"><?= $app['active_todos'] ?></span>
+                            <span class="stat-label">Aktif</span>
+                        </div>
+                        <div class="stat-badge completed">
+                            <span class="stat-number"><?= $app['completed_todos'] ?></span>
+                            <span class="stat-label">Selesai</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="app-list-progress">
+                    <div class="progress-info">
+                        <span class="progress-percentage">
+                            <?= $app['total_todos'] > 0 ? round(($app['completed_todos'] / $app['total_todos']) * 100) : 0 ?>%
+                        </span>
+                    </div>
+                    <div class="progress-bar-small">
+                        <div class="progress-fill-small" 
+                             style="width: <?= $app['total_todos'] > 0 ? ($app['completed_todos'] / $app['total_todos']) * 100 : 0 ?>%">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="app-list-actions">
+                    <button class="action-btn-small edit" onclick="editApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($app['description'], ENT_QUOTES) ?>')" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn-small delete" onclick="deleteApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <?php endwhile; ?>
         </div>
     </div>
 </div>
@@ -437,59 +449,242 @@ function getAppIcon($appName) {
     opacity: 0.9;
 }
 
-/* Apps Grid */
-.apps-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 24px;
-}
-
-.app-card {
+/* Apps Container */
+.apps-container {
     background: white;
     border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     overflow: hidden;
-    transition: all 0.3s ease;
 }
 
-.app-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-}
-
-.app-card-header {
-    padding: 20px 24px 0;
+.section-header {
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid #f3f4f6;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
 }
 
-.app-icon {
-    width: 50px;
-    height: 50px;
+.section-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.section-count {
+    color: #6b7280;
+    font-size: 0.9rem;
+    background: #f3f4f6;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+/* Apps List */
+.apps-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.apps-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.apps-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.apps-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.apps-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.app-list-item {
+    display: flex;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.app-list-item:hover {
+    background: #f8fafc;
+}
+
+.app-list-item:last-child {
+    border-bottom: none;
+}
+
+/* Add New Item */
+.add-new-item {
+    border: 2px dashed #d1d5db !important;
+    background: #f9fafb !important;
+    margin: 16px 24px;
     border-radius: 12px;
+    justify-content: center;
+}
+
+.add-new-item:hover {
+    border-color: #0066ff !important;
+    background: #eff6ff !important;
+}
+
+.add-new-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #6b7280;
+}
+
+.add-new-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #0066ff, #33ccff);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.add-new-text h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    color: #374151;
+}
+
+.add-new-text p {
+    font-size: 0.85rem;
+    margin: 0;
+    color: #9ca3af;
+}
+
+/* App List Item Components */
+.app-list-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
     background: linear-gradient(135deg, #0066ff, #33ccff);
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
+    margin-right: 16px;
+    flex-shrink: 0;
 }
 
-.app-actions {
+.app-list-content {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.app-list-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.app-list-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 4px 0;
+}
+
+.app-list-description {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.app-list-stats {
+    display: flex;
+    gap: 12px;
+    margin-right: 20px;
+}
+
+.stat-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 50px;
+}
+
+.stat-badge .stat-number {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.stat-badge.total .stat-number { color: #3b82f6; }
+.stat-badge.active .stat-number { color: #f59e0b; }
+.stat-badge.completed .stat-number { color: #10b981; }
+
+.stat-badge .stat-label {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+.app-list-progress {
+    width: 80px;
+    margin-right: 20px;
+    flex-shrink: 0;
+}
+
+.progress-info {
+    text-align: center;
+    margin-bottom: 6px;
+}
+
+.progress-percentage {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.progress-bar-small {
+    width: 100%;
+    height: 4px;
+    background: #f3f4f6;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progress-fill-small {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    transition: width 0.3s ease;
+}
+
+.app-list-actions {
     display: flex;
     gap: 8px;
     opacity: 0;
     transition: opacity 0.3s ease;
+    flex-shrink: 0;
 }
 
-.app-card:hover .app-actions {
+.app-list-item:hover .app-list-actions {
     opacity: 1;
 }
 
-.action-btn {
-    width: 32px;
-    height: 32px;
+.action-btn-small {
+    width: 30px;
+    height: 30px;
     border-radius: 6px;
     border: none;
     background: #f8fafc;
@@ -499,116 +694,21 @@ function getAppIcon($appName) {
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 0.8rem;
 }
 
-.action-btn:hover {
-    background: #e2e8f0;
+.action-btn-small:hover {
+    transform: scale(1.1);
 }
 
-.action-btn.danger:hover {
+.action-btn-small.edit:hover {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.action-btn-small.delete:hover {
     background: #fee2e2;
     color: #dc2626;
-}
-
-.app-content {
-    padding: 20px 24px;
-}
-
-.app-title {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 8px;
-}
-
-.app-description {
-    color: #6b7280;
-    font-size: 0.9rem;
-    line-height: 1.5;
-}
-
-.app-stats {
-    padding: 0 24px 20px;
-    display: flex;
-    justify-content: space-between;
-}
-
-.stat-item {
-    text-align: center;
-}
-
-.stat-value {
-    display: block;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1f2937;
-}
-
-.stat-value.active { color: #f59e0b; }
-.stat-value.completed { color: #10b981; }
-
-.stat-name {
-    font-size: 0.8rem;
-    color: #9ca3af;
-}
-
-.app-footer {
-    padding: 20px 24px;
-    border-top: 1px solid #f3f4f6;
-}
-
-.progress-bar {
-    width: 100%;
-    height: 6px;
-    background: #f3f4f6;
-    border-radius: 3px;
-    overflow: hidden;
-    margin-bottom: 8px;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #10b981, #34d399);
-    transition: width 0.3s ease;
-}
-
-.progress-text {
-    font-size: 0.8rem;
-    color: #6b7280;
-}
-
-.add-new-card {
-    border: 2px dashed #d1d5db;
-    background: #f9fafb;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 300px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.add-new-card:hover {
-    border-color: #0066ff;
-    background: #eff6ff;
-}
-
-.add-new-content {
-    text-align: center;
-    color: #6b7280;
-}
-
-.add-new-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #0066ff, #33ccff);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    margin: 0 auto 16px;
 }
 
 /* Modal Styles */
@@ -750,12 +850,47 @@ function getAppIcon($appName) {
         text-align: center;
     }
     
-    .apps-grid {
-        grid-template-columns: 1fr;
+    .app-list-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .app-list-stats {
+        margin-right: 0;
+        gap: 8px;
+    }
+    
+    .app-list-progress {
+        width: 100%;
+        margin-right: 0;
     }
     
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .add-new-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .apps-list {
+        max-height: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-list-item {
+        padding: 12px 16px;
+    }
+    
+    .section-header {
+        padding: 20px 16px 12px;
+    }
+    
+    .add-new-item {
+        margin: 12px 16px;
     }
 }
 </style>
