@@ -104,7 +104,7 @@ $app_performance = $koneksi->query("
             </div>
             <div class="stat-info-compact">
                 <h3><?= $active_tasks ?></h3>
-                <p>Aktif</p>
+                <p>Taken</p>
             </div>
         </a>
 
