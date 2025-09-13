@@ -488,8 +488,3 @@ setTimeout(() => {
             Login
         </button>
     </form>
-
-    <!-- Register Link -->
-    <div class="register-link">
-        <p>Belum punya akun? <a href="register.php">Daftar di sini</a></p>
-    </div>

@@ -24,15 +24,16 @@ main,
 .dashboard-container,
 .content {
     margin-left: 256px;
-    min-height: calc(100vh - 60px);
-    transition: margin-left 0.3s ease;
-    padding: 20px;
     width: calc(100% - 256px);
+    min-height: calc(100vh - 60px);
+    transition: all 0.3s ease;
+    padding: 20px;
     background: #f9fafb;
     position: relative;
+    display: block;
 }
 
-/* Ketika sidebar hidden di desktop */
+/* ✅ FIX: gunakan hanya body.sidebar-hidden, hapus duplikat .main-content.sidebar-hidden */
 body.sidebar-hidden .main-content,
 body.sidebar-hidden .content-wrapper,
 body.sidebar-hidden main,
@@ -379,9 +380,9 @@ body.loaded .content {
 .backup-container,
 .logs-container,
 .apps-container {
-    max-width: 100%;
-    margin: 0 auto;
-    padding: 20px;
+    width: 100%;
+    margin: 0;
+    padding: 20px 20px 20px 10px;
 }
 
 @media (max-width: 768px) {
