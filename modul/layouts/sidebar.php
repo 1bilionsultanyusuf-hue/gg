@@ -113,11 +113,6 @@ function hasAccess($menu_roles, $user_role) {
                 <span class="nav-text">System Logs</span>
                 <span class="access-badge admin-only">Admin</span>
             </a>
-            <a href="?page=backup" class="menu-item <?php echo ($page=='backup') ? 'menu-active' : ''; ?>">
-                <i class="fas fa-database menu-icon"></i>
-                <span class="nav-text">Backup</span>
-                <span class="access-badge admin-only">Admin</span>
-            </a>
         <?php endif; ?>
 
         <!-- Logout -->
