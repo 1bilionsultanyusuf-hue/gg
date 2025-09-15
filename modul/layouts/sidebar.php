@@ -78,6 +78,7 @@ function hasAccess($menu_roles, $user_role) {
 
     <!-- Navigation Menu -->
     <div class="menu-container">
+
         <div class="menu-items">
             <?php foreach($menu_items as $page_key => $menu_item): ?>
                 <?php if(hasAccess($menu_item['roles'], $user_role)): ?>
@@ -98,6 +99,40 @@ function hasAccess($menu_roles, $user_role) {
                     </a>
                 <?php endif; ?>
             <?php endforeach; ?>
+
+        <?php foreach($menu_items as $page_key => $menu_item): ?>
+            <?php if(hasAccess($menu_item['roles'], $user_role)): ?>
+                <a href="?page=<?= $page_key ?>"
+                   class="menu-item <?php echo ($page == $page_key) ? 'menu-active' : ''; ?>"
+                   data-tooltip="<?= $menu_item['tooltip'] ?>">
+                    <i class="<?= $menu_item['icon'] ?> menu-icon"></i>
+                    <span class="nav-text"><?= $menu_item['text'] ?></span>
+                    
+                    <!-- Access indicator untuk role tertentu -->
+                    <?php if($page_key == 'users' && $user_role == 'admin'): ?>
+                        <span class="access-badge admin-only">Admin</span>
+                    <?php elseif($page_key == 'apps' && in_array($user_role, ['admin', 'programmer'])): ?>
+                        <span class="access-badge dev-only">Dev</span>
+                    <?php elseif($page_key == 'reports' && in_array($user_role, ['admin', 'programmer'])): ?>
+                        <span class="access-badge dev-only">Dev</span>
+                    <?php elseif($page_key == 'settings' && $user_role == 'admin'): ?>
+                        <span class="access-badge admin-only">Admin</span>
+                    <?php endif; ?>
+                </a>
+            <?php endif; ?>
+        <?php endforeach; ?>
+        
+        <!-- Divider -->
+        <div class="menu-divider"></div>
+        
+        <!-- Role-specific additional menus -->
+        <?php if($user_role == 'admin'): ?>
+            <a href="?page=logs" class="menu-item <?php echo ($page=='logs') ? 'menu-active' : ''; ?>">
+                <i class="fas fa-file-alt menu-icon"></i>
+                <span class="nav-text">System Logs</span>
+                <span class="access-badge admin-only">Admin</span>
+            </a>
+        <?php endif; ?>
 
         </div>
 
