@@ -95,6 +95,30 @@ if (isset($_POST['delete_user'])) {
     }
 }
 
+// Handle filter
+$role_filter = isset($_GET['role']) ? $_GET['role'] : '';
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+// Build query with filters
+$where_conditions = [];
+$params = [];
+$param_types = '';
+
+if (!empty($role_filter)) {
+    $where_conditions[] = "u.role = ?";
+    $params[] = $role_filter;
+    $param_types .= 's';
+}
+
+if (!empty($search)) {
+    $where_conditions[] = "(u.name LIKE ? OR u.email LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $param_types .= 'ss';
+}
+
+$where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+
 // Get users data with todo statistics
 $users_query = "
     SELECT u.*, 
@@ -105,10 +129,19 @@ $users_query = "
     FROM users u
     LEFT JOIN todos t ON u.id = t.user_id
     LEFT JOIN taken tk ON t.id = tk.id_todos AND tk.user_id = u.id
+    $where_clause
     GROUP BY u.id
     ORDER BY u.name
 ";
-$users_result = $koneksi->query($users_query);
+
+if (!empty($params)) {
+    $stmt = $koneksi->prepare($users_query);
+    $stmt->bind_param($param_types, ...$params);
+    $stmt->execute();
+    $users_result = $stmt->get_result();
+} else {
+    $users_result = $koneksi->query($users_query);
+}
 
 // Get user statistics
 $total_users = $koneksi->query("SELECT COUNT(*) as count FROM users")->fetch_assoc()['count'];
@@ -139,6 +172,14 @@ function getProfilePhoto($user) {
     $name = urlencode($user['name']);
     
     return "https://ui-avatars.com/api/?name={$name}&background=" . substr($role_color, 1) . "&color=fff&size=80";
+}
+
+function getGenderIcon($gender) {
+    return $gender == 'female' ? 'fas fa-venus' : 'fas fa-mars';
+}
+
+function getGenderText($gender) {
+    return $gender == 'female' ? 'Perempuan' : 'Laki-laki';
 }
 ?>
 
@@ -218,76 +259,143 @@ function getProfilePhoto($user) {
         </div>
     </div>
 
-    <!-- Users Grid -->
-    <div class="users-grid">
-        <?php while($user = $users_result->fetch_assoc()): ?>
-        <div class="user-card">
-            <div class="user-card-header">
-                <div class="user-avatar">
-                    <img src="<?= getProfilePhoto($user) ?>" 
-                         alt="<?= htmlspecialchars($user['name']) ?>"
-                         onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($user['name']) ?>&background=<?= substr(getRoleColor($user['role']), 1) ?>&color=fff&size=80'">
-                </div>
-                <div class="user-role-badge role-<?= $user['role'] ?>">
-                    <i class="<?= getRoleIcon($user['role']) ?>"></i>
-                    <?= ucfirst($user['role']) ?>
-                </div>
-                <div class="user-actions">
-                    <button class="action-btn edit-btn" 
-                            onclick="editUser(<?= $user['id'] ?>,'<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>','<?= htmlspecialchars($user['email'], ENT_QUOTES) ?>','<?= $user['role'] ?>','<?= $user['gender'] ?? 'male' ?>')" 
-                            title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <?php if($_SESSION['user_role'] == 'admin' && $user['id'] != $_SESSION['user_id']): ?>
-                    <button class="action-btn delete-btn" 
-                            onclick="deleteUser(<?= $user['id'] ?>,'<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>')" 
-                            title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    <?php endif; ?>
-                </div>
+    <!-- Users Container -->
+    <div class="users-container">
+        <div class="section-header">
+            <div class="section-title-container">
+                <h2 class="section-title">Daftar Pengguna</h2>
+                <span class="section-count"><?= $users_result->num_rows ?> pengguna</span>
             </div>
             
-            <div class="user-content">
-                <h3 class="user-name"><?= htmlspecialchars($user['name']) ?></h3>
-                <p class="user-email"><?= htmlspecialchars($user['email']) ?></p>
-                <div class="user-gender">
-                    <i class="fas fa-<?= ($user['gender'] ?? 'male') == 'male' ? 'mars' : 'venus' ?>"></i>
-                    <span><?= ($user['gender'] ?? 'male') == 'male' ? 'Laki-laki' : 'Perempuan' ?></span>
+            <!-- Filters -->
+            <div class="filters-container">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Cari nama atau email..." 
+                           value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
                 </div>
                 
-                <div class="user-stats">
-                    <div class="stat-item">
-                        <span class="stat-value"><?= $user['total_todos'] ?></span>
-                        <span class="stat-name">Total</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value active"><?= $user['active_todos'] ?></span>
-                        <span class="stat-name">Aktif</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value completed"><?= $user['completed_todos'] ?></span>
-                        <span class="stat-name">Selesai</span>
-                    </div>
+                <div class="filter-dropdown">
+                    <select id="roleFilter" onchange="applyFilters()">
+                        <option value="">Semua Role</option>
+                        <option value="admin" <?= $role_filter == 'admin' ? 'selected' : '' ?>>Administrator</option>
+                        <option value="programmer" <?= $role_filter == 'programmer' ? 'selected' : '' ?>>Programmer</option>
+                        <option value="support" <?= $role_filter == 'support' ? 'selected' : '' ?>>Support</option>
+                    </select>
                 </div>
                 
-                <div class="user-activity">
-                    <i class="fas fa-clock"></i>
-                    <span>Terakhir: <?= $user['last_activity'] ? date('d/m/Y', strtotime($user['last_activity'])) : 'Belum ada aktivitas' ?></span>
-                </div>
+                <?php if ($role_filter || $search): ?>
+                <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
+                    <i class="fas fa-times"></i>
+                </button>
+                <?php endif; ?>
             </div>
         </div>
-        <?php endwhile; ?>
-
-        <!-- Add New User Card -->
-        <div class="user-card add-new-card" onclick="openAddUserModal()">
+        
+        <!-- Add New User Button -->
+        <div class="user-list-item add-new-item" onclick="openAddUserModal()">
             <div class="add-new-content">
                 <div class="add-new-icon">
                     <i class="fas fa-user-plus"></i>
                 </div>
-                <h3>Tambah Pengguna</h3>
-                <p>Klik untuk menambahkan pengguna baru</p>
+                <div class="add-new-text">
+                    <h3>Tambah Pengguna Baru</h3>
+                    <p>Klik untuk menambahkan pengguna baru</p>
+                </div>
             </div>
+        </div>
+        
+        <!-- Users List -->
+        <div class="users-list">
+            <?php if ($users_result->num_rows > 0): ?>
+                <?php while($user = $users_result->fetch_assoc()): ?>
+                <div class="user-list-item" data-user-id="<?= $user['id'] ?>">
+                    <div class="user-avatar-container">
+                        <img src="<?= getProfilePhoto($user) ?>" 
+                             alt="<?= htmlspecialchars($user['name']) ?>"
+                             class="user-avatar-list"
+                             onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($user['name']) ?>&background=<?= substr(getRoleColor($user['role']), 1) ?>&color=fff&size=80'">
+                        <div class="user-role-badge-small role-<?= $user['role'] ?>">
+                            <i class="<?= getRoleIcon($user['role']) ?>"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="user-list-content">
+                        <div class="user-list-main">
+                            <div class="user-name-section">
+                                <h3 class="user-list-name"><?= htmlspecialchars($user['name']) ?></h3>
+                                <span class="user-role-text"><?= ucfirst($user['role']) ?></span>
+                            </div>
+                            <div class="user-details">
+                                <span class="user-email">
+                                    <i class="fas fa-envelope"></i>
+                                    <?= htmlspecialchars($user['email']) ?>
+                                </span>
+                                <span class="user-gender">
+                                    <i class="<?= getGenderIcon($user['gender'] ?? 'male') ?>"></i>
+                                    <?= getGenderText($user['gender'] ?? 'male') ?>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="user-list-stats">
+                            <div class="stat-badge total">
+                                <span class="stat-number"><?= $user['total_todos'] ?></span>
+                                <span class="stat-label">Total</span>
+                            </div>
+                            <div class="stat-badge active">
+                                <span class="stat-number"><?= $user['active_todos'] ?></span>
+                                <span class="stat-label">Aktif</span>
+                            </div>
+                            <div class="stat-badge completed">
+                                <span class="stat-number"><?= $user['completed_todos'] ?></span>
+                                <span class="stat-label">Selesai</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="user-list-progress">
+                        <div class="progress-info">
+                            <span class="progress-percentage">
+                                <?= $user['total_todos'] > 0 ? round(($user['completed_todos'] / $user['total_todos']) * 100) : 0 ?>%
+                            </span>
+                        </div>
+                        <div class="progress-bar-small">
+                            <div class="progress-fill-small" 
+                                 style="width: <?= $user['total_todos'] > 0 ? ($user['completed_todos'] / $user['total_todos']) * 100 : 0 ?>%">
+                            </div>
+                        </div>
+                        <div class="last-activity">
+                            <i class="fas fa-clock"></i>
+                            <span><?= $user['last_activity'] ? date('d/m/Y', strtotime($user['last_activity'])) : 'Belum ada' ?></span>
+                        </div>
+                    </div>
+                    
+                    <div class="user-list-actions">
+                        <button class="action-btn-small edit" 
+                                onclick="editUser(<?= $user['id'] ?>,'<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>','<?= htmlspecialchars($user['email'], ENT_QUOTES) ?>','<?= $user['role'] ?>','<?= $user['gender'] ?? 'male' ?>')" 
+                                title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <?php if($_SESSION['user_role'] == 'admin' && $user['id'] != $_SESSION['user_id']): ?>
+                        <button class="action-btn-small delete" 
+                                onclick="deleteUser(<?= $user['id'] ?>,'<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>')" 
+                                title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <div class="no-data">
+                    <div class="no-data-icon">
+                        <i class="fas fa-user-slash"></i>
+                    </div>
+                    <h3>Tidak ada pengguna ditemukan</h3>
+                    <p>Tidak ada pengguna yang sesuai dengan filter yang diterapkan.</p>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -390,6 +498,7 @@ function openAddUserModal() {
     document.getElementById('passwordRequiredText').style.display = 'inline';
     document.getElementById('passwordHelp').style.display = 'none';
     document.getElementById('userPassword').required = true;
+    document.body.style.overflow = 'hidden';
 }
 
 function editUser(id, name, email, role, gender) {
@@ -406,21 +515,57 @@ function editUser(id, name, email, role, gender) {
     document.getElementById('passwordHelp').style.display = 'block';
     document.getElementById('userPassword').required = false;
     document.getElementById('userPassword').value = '';
+    document.body.style.overflow = 'hidden';
 }
 
 function closeUserModal() {
     document.getElementById('userModal').classList.remove('show');
     document.getElementById('userForm').reset();
+    document.body.style.overflow = '';
 }
 
 function deleteUser(id, name) {
     document.getElementById('deleteModal').classList.add('show');
     document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus pengguna "${name}"?`;
     document.getElementById('deleteUserId').value = id;
+    document.body.style.overflow = 'hidden';
 }
 
 function closeDeleteModal() {
     document.getElementById('deleteModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+// Filter functions
+function applyFilters() {
+    const roleFilter = document.getElementById('roleFilter').value;
+    const searchValue = document.getElementById('searchInput').value;
+    
+    let url = new URL(window.location);
+    url.searchParams.delete('role');
+    url.searchParams.delete('search');
+    
+    if (roleFilter) {
+        url.searchParams.set('role', roleFilter);
+    }
+    if (searchValue) {
+        url.searchParams.set('search', searchValue);
+    }
+    
+    window.location.href = url.toString();
+}
+
+function handleSearch(event) {
+    if (event.key === 'Enter') {
+        applyFilters();
+    }
+}
+
+function clearFilters() {
+    let url = new URL(window.location);
+    url.searchParams.delete('role');
+    url.searchParams.delete('search');
+    window.location.href = url.toString();
 }
 
 // Close modal when clicking outside
@@ -602,91 +747,382 @@ document.addEventListener('DOMContentLoaded', function() {
     margin: 0;
 }
 
-/* Users Grid */
-.users-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 24px;
-}
-
-.user-card {
+/* Users Container */
+.users-container {
     background: white;
     border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     overflow: hidden;
-    transition: all 0.3s ease;
-    border: 1px solid #f1f5f9;
 }
 
-.user-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-}
-
-.user-card-header {
-    padding: 20px 24px 16px;
+.section-header {
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid #f3f4f6;
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
-    position: relative;
+    flex-wrap: wrap;
+    gap: 16px;
 }
 
-.user-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    overflow: hidden;
-    margin-bottom: 12px;
-    border: 4px solid #f8fafc;
-    position: relative;
+.section-title-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-.user-avatar img {
+.section-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.section-count {
+    color: #6b7280;
+    font-size: 0.9rem;
+    background: #f3f4f6;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+/* Filters Container */
+.filters-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.search-box {
+    position: relative;
+    min-width: 250px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+.search-box input {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.3s ease;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
 }
 
-.user-card:hover .user-avatar img {
+.search-box input:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.filter-dropdown select {
+    padding: 10px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+    min-width: 150px;
+    transition: all 0.3s ease;
+}
+
+.filter-dropdown select:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.btn-clear-filter {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #dc2626;
+    background: #fee2e2;
+    color: #dc2626;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-clear-filter:hover {
+    background: #fecaca;
     transform: scale(1.1);
 }
 
-.user-role-badge {
+/* Users List */
+.users-list {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.users-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.users-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.users-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.users-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.user-list-item {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 16px;
-    font-size: 0.8rem;
-    font-weight: 500;
+    padding: 16px 24px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.user-list-item:hover {
+    background: #f8fafc;
+}
+
+.user-list-item:last-child {
+    border-bottom: none;
+}
+
+/* Add New Item */
+.add-new-item {
+    border: 2px dashed #d1d5db !important;
+    background: #f9fafb !important;
+    margin: 16px 24px;
+    border-radius: 12px;
+    justify-content: center;
+}
+
+.add-new-item:hover {
+    border-color: #0066ff !important;
+    background: #eff6ff !important;
+}
+
+.add-new-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #6b7280;
+}
+
+.add-new-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #0066ff, #33ccff);
     color: white;
-    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.add-new-text h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    color: #374151;
+}
+
+.add-new-text p {
+    font-size: 0.85rem;
+    margin: 0;
+    color: #9ca3af;
+}
+
+/* User Avatar Container */
+.user-avatar-container {
+    position: relative;
+    margin-right: 16px;
+    flex-shrink: 0;
+}
+
+.user-avatar-list {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #f8fafc;
+}
+
+.user-role-badge-small {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    color: white;
+    border: 2px solid white;
 }
 
 .role-admin { background: linear-gradient(90deg, #dc2626, #ef4444); }
 .role-programmer { background: linear-gradient(90deg, #0066ff, #33ccff); }
 .role-support { background: linear-gradient(90deg, #10b981, #34d399); }
 
-.user-actions {
-    position: absolute;
-    top: 16px;
-    right: 16px;
+/* User List Content */
+.user-list-content {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    min-width: 0;
+}
+
+.user-list-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.user-list-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.user-role-text {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: white;
+    background: #6b7280;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+}
+
+.user-details {
+    display: flex;
+    gap: 20px;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.user-email,
+.user-gender {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.user-list-stats {
+    display: flex;
+    gap: 16px;
+    margin-right: 20px;
+}
+
+.stat-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 45px;
+}
+
+.stat-badge .stat-number {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.stat-badge.total .stat-number { color: #3b82f6; }
+.stat-badge.active .stat-number { color: #f59e0b; }
+.stat-badge.completed .stat-number { color: #10b981; }
+
+.stat-badge .stat-label {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+.user-list-progress {
+    width: 100px;
+    margin-right: 20px;
+    flex-shrink: 0;
+}
+
+.progress-info {
+    text-align: center;
+    margin-bottom: 6px;
+}
+
+.progress-percentage {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.progress-bar-small {
+    width: 100%;
+    height: 4px;
+    background: #f3f4f6;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.progress-fill-small {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    transition: width 0.3s ease;
+}
+
+.last-activity {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: #9ca3af;
+}
+
+.user-list-actions {
     display: flex;
     gap: 8px;
     opacity: 0;
     transition: opacity 0.3s ease;
+    flex-shrink: 0;
 }
 
-.user-card:hover .user-actions {
+.user-list-item:hover .user-list-actions {
     opacity: 1;
 }
 
-.action-btn {
+.action-btn-small {
     width: 32px;
     height: 32px;
     border-radius: 6px;
     border: none;
+    background: #f8fafc;
+    color: #64748b;
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
@@ -695,124 +1131,50 @@ document.addEventListener('DOMContentLoaded', function() {
     font-size: 0.8rem;
 }
 
-.edit-btn {
-    background: #dbeafe;
-    color: #1d4ed8;
-}
-
-.edit-btn:hover {
-    background: #bfdbfe;
+.action-btn-small:hover {
     transform: scale(1.1);
 }
 
-.delete-btn {
+.action-btn-small.edit:hover {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.action-btn-small.delete:hover {
     background: #fee2e2;
     color: #dc2626;
 }
 
-.delete-btn:hover {
-    background: #fecaca;
-    transform: scale(1.1);
-}
-
-.user-content {
-    padding: 0 24px 20px;
+/* No Data State */
+.no-data {
     text-align: center;
+    padding: 60px 24px;
+    color: #6b7280;
 }
 
-.user-name {
+.no-data-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #9ca3af;
+}
+
+.no-data h3 {
     font-size: 1.2rem;
     font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 4px;
+    color: #374151;
+    margin-bottom: 8px;
 }
 
-.user-email {
-    color: #6b7280;
+.no-data p {
     font-size: 0.9rem;
-    margin-bottom: 12px;
-}
-
-.user-gender {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    color: #9ca3af;
-    font-size: 0.85rem;
-    margin-bottom: 16px;
-}
-
-.user-stats {
-    display: flex;
-    justify-content: space-around;
-    margin-bottom: 16px;
-    padding: 12px 0;
-    border-top: 1px solid #f3f4f6;
-    border-bottom: 1px solid #f3f4f6;
-}
-
-.stat-item {
-    text-align: center;
-}
-
-.stat-value {
-    display: block;
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #1f2937;
-}
-
-.stat-value.active { color: #f59e0b; }
-.stat-value.completed { color: #10b981; }
-
-.stat-name {
-    font-size: 0.75rem;
-    color: #9ca3af;
-}
-
-.user-activity {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    color: #9ca3af;
-    font-size: 0.8rem;
-}
-
-/* Add New Card */
-.add-new-card {
-    border: 2px dashed #d1d5db;
-    background: #f9fafb;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 300px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.add-new-card:hover {
-    border-color: #0066ff;
-    background: #eff6ff;
-}
-
-.add-new-content {
-    text-align: center;
-    color: #6b7280;
-}
-
-.add-new-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #0066ff, #33ccff);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    margin: 0 auto 16px;
+    margin: 0;
 }
 
 /* Modal Styles */
@@ -928,6 +1290,7 @@ document.addEventListener('DOMContentLoaded', function() {
     font-size: 0.9rem;
     transition: all 0.3s ease;
     background: white;
+    box-sizing: border-box;
 }
 
 .form-group input:focus,
@@ -999,9 +1362,40 @@ document.addEventListener('DOMContentLoaded', function() {
         gap: 16px;
     }
     
-    .users-grid {
-        grid-template-columns: 1fr;
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
         gap: 16px;
+    }
+    
+    .filters-container {
+        justify-content: stretch;
+    }
+    
+    .search-box {
+        min-width: auto;
+        flex: 1;
+    }
+    
+    .filter-dropdown select {
+        min-width: auto;
+        flex: 1;
+    }
+    
+    .user-list-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .user-list-stats {
+        margin-right: 0;
+        gap: 12px;
+    }
+    
+    .user-list-progress {
+        width: 100%;
+        margin-right: 0;
     }
     
     .form-row {
@@ -1015,11 +1409,15 @@ document.addEventListener('DOMContentLoaded', function() {
         width: calc(100% - 20px);
     }
     
-    .user-actions {
+    .user-list-actions {
         opacity: 1;
         position: static;
         justify-content: center;
-        margin-top: 12px;
+        margin-top: 8px;
+    }
+    
+    .users-list {
+        max-height: none;
     }
 }
 
@@ -1036,11 +1434,26 @@ document.addEventListener('DOMContentLoaded', function() {
         font-size: 1.5rem;
     }
     
-    .user-card-header {
-        padding: 16px 20px 12px;
+    .user-list-item {
+        padding: 12px 16px;
     }
     
-    .user-content {
-        padding: 0 20px 16px;
+    .section-header {
+        padding: 20px 16px 12px;
+    }
+    
+    .add-new-item {
+        margin: 12px 16px;
+    }
+    
+    .add-new-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
+    }
+    
+    .user-details {
+        flex-direction: column;
+        gap: 8px;
     }
 }
