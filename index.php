@@ -1,5 +1,5 @@
 <?php
-// index.php - Modified untuk 4 dashboard berbeda
+// index.php - Fixed version with consistent role mappings
 session_start();
 
 // Handle logout
@@ -28,18 +28,21 @@ require_once 'config.php';
 // ==========================
 $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 
-// Role-based page access control - dengan 4 role berbeda
+// Role-based page access control - FIXED: Consistent role names
 $role_access = [
-    'dashboard' => ['admin'],           // Dashboard khusus admin
-    'dashboard_manager' => ['manager'], // Dashboard khusus manager 
-    'dashboard_pr' => ['programmer'],   // Dashboard khusus programmer
-    'dashboard_support' => ['support'], // Dashboard khusus support
+    'dashboard' => ['admin'],                    // Dashboard khusus admin
+    'dashboard_manager' => ['manager'],          // Dashboard khusus manager 
+    'dashboard_pr' => ['programmer'],            // Dashboard khusus programmer
+    'dashboard_support' => ['support'],          // Dashboard khusus support
     'apps' => ['admin', 'manager', 'programmer', 'support'],
     'users' => ['admin', 'manager'],
     'todos' => ['admin', 'manager'],
     'profile' => ['admin', 'manager', 'programmer', 'support'],
     'taken' => ['admin', 'manager', 'programmer', 'support'],
     'reports' => ['admin', 'manager', 'programmer'],
+    'settings' => ['admin'],
+    'logs' => ['admin'],
+    'backup' => ['admin'],
     'logout' => ['admin', 'manager', 'programmer', 'support']
 ];
 
@@ -130,84 +133,97 @@ include 'modul/layouts/header.php';
     <?php include 'modul/layouts/sidebar.php'; ?>
 
     <!-- Content Area -->
-    <!-- ✅ FIX: hilangkan <div class="main-content"><main class="main-content"> ganda -->
-    <main class="main-content">
-        <?php
-        // Display access error message if exists
-        if(isset($_SESSION['access_error'])):
-        ?>
-        <div class="access-error-alert">
-            <i class="fas fa-exclamation-triangle"></i>
-            <?= $_SESSION['access_error'] ?>
-            <button onclick="this.parentElement.style.display='none';">×</button>
-        </div>
-        <?php 
-            unset($_SESSION['access_error']);
-        endif;
-        
-        // Include appropriate page based on role and access
-        switch($page){
-            case 'apps': 
-                include "modul/data/apps.php"; 
-                break;
-            case 'users': 
-                include "modul/data/users.php"; 
-                break;
-            case 'todos': 
-                include "modul/todos/todos.php"; 
-                break;
-            case 'profile': 
-                include "modul/profile/profile.php"; 
-                break;
-            case 'taken':
-                include "modul/taken/taken.php";
-                break;
-            case 'reports':
-                include "modul/reports/reports.php";
-                break;
-            case 'logout':
-                include "modul/auth/logout.php";
-                break;
-            case 'dashboard':
-                include "modul/dashboard/dashboard.php"; // Dashboard khusus admin
-                break;
-            case 'dashboard_manager':
-                include "modul/dashboard/dashboard_manager.php"; // Dashboard khusus manager
-                break;
-            case 'dashboard_pr':
-                include "modul/dashboard/dashboard_pr.php"; // Dashboard khusus programmer
-                break;
-            case 'dashboard_support':
-                include "modul/dashboard/dashboard_support.php"; // Dashboard khusus support
-                break;
-            default:
-                // Default dashboard based on role
-                switch($user_role) {
-                    case 'admin':
-                        include "modul/dashboard/dashboard.php";
-                        break;
-                    case 'manager':
-                        include "modul/dashboard/dashboard_manager.php";
-                        break;
-                    case 'programmer':
-                        include "modul/dashboard/dashboard_pr.php";
-                        break;
-                    case 'support':
-                        include "modul/dashboard/dashboard_support.php";
-                        break;
-                    default:
-                        include "modul/dashboard/dashboard.php";
-                }
-        }
-        ?>
-    </main>
+    <div class="main-content">
+        <main class="main-content">
+            <?php
+            // Display access error message if exists
+            if(isset($_SESSION['access_error'])):
+            ?>
+            <div class="access-error-alert">
+                <i class="fas fa-exclamation-triangle"></i>
+                <?= $_SESSION['access_error'] ?>
+                <button onclick="this.parentElement.style.display='none';">×</button>
+            </div>
+            <?php 
+                unset($_SESSION['access_error']);
+            endif;
+            
+            // Include appropriate page based on role and access - FIXED: Consistent file mapping
+            switch($page){
+                case 'apps': 
+                    include "modul/data/apps.php"; 
+                    break;
+                case 'users': 
+                    include "modul/data/users.php"; 
+                    break;
+                case 'todos': 
+                    include "modul/todos/todos.php"; 
+                    break;
+                case 'profile': 
+                    include "modul/profile/profile.php"; 
+                    break;
+                case 'taken':
+                    include "modul/taken/taken.php";
+                    break;
+                case 'reports':
+                    include "modul/reports/reports.php";
+                    break;
+                case 'settings':
+                    include "modul/settings/settings.php";
+                    break;
+                case 'logs':
+                    include "modul/admin/logs.php";
+                    break;
+                case 'backup':
+                    include "modul/admin/backup.php";
+                    break;
+                case 'logout':
+                    include "modul/auth/logout.php";
+                    break;
+                case 'dashboard':
+                    include "modul/dashboard/dashboard.php"; // Dashboard khusus admin
+                    break;
+                case 'dashboard_manager':
+                    include "modul/dashboard/dashboard_manager.php"; // Dashboard khusus manager - FIXED
+                    break;
+                case 'dashboard_pr':
+                    include "modul/dashboard/dashboard_pr.php"; // Dashboard khusus programmer
+                    break;
+                case 'dashboard_support':
+                    include "modul/dashboard/dashboard_support.php"; // Dashboard khusus support - FIXED
+                    break;
+                default:
+                    // Default dashboard based on role - FIXED: Consistent file mapping
+                    switch($user_role) {
+                        case 'admin':
+                            include "modul/dashboard/dashboard.php";
+                            break;
+                        case 'manager':
+                            include "modul/dashboard/dashboard_manager.php"; // FIXED: was dashboard_cl.php
+                            break;
+                        case 'programmer':
+                            include "modul/dashboard/dashboard_pr.php";
+                            break;
+                        case 'support':
+                            include "modul/dashboard/dashboard_support.php"; // FIXED: was dashboard_sp.php
+                            break;
+                        default:
+                            include "modul/dashboard/dashboard.php"; // FIXED: was dashboard_admin.php
+                    }
+            }
+            ?>
+        </main>
 
-    <!-- Footer -->
-    <?php include 'modul/layouts/footer.php'; ?>
+        <!-- Footer -->
+        <?php include 'modul/layouts/footer.php'; ?>
+    </div>
 
     <!-- Overlay for Mobile -->
     <div id="overlay" class="overlay"></div>
 </div>
+
+<!-- Scripts -->
+<script src="style/js/main.js"></script>
 
 <!-- Access Error Alert Styles -->
 <style>
