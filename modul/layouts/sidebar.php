@@ -6,45 +6,40 @@ $menu_items = [
     'dashboard' => [
         'icon' => 'fas fa-home',
         'text' => 'Dashboard',
-        'roles' => ['admin', 'programmer', 'support'],
+        'roles' => ['admin', 'manager', 'programmer', 'support'],
         'tooltip' => 'Dashboard'
     ],
     'apps' => [
         'icon' => 'fas fa-th-large',
         'text' => 'Apps',
-        'roles' => ['admin', 'programmer', 'support'],
+        'roles' => ['admin', 'manager', 'programmer', 'support'],
         'tooltip' => 'Kelola Aplikasi'
     ],
     'users' => [
         'icon' => 'fas fa-users',
         'text' => 'Users',
-        'roles' => ['admin'],
+        'roles' => ['admin', 'manager'],
         'tooltip' => 'Kelola Pengguna'
     ],
     'todos' => [
         'icon' => 'fas fa-list-check',
         'text' => 'Todos',
-        'roles' => ['admin'],
+        'roles' => ['admin', 'manager'],
         'tooltip' => 'Kelola Tugas'
     ],
     'taken' => [
         'icon' => 'fas fa-chart-line',
         'text' => 'Taken',
-        'roles' => ['admin', 'programmer', 'support'],
+        'roles' => ['admin', 'manager', 'programmer', 'support'],
         'tooltip' => 'Progress Tugas'
     ],
     'reports' => [
         'icon' => 'fas fa-chart-bar',
         'text' => 'Reports',
-        'roles' => ['admin', 'programmer'],
+        'roles' => ['admin', 'manager', 'programmer'],
         'tooltip' => 'Laporan Sistem'
-    ],
-    'settings' => [
-        'icon' => 'fas fa-cog',
-        'text' => 'Settings',
-        'roles' => ['admin'],
-        'tooltip' => 'Pengaturan Sistem'
     ]
+    // Settings menu telah dihapus
 ];
 
 // Function to check if user has access to a menu item
@@ -64,6 +59,8 @@ function hasAccess($menu_roles, $user_role) {
             <div class="role-indicator role-<?= $user_role ?>">
                 <?php if($user_role == 'admin'): ?>
                     <i class="fas fa-crown"></i>
+                <?php elseif($user_role == 'manager'): ?>
+                    <i class="fas fa-user-tie"></i>
                 <?php elseif($user_role == 'programmer'): ?>
                     <i class="fas fa-code"></i>
                 <?php else: ?>
@@ -93,18 +90,16 @@ function hasAccess($menu_roles, $user_role) {
                         <!-- Access indicator untuk role tertentu -->
                         <?php if($page_key == 'users' && $user_role == 'admin'): ?>
                             <span class="access-badge admin-only">Admin</span>
-                        <?php elseif($page_key == 'apps' && in_array($user_role, ['admin', 'programmer'])): ?>
+                        <?php elseif($page_key == 'apps' && in_array($user_role, ['admin', 'manager', 'programmer'])): ?>
                             <span class="access-badge dev-only">Dev</span>
-                        <?php elseif($page_key == 'reports' && in_array($user_role, ['admin', 'programmer'])): ?>
+                        <?php elseif($page_key == 'reports' && in_array($user_role, ['admin', 'manager', 'programmer'])): ?>
                             <span class="access-badge dev-only">Dev</span>
-                        <?php elseif($page_key == 'settings' && $user_role == 'admin'): ?>
-                            <span class="access-badge admin-only">Admin</span>
                         <?php endif; ?>
                     </a>
                 <?php endif; ?>
             <?php endforeach; ?>
-            
-          
+
+        </div>
 
         <!-- Logout - Always at bottom -->
         <div class="logout-section">
@@ -210,6 +205,10 @@ body.sidebar-hidden .main-content {
 
 .role-indicator.role-admin {
     background: linear-gradient(135deg, #dc2626, #ef4444);
+}
+
+.role-indicator.role-manager {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
 }
 
 .role-indicator.role-programmer {
@@ -1105,13 +1104,13 @@ window.debugSidebar = function() {
     console.log('========================');
 }
 
-// Auto-adjust on page load - SIMPLIFIED
+// Auto-adjust on page load - FIXED VERSION
 window.addEventListener('load', function() {
     const mainContent = document.querySelector('.main-content');
     if (mainContent && window.innerWidth > 1024) {
         const sidebar = document.getElementById('sidebar');
         if (sidebar && sidebar.classList.contains('hidden')) {
-            eleme.classList.add('sidebar-hidden');
+            mainContent.classList.add('sidebar-hidden');
             document.body.classList.add('sidebar-hidden');
         } else {
             mainContent.classList.remove('sidebar-hidden');
