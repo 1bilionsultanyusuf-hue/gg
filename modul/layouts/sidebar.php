@@ -24,7 +24,7 @@ $menu_items = [
     'todos' => [
         'icon' => 'fas fa-list-check',
         'text' => 'Todos',
-        'roles' => ['admin', 'manager'],
+        'roles' => ['admin', 'manager', 'programmer', 'support'],
         'tooltip' => 'Kelola Tugas'
     ],
     'taken' => [
@@ -36,7 +36,7 @@ $menu_items = [
     'reports' => [
         'icon' => 'fas fa-chart-bar',
         'text' => 'Reports',
-        'roles' => ['admin', 'manager', 'programmer'],
+        'roles' => ['admin', 'manager', 'programmer', 'support'],
         'tooltip' => 'Laporan Sistem'
     ]
     // Settings menu telah dihapus

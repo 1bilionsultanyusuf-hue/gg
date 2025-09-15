@@ -36,10 +36,10 @@ $role_access = [
     'dashboard_support' => ['support'], // Dashboard khusus support
     'apps' => ['admin', 'manager', 'programmer', 'support'],
     'users' => ['admin', 'manager'],
-    'todos' => ['admin', 'manager'],
+    'todos' => ['admin', 'manager', 'programmer', 'support'],
     'profile' => ['admin', 'manager', 'programmer', 'support'],
     'taken' => ['admin', 'manager', 'programmer', 'support'],
-    'reports' => ['admin', 'manager', 'programmer'],
+    'reports' => ['admin', 'manager', 'programmer', 'support'],
     'logout' => ['admin', 'manager', 'programmer', 'support']
 ];
 
@@ -59,7 +59,7 @@ if($page == 'dashboard') {
             $page = 'dashboard_pr';
             break;
         case 'support':
-            $page = 'dashboard_support';
+            $page = 'dashboard_sp';
             break;
         default:
             $page = 'dashboard';
@@ -88,7 +88,7 @@ if (isset($role_access[$page]) && !in_array($user_role, $role_access[$page])) {
             header('Location: index.php?page=dashboard_pr');
             break;
         case 'support':
-            header('Location: index.php?page=dashboard_support');
+            header('Location: index.php?page=dashboard_sp');
             break;
     }
     exit;
@@ -108,7 +108,7 @@ if(!in_array($page, $allowed_pages)) {
             $page = 'dashboard_pr';
             break;
         case 'support':
-            $page = 'dashboard_support';
+            $page = 'dashboard_sp';
             break;
         default:
             $page = 'dashboard';
@@ -177,7 +177,7 @@ include 'modul/layouts/header.php';
                 include "modul/dashboard/dashboard_pr.php"; // Dashboard khusus programmer
                 break;
             case 'dashboard_support':
-                include "modul/dashboard/dashboard_support.php"; // Dashboard khusus support
+                include "modul/dashboard/dashboard_sp.php"; // Dashboard khusus support
                 break;
             default:
                 // Default dashboard based on role
@@ -192,7 +192,7 @@ include 'modul/layouts/header.php';
                         include "modul/dashboard/dashboard_pr.php";
                         break;
                     case 'support':
-                        include "modul/dashboard/dashboard_support.php";
+                        include "modul/dashboard/dashboard_sp.php";
                         break;
                     default:
                         include "modul/dashboard/dashboard.php";
