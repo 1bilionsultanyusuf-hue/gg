@@ -1,4 +1,4 @@
-/* ===== COMPLETE CSS FOR SIDEBAR WITH PROFILE LAYOUT ===== */
+/* ===== COMPLETE CSS FOR SIDEBAR WITH CENTERED CONTENT LAYOUT ===== */
 
 /* Reset and base styles */
 * {
@@ -15,7 +15,7 @@ body {
     padding-top: 60px; /* Fixed header space */
 }
 
-/* ===== MAIN CONTENT LAYOUT - UNIVERSAL FIX ===== */
+/* ===== MAIN CONTENT LAYOUT - CENTERED CONTENT ===== */
 .main-content,
 .content-wrapper,
 main,
@@ -30,7 +30,22 @@ main,
     padding: 20px;
     background: #f9fafb;
     position: relative;
-    display: block;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center horizontally */
+    justify-content: flex-start; /* Start from top */
+}
+
+/* Inner content container for better centering control */
+.content-inner,
+.page-inner {
+    width: 100%;
+    max-width: 1200px; /* Maximum width for content */
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 /* ✅ FIX: gunakan hanya body.sidebar-hidden, hapus duplikat .main-content.sidebar-hidden */
@@ -51,6 +66,93 @@ body.sidebar-hidden .content {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+}
+
+/* ===== CENTERED CARD LAYOUTS ===== */
+.card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin: 0 auto 20px auto; /* Center the card */
+    width: 100%;
+    max-width: 800px; /* Limit card width */
+    display: block;
+    position: relative;
+}
+
+.card-wide {
+    max-width: 1000px;
+}
+
+.card-narrow {
+    max-width: 600px;
+}
+
+.card-full {
+    max-width: 100%;
+}
+
+/* Grid layouts for centered content */
+.grid-container {
+    display: grid;
+    gap: 20px;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.grid-1 { grid-template-columns: 1fr; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* Flex layouts for centered content */
+.flex-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.flex-row {
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.flex-between {
+    justify-content: space-between;
+}
+
+.flex-around {
+    justify-content: space-around;
+}
+
+/* ===== HEADER STYLING ===== */
+.page-header {
+    text-align: center;
+    margin-bottom: 30px;
+    width: 100%;
+    max-width: 800px;
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 8px;
+}
+
+.page-subtitle {
+    font-size: 1.1rem;
+    color: #6b7280;
+    line-height: 1.6;
 }
 
 /* ===== FOOTER STYLING ===== */
@@ -137,6 +239,27 @@ body.sidebar-hidden .content {
         padding: 15px;
     }
     
+    .content-inner,
+    .page-inner {
+        padding: 0 15px;
+        max-width: 100%;
+    }
+    
+    .card {
+        max-width: 100%;
+        margin: 0 0 15px 0;
+    }
+    
+    .grid-container {
+        padding: 0 15px;
+        max-width: 100%;
+    }
+    
+    .grid-3,
+    .grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
     .sidebar {
         top: 55px;
         height: calc(100vh - 55px);
@@ -189,6 +312,14 @@ body.sidebar-hidden .content {
         font-size: 1rem;
         margin: 0 4px;
     }
+    
+    .page-title {
+        font-size: 1.6rem;
+    }
+    
+    .page-subtitle {
+        font-size: 1rem;
+    }
 }
 
 @media (max-width: 768px) {
@@ -200,6 +331,32 @@ body.sidebar-hidden .content {
     .dashboard-container,
     .content {
         padding: 12px;
+    }
+    
+    .content-inner,
+    .page-inner {
+        padding: 0 12px;
+    }
+    
+    .grid-container {
+        padding: 0 12px;
+        gap: 15px;
+    }
+    
+    .grid-2,
+    .grid-3,
+    .grid-4 {
+        grid-template-columns: 1fr;
+    }
+    
+    .flex-container {
+        padding: 0 12px;
+        gap: 15px;
+    }
+    
+    .card {
+        padding: 16px;
+        margin-bottom: 15px;
     }
     
     .sidebar {
@@ -240,6 +397,14 @@ body.sidebar-hidden .content {
         height: 16px;
         padding: 1px 4px;
     }
+    
+    .page-title {
+        font-size: 1.4rem;
+    }
+    
+    .page-subtitle {
+        font-size: 0.9rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -251,6 +416,26 @@ body.sidebar-hidden .content {
     .dashboard-container,
     .content {
         padding: 10px;
+    }
+    
+    .content-inner,
+    .page-inner {
+        padding: 0 10px;
+    }
+    
+    .grid-container {
+        padding: 0 10px;
+        gap: 12px;
+    }
+    
+    .flex-container {
+        padding: 0 10px;
+        gap: 12px;
+    }
+    
+    .card {
+        padding: 14px;
+        margin-bottom: 12px;
     }
     
     .sidebar {
@@ -285,6 +470,14 @@ body.sidebar-hidden .content {
     
     .icon-btn:last-child {
         display: none;
+    }
+    
+    .page-title {
+        font-size: 1.2rem;
+    }
+    
+    .page-subtitle {
+        font-size: 0.85rem;
     }
 }
 
@@ -361,6 +554,24 @@ body.loaded .content {
     margin-left: 0 !important;
 }
 
+.text-center {
+    text-align: center;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.center-block {
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+}
+
 /* Emergency responsive fix */
 @media (max-width: 1024px) {
     .container,
@@ -372,7 +583,7 @@ body.loaded .content {
     }
 }
 
-/* Make sure all content areas work properly */
+/* Make sure all content areas work properly with centering */
 .dashboard-container,
 .profile-container,
 .settings-container,
@@ -382,7 +593,22 @@ body.loaded .content {
 .apps-container {
     width: 100%;
     margin: 0;
-    padding: 20px 20px 20px 10px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.dashboard-container > *,
+.profile-container > *,
+.settings-container > *,
+.reports-container > *,
+.backup-container > *,
+.logs-container > *,
+.apps-container > * {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 @media (max-width: 768px) {
@@ -407,4 +633,107 @@ body.loaded .content {
     .apps-container {
         padding: 12px;
     }
+}
+
+/* Header */
+.site-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background: linear-gradient(90deg, #0066ff, #33ccff);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 1000;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* Sidebar */
+.sidebar {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    width: 250px;
+    height: calc(100vh - 60px);
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    padding: 20px 10px;
+    overflow-y: auto;
+}
+
+/* Content dengan centering yang diperbaiki */
+.main-content {
+    margin-left: 250px;
+    padding: 80px 20px 20px;
+    min-height: calc(100vh - 60px);
+    background: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center horizontally */
+    width: calc(100% - 250px);
+}
+
+/* Form centering */
+.form-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #374151;
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.2s ease;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.btn {
+    display: inline-block;
+    padding: 12px 24px;
+    background: #3b82f6;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    text-align: center;
+}
+
+.btn:hover {
+    background: #2563eb;
+}
+
+.btn-center {
+    display: block;
+    margin: 20px auto 0 auto;
+    width: fit-content;
 }

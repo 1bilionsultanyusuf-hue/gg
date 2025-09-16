@@ -1,5 +1,5 @@
 <?php
-// index.php - Modified untuk 4 dashboard berbeda
+// index.php - Clean version without settings
 session_start();
 
 // Handle logout
@@ -28,7 +28,7 @@ require_once 'config.php';
 // ==========================
 $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 
-// Role-based page access control - dengan 4 role berbeda
+// Role-based page access control - CLEAN: No settings
 $role_access = [
     'dashboard' => ['admin'],           // Dashboard khusus admin
     'dashboard_manager' => ['manager'], // Dashboard khusus manager 
@@ -36,13 +36,10 @@ $role_access = [
     'dashboard_support' => ['support'], // Dashboard khusus support
     'apps' => ['admin', 'manager', 'programmer', 'support'],
     'users' => ['admin', 'manager'],
-    'todos' => ['admin', 'manager'],
+    'todos' => ['admin', 'manager', 'programmer', 'support'],
     'profile' => ['admin', 'manager', 'programmer', 'support'],
     'taken' => ['admin', 'manager', 'programmer', 'support'],
-    'reports' => ['admin', 'manager', 'programmer'],
-    'settings' => ['admin'],
-    'logs' => ['admin'],
-    'backup' => ['admin'],
+    'reports' => ['admin', 'manager', 'programmer', 'support'],
     'logout' => ['admin', 'manager', 'programmer', 'support']
 ];
 
@@ -62,7 +59,7 @@ if($page == 'dashboard') {
             $page = 'dashboard_pr';
             break;
         case 'support':
-            $page = 'dashboard_support';
+            $page = 'dashboard_sp';
             break;
         default:
             $page = 'dashboard';
@@ -91,7 +88,7 @@ if (isset($role_access[$page]) && !in_array($user_role, $role_access[$page])) {
             header('Location: index.php?page=dashboard_pr');
             break;
         case 'support':
-            header('Location: index.php?page=dashboard_support');
+            header('Location: index.php?page=dashboard_sp');
             break;
     }
     exit;
@@ -111,7 +108,7 @@ if(!in_array($page, $allowed_pages)) {
             $page = 'dashboard_pr';
             break;
         case 'support':
-            $page = 'dashboard_support';
+            $page = 'dashboard_sp';
             break;
         default:
             $page = 'dashboard';
@@ -133,7 +130,6 @@ include 'modul/layouts/header.php';
     <?php include 'modul/layouts/sidebar.php'; ?>
 
     <!-- Content Area -->
-    <!-- ✅ FIX: hilangkan <div class="main-content"><main class="main-content"> ganda -->
     <main class="main-content">
         <?php
         // Display access error message if exists
@@ -148,7 +144,7 @@ include 'modul/layouts/header.php';
             unset($_SESSION['access_error']);
         endif;
         
-        // Include appropriate page based on role and access
+        // Include appropriate page based on role and access - NO SETTINGS CASE
         switch($page){
             case 'apps': 
                 include "modul/data/apps.php"; 
@@ -168,15 +164,6 @@ include 'modul/layouts/header.php';
             case 'reports':
                 include "modul/reports/reports.php";
                 break;
-            case 'settings':
-                include "modul/settings/settings.php";
-                break;
-            case 'logs':
-                include "modul/admin/logs.php";
-                break;
-            case 'backup':
-                include "modul/admin/backup.php";
-                break;
             case 'logout':
                 include "modul/auth/logout.php";
                 break;
@@ -190,7 +177,7 @@ include 'modul/layouts/header.php';
                 include "modul/dashboard/dashboard_pr.php"; // Dashboard khusus programmer
                 break;
             case 'dashboard_support':
-                include "modul/dashboard/dashboard_support.php"; // Dashboard khusus support
+                include "modul/dashboard/dashboard_sp.php"; // Dashboard khusus support
                 break;
             default:
                 // Default dashboard based on role
@@ -205,7 +192,7 @@ include 'modul/layouts/header.php';
                         include "modul/dashboard/dashboard_pr.php";
                         break;
                     case 'support':
-                        include "modul/dashboard/dashboard_support.php";
+                        include "modul/dashboard/dashboard_sp.php";
                         break;
                     default:
                         include "modul/dashboard/dashboard.php";
