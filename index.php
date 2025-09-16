@@ -1,5 +1,5 @@
 <?php
-// index.php - Clean version without settings
+// index.php - With settings feature added back
 session_start();
 
 // Handle logout
@@ -28,7 +28,7 @@ require_once 'config.php';
 // ==========================
 $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 
-// Role-based page access control - CLEAN: No settings
+// Role-based page access control - WITH SETTINGS
 $role_access = [
     'dashboard' => ['admin'],           // Dashboard khusus admin
     'dashboard_manager' => ['manager'], // Dashboard khusus manager 
@@ -40,7 +40,8 @@ $role_access = [
     'profile' => ['admin', 'manager', 'programmer', 'support'],
     'taken' => ['admin', 'manager', 'programmer', 'support'],
     'reports' => ['admin', 'manager', 'programmer', 'support'],
-    'logout' => ['admin', 'manager', 'programmer', 'support']
+    'logout' => ['admin', 'manager', 'programmer', 'support'],
+    'settings' => ['admin'],            // Settings hanya untuk admin
 ];
 
 // Get user role and determine default dashboard
@@ -144,7 +145,7 @@ include 'modul/layouts/header.php';
             unset($_SESSION['access_error']);
         endif;
         
-        // Include appropriate page based on role and access - NO SETTINGS CASE
+        // Include appropriate page based on role and access - WITH SETTINGS
         switch($page){
             case 'apps': 
                 include "modul/data/apps.php"; 
@@ -163,6 +164,9 @@ include 'modul/layouts/header.php';
                 break;
             case 'reports':
                 include "modul/reports/reports.php";
+                break;
+            case 'settings':
+                include "modul/settings/settings.php"; // Settings page untuk admin
                 break;
             case 'logout':
                 include "modul/auth/logout.php";
