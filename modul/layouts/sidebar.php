@@ -73,10 +73,6 @@ function hasAccess($menu_roles, $user_role) {
         </div>
         <div class="profile-name"><?= htmlspecialchars($_SESSION['user_name']) ?></div>
         <div class="profile-role"><?= ucfirst($_SESSION['user_role']) ?></div>
-        <a href="?page=profile" class="profile-edit-btn">
-            <i class="fas fa-edit"></i>
-            Edit Profile
-        </a>
     </div>
 
     <!-- Navigation Menu -->
@@ -105,15 +101,6 @@ function hasAccess($menu_roles, $user_role) {
         
         <!-- Divider -->
         <div class="menu-divider"></div>
-        
-        <!-- Role-specific additional menus -->
-        <?php if($user_role == 'admin'): ?>
-            <a href="?page=logs" class="menu-item <?php echo ($page=='logs') ? 'menu-active' : ''; ?>">
-                <i class="fas fa-file-alt menu-icon"></i>
-                <span class="nav-text">System Logs</span>
-                <span class="access-badge admin-only">Admin</span>
-            </a>
-        <?php endif; ?>
 
         <!-- Logout -->
         <a href="#" onclick="confirmLogout(event); return false;"
