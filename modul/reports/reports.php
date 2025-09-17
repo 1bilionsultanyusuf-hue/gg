@@ -1,1044 +1,1256 @@
 <?php
-// Kegunaan: Laporan performa aplikasi, bug tracking, development metrics, code quality
-$date_from = $_GET['date_from'] ?? date('Y-m-d', strtotime('-30 days'));
-$date_to = $_GET['date_to'] ?? date('Y-m-d');
+// reports.php - List Format CRUD Management System for Reports
 
-// App Performance Report
-$app_performance = $koneksi->query("
-    SELECT a.name as app_name,
-           COUNT(t.id) as total_todos,
-           COUNT(CASE WHEN tk.status = 'done' THEN 1 END) as completed,
-           COUNT(CASE WHEN tk.status = 'in_progress' THEN 1 END) as in_progress,
-           ROUND(AVG(CASE WHEN tk.status = 'done' THEN DATEDIFF(tk.date, t.created_at) END), 1) as avg_completion_days,
-           COUNT(CASE WHEN t.priority = 'high' THEN 1 END) as high_priority_count
-    FROM apps a
-    LEFT JOIN todos t ON a.id = t.app_id
-    LEFT JOIN taken tk ON t.id = tk.id_todos
-    WHERE t.created_at BETWEEN '$date_from' AND '$date_to 23:59:59'
-    GROUP BY a.id, a.name
-    ORDER BY total_todos DESC
-");
+// Handle CRUD operations
+$action = $_GET['action'] ?? 'list';
+$report_id = $_GET['id'] ?? null;
+$message = $_SESSION['message'] ?? '';
+$message_type = $_SESSION['message_type'] ?? '';
+unset($_SESSION['message'], $_SESSION['message_type']);
 
-// Developer Productivity
-$dev_productivity = $koneksi->query("
-    SELECT u.name as developer_name,
-           COUNT(CASE WHEN tk.status = 'done' THEN 1 END) as completed_tasks,
-           COUNT(CASE WHEN tk.status = 'in_progress' THEN 1 END) as active_tasks,
-           COUNT(CASE WHEN t.priority = 'high' AND tk.status = 'done' THEN 1 END) as high_priority_completed,
-           ROUND(AVG(CASE WHEN tk.status = 'done' THEN DATEDIFF(tk.date, t.created_at) END), 1) as avg_completion_time
-    FROM users u
-    JOIN todos t ON u.id = t.user_id
-    LEFT JOIN taken tk ON t.id = tk.id_todos
-    WHERE u.role IN ('programmer', 'admin') 
-    AND t.created_at BETWEEN '$date_from' AND '$date_to 23:59:59'
-    GROUP BY u.id, u.name
-    ORDER BY completed_tasks DESC
-");
+// Handle form submissions
+if ($_POST) {
+    switch ($_POST['action']) {
+        case 'create':
+            $stmt = $koneksi->prepare("INSERT INTO reports (title, description, report_type, date_from, date_to, filters, created_by, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')");
+            $filters = json_encode($_POST['filters'] ?? []);
+            $stmt->bind_param("ssssssi", $_POST['title'], $_POST['description'], $_POST['report_type'], $_POST['date_from'], $_POST['date_to'], $filters, $_SESSION['user_id']);
+            
+            if ($stmt->execute()) {
+                $_SESSION['message'] = 'Report created successfully!';
+                $_SESSION['message_type'] = 'success';
+            } else {
+                $_SESSION['message'] = 'Error creating report: ' . $stmt->error;
+                $_SESSION['message_type'] = 'error';
+            }
+            header('Location: index.php?page=reports');
+            exit;
+            
+        case 'update':
+            $stmt = $koneksi->prepare("UPDATE reports SET title=?, description=?, report_type=?, date_from=?, date_to=?, filters=?, updated_at=NOW() WHERE id=?");
+            $filters = json_encode($_POST['filters'] ?? []);
+            $stmt->bind_param("ssssssi", $_POST['title'], $_POST['description'], $_POST['report_type'], $_POST['date_from'], $_POST['date_to'], $filters, $_POST['report_id']);
+            
+            if ($stmt->execute()) {
+                $_SESSION['message'] = 'Report updated successfully!';
+                $_SESSION['message_type'] = 'success';
+            } else {
+                $_SESSION['message'] = 'Error updating report: ' . $stmt->error;
+                $_SESSION['message_type'] = 'error';
+            }
+            header('Location: index.php?page=reports');
+            exit;
+            
+        case 'delete':
+            $stmt = $koneksi->prepare("UPDATE reports SET status='deleted', updated_at=NOW() WHERE id=?");
+            $stmt->bind_param("i", $_POST['report_id']);
+            
+            if ($stmt->execute()) {
+                $_SESSION['message'] = 'Report deleted successfully!';
+                $_SESSION['message_type'] = 'success';
+            } else {
+                $_SESSION['message'] = 'Error deleting report: ' . $stmt->error;
+                $_SESSION['message_type'] = 'error';
+            }
+            header('Location: index.php?page=reports');
+            exit;
+    }
+}
 
-// Priority Distribution
-$priority_stats = $koneksi->query("
-    SELECT t.priority,
-           COUNT(*) as total,
-           COUNT(CASE WHEN tk.status = 'done' THEN 1 END) as completed,
-           COUNT(CASE WHEN tk.status = 'in_progress' THEN 1 END) as in_progress,
-           ROUND(COUNT(CASE WHEN tk.status = 'done' THEN 1 END) * 100.0 / COUNT(*), 1) as completion_rate
-    FROM todos t
-    LEFT JOIN taken tk ON t.id = tk.id_todos
-    WHERE t.created_at BETWEEN '$date_from' AND '$date_to 23:59:59'
-    GROUP BY t.priority
-    ORDER BY FIELD(t.priority, 'high', 'medium', 'low')
-");
+// Get report data for edit
+$edit_report = null;
+if ($action == 'edit' && $report_id) {
+    $stmt = $koneksi->prepare("SELECT * FROM reports WHERE id = ? AND status != 'deleted'");
+    $stmt->bind_param("i", $report_id);
+    $stmt->execute();
+    $edit_report = $stmt->get_result()->fetch_assoc();
+}
 
-// Monthly Trends
-$monthly_trends = $koneksi->query("
-    SELECT DATE_FORMAT(t.created_at, '%Y-%m') as month,
-           COUNT(*) as todos_created,
-           COUNT(CASE WHEN tk.status = 'done' THEN 1 END) as todos_completed
-    FROM todos t
-    LEFT JOIN taken tk ON t.id = tk.id_todos
-    WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-    GROUP BY DATE_FORMAT(t.created_at, '%Y-%m')
-    ORDER BY month DESC
-    LIMIT 6
-");
+// Check if reports table exists
+$table_exists = false;
+try {
+    $result = $koneksi->query("SHOW TABLES LIKE 'reports'");
+    $table_exists = $result && $result->num_rows > 0;
+} catch (Exception $e) {
+    $table_exists = false;
+}
 
-// Daily Activity (Last 7 days)
-$daily_activity = $koneksi->query("
-    SELECT DATE(t.created_at) as date,
-           COUNT(*) as todos_created,
-           COUNT(CASE WHEN tk.status = 'done' THEN 1 END) as todos_completed
-    FROM todos t
-    LEFT JOIN taken tk ON t.id = tk.id_todos
-    WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-    GROUP BY DATE(t.created_at)
-    ORDER BY date ASC
-");
+if (!$table_exists) {
+    echo '<div class="main-content" style="margin-top: 80px;">
+        <div class="setup-message">
+            <div class="setup-card">
+                <i class="fas fa-database"></i>
+                <h2>Database Setup Required</h2>
+                <p>The reports table does not exist. Please run the SQL script to create the required table.</p>
+            </div>
+        </div>
+    </div>';
+    return;
+}
 
-// System Health Metrics
-$system_health = [
-    'database_size' => $koneksi->query("
-        SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) as size_mb 
-        FROM information_schema.tables 
-        WHERE table_schema = 'appstodos'
-    ")->fetch_assoc()['size_mb'] ?? 0,
-    'active_users' => $koneksi->query("
-        SELECT COUNT(DISTINCT user_id) as count 
-        FROM system_logs 
-        WHERE action = 'LOGIN' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-    ")->fetch_assoc()['count'] ?? 0,
-    'error_count' => $koneksi->query("
-        SELECT COUNT(*) as count 
-        FROM system_logs 
-        WHERE action LIKE '%ERROR%' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-    ")->fetch_assoc()['count'] ?? 0,
-    'total_apps' => $koneksi->query("SELECT COUNT(*) as count FROM apps")->fetch_assoc()['count'] ?? 0
+// Get all reports
+$search = $_GET['search'] ?? '';
+$status_filter = $_GET['status'] ?? 'all';
+$type_filter = $_GET['type'] ?? 'all';
+
+$where_conditions = ["r.status != 'deleted'"];
+$params = [];
+$types = "";
+
+if (!empty($search)) {
+    $where_conditions[] = "(r.title LIKE ? OR r.description LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $types .= "ss";
+}
+
+if ($status_filter !== 'all') {
+    $where_conditions[] = "r.status = ?";
+    $params[] = $status_filter;
+    $types .= "s";
+}
+
+if ($type_filter !== 'all') {
+    $where_conditions[] = "r.report_type = ?";
+    $params[] = $type_filter;
+    $types .= "s";
+}
+
+$where_clause = implode(" AND ", $where_conditions);
+
+$reports_query = "
+    SELECT r.*, 
+           COALESCE(u.name, 'Unknown User') as creator_name
+    FROM reports r
+    LEFT JOIN users u ON r.created_by = u.id
+    WHERE $where_clause
+    ORDER BY r.created_at DESC
+";
+
+if (!empty($params)) {
+    $stmt = $koneksi->prepare($reports_query);
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $reports = $stmt->get_result();
+} else {
+    $reports = $koneksi->query($reports_query);
+}
+
+// Report types for dropdown
+$report_types = [
+    'performance' => 'App Performance',
+    'development' => 'Development Metrics', 
+    'productivity' => 'Developer Productivity',
+    'system' => 'System Health',
+    'custom' => 'Custom Report'
 ];
 
-// Status Distribution
-$status_distribution = $koneksi->query("
-    SELECT IFNULL(tk.status, 'pending') as status,
-           COUNT(*) as count
-    FROM todos t
-    LEFT JOIN taken tk ON t.id = tk.id_todos
-    WHERE t.created_at BETWEEN '$date_from' AND '$date_to 23:59:59'
-    GROUP BY IFNULL(tk.status, 'pending')
-");
+// Helper function to get report icon
+function getReportIcon($type) {
+    $icons = [
+        'performance' => 'chart-column',
+        'development' => 'code',
+        'productivity' => 'users-cog',
+        'system' => 'server',
+        'custom' => 'chart-bar'
+    ];
+    return $icons[$type] ?? 'chart-bar';
+}
+
+// Helper function to get status badge class
+function getStatusBadgeClass($status) {
+    return $status === 'active' ? 'badge-success' : 'badge-secondary';
+}
 ?>
 
 <div class="main-content" style="margin-top: 80px;">
     <div class="reports-container">
+        <!-- Header -->
         <div class="page-header">
-            <h1><i class="fas fa-chart-bar"></i> Development Reports</h1>
-            <p>Analisis performa dan metrik pengembangan aplikasi</p>
+            <div class="header-content">
+                <div class="header-left">
+                    <h1><i class="fas fa-chart-bar"></i> Reports Management</h1>
+                    <p>Create, manage and view detailed reports</p>
+                </div>
+                <div class="header-actions">
+                    <?php if ($action == 'list'): ?>
+                    <button onclick="showCreateForm()" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create Report
+                    </button>
+                    <?php else: ?>
+                    <a href="index.php?page=reports" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to List
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
         </div>
 
-        <!-- Date Filter -->
-        <div class="filter-card">
-            <form method="GET" class="date-filter">
+        <!-- Messages -->
+        <?php if ($message): ?>
+        <div class="alert alert-<?= $message_type ?>">
+            <i class="fas fa-<?= $message_type == 'success' ? 'check-circle' : 'exclamation-triangle' ?>"></i>
+            <?= htmlspecialchars($message) ?>
+            <button onclick="this.parentElement.style.display='none';">×</button>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($action == 'list'): ?>
+        <!-- Filters -->
+        <div class="filters-card">
+            <form method="GET" class="filters-form">
                 <input type="hidden" name="page" value="reports">
+                
                 <div class="filter-group">
-                    <label>From:</label>
-                    <input type="date" name="date_from" value="<?= $date_from ?>">
+                    <input type="text" name="search" placeholder="Search reports..." 
+                           value="<?= htmlspecialchars($search) ?>" class="search-input">
                 </div>
+                
                 <div class="filter-group">
-                    <label>To:</label>
-                    <input type="date" name="date_to" value="<?= $date_to ?>">
+                    <select name="status">
+                        <option value="all" <?= $status_filter == 'all' ? 'selected' : '' ?>>All Status</option>
+                        <option value="active" <?= $status_filter == 'active' ? 'selected' : '' ?>>Active</option>
+                        <option value="inactive" <?= $status_filter == 'inactive' ? 'selected' : '' ?>>Inactive</option>
+                    </select>
                 </div>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-search"></i> Apply Filter
+                
+                <div class="filter-group">
+                    <select name="type">
+                        <option value="all" <?= $type_filter == 'all' ? 'selected' : '' ?>>All Types</option>
+                        <?php foreach ($report_types as $value => $label): ?>
+                        <option value="<?= $value ?>" <?= $type_filter == $value ? 'selected' : '' ?>>
+                            <?= $label ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-secondary">
+                    <i class="fas fa-search"></i> Filter
                 </button>
-                <button type="button" onclick="exportReport()" class="btn btn-secondary">
-                    <i class="fas fa-download"></i> Export
-                </button>
+                
+                <a href="index.php?page=reports" class="btn btn-outline">
+                    <i class="fas fa-times"></i> Clear
+                </a>
             </form>
         </div>
 
-        <!-- System Health Overview -->
-        <div class="health-overview">
-            <div class="health-card">
-                <div class="health-icon bg-blue">
-                    <i class="fas fa-database"></i>
-                </div>
-                <div class="health-info">
-                    <h3><?= $system_health['database_size'] ?> MB</h3>
-                    <p>Database Size</p>
-                </div>
+        <!-- Reports List -->
+        <div class="list-container">
+            <?php if ($reports && $reports->num_rows > 0): ?>
+            <div class="list-header">
+                <span class="results-count"><?= $reports->num_rows ?> report(s) found</span>
             </div>
             
-            <div class="health-card">
-                <div class="health-icon bg-green">
-                    <i class="fas fa-users"></i>
+            <div class="reports-list">
+                <?php while ($report = $reports->fetch_assoc()): ?>
+                <div class="list-item">
+                    <div class="item-icon">
+                        <i class="fas fa-<?= getReportIcon($report['report_type']) ?>"></i>
+                    </div>
+                    
+                    <div class="item-content">
+                        <div class="item-header">
+                            <h3 class="item-title"><?= htmlspecialchars($report['title']) ?></h3>
+                            <span class="badge <?= getStatusBadgeClass($report['status']) ?>">
+                                <?= ucfirst($report['status']) ?>
+                            </span>
+                        </div>
+                        
+                        <div class="item-meta">
+                            <span class="meta-item">
+                                <i class="fas fa-tag"></i>
+                                <?= $report_types[$report['report_type']] ?? ucfirst($report['report_type']) ?>
+                            </span>
+                            <span class="meta-item">
+                                <i class="fas fa-calendar"></i>
+                                <?= date('M j, Y', strtotime($report['date_from'])) ?> - <?= date('M j, Y', strtotime($report['date_to'])) ?>
+                            </span>
+                            <span class="meta-item">
+                                <i class="fas fa-user"></i>
+                                <?= htmlspecialchars($report['creator_name']) ?>
+                            </span>
+                            <span class="meta-item">
+                                <i class="fas fa-clock"></i>
+                                <?= date('M j, Y H:i', strtotime($report['created_at'])) ?>
+                            </span>
+                        </div>
+                        
+                        <?php if (!empty($report['description'])): ?>
+                        <p class="item-description"><?= htmlspecialchars($report['description']) ?></p>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div class="item-actions">
+                        <a href="index.php?page=reports&action=view&id=<?= $report['id'] ?>" 
+                           class="btn btn-sm btn-primary" title="View Report">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="index.php?page=reports&action=edit&id=<?= $report['id'] ?>" 
+                           class="btn btn-sm btn-secondary" title="Edit Report">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button onclick="deleteReport(<?= $report['id'] ?>)" 
+                                class="btn btn-sm btn-danger" title="Delete Report">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="health-info">
-                    <h3><?= $system_health['active_users'] ?></h3>
-                    <p>Active Users (7d)</p>
-                </div>
+                <?php endwhile; ?>
             </div>
-            
-            <div class="health-card">
-                <div class="health-icon <?= $system_health['error_count'] > 0 ? 'bg-red' : 'bg-green' ?>">
-                    <i class="fas fa-<?= $system_health['error_count'] > 0 ? 'exclamation-triangle' : 'check-circle' ?>"></i>
-                </div>
-                <div class="health-info">
-                    <h3><?= $system_health['error_count'] ?></h3>
-                    <p>System Errors (7d)</p>
-                </div>
+            <?php else: ?>
+            <div class="no-data">
+                <i class="fas fa-chart-bar"></i>
+                <h3>No Reports Found</h3>
+                <p>
+                    <?php if (!empty($search) || $status_filter != 'all' || $type_filter != 'all'): ?>
+                        No reports match your current filters. Try adjusting your search criteria.
+                    <?php else: ?>
+                        Create your first report to get started with analytics.
+                    <?php endif; ?>
+                </p>
+                <?php if (empty($search) && $status_filter == 'all' && $type_filter == 'all'): ?>
+                <button onclick="showCreateForm()" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Create First Report
+                </button>
+                <?php endif; ?>
             </div>
-
-            <div class="health-card">
-                <div class="health-icon bg-purple">
-                    <i class="fas fa-mobile-alt"></i>
-                </div>
-                <div class="health-info">
-                    <h3><?= $system_health['total_apps'] ?></h3>
-                    <p>Total Apps</p>
-                </div>
-            </div>
+            <?php endif; ?>
         </div>
 
-        <!-- Charts Grid -->
-        <div class="reports-grid">
-            <!-- App Performance Chart -->
-            <div class="report-card large">
-                <div class="card-header">
-                    <h3><i class="fas fa-chart-column"></i> App Performance</h3>
-                </div>
-                <div class="card-content">
-                    <div class="chart-container">
-                        <canvas id="appPerformanceChart"></canvas>
-                    </div>
-                </div>
+        <?php elseif ($action == 'create' || $action == 'edit'): ?>
+        <!-- Create/Edit Form -->
+        <div class="form-container">
+            <div class="form-header">
+                <h2>
+                    <i class="fas fa-<?= $action == 'edit' ? 'edit' : 'plus' ?>"></i>
+                    <?= $action == 'edit' ? 'Edit Report' : 'Create New Report' ?>
+                </h2>
             </div>
 
-            <!-- Priority Distribution -->
-            <div class="report-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-chart-pie"></i> Priority Distribution</h3>
-                </div>
-                <div class="card-content">
-                    <div class="chart-container">
-                        <canvas id="priorityChart"></canvas>
-                    </div>
-                    <div class="chart-legend">
-                        <?php 
-                        $priority_stats->data_seek(0);
-                        $colors = ['#ef4444', '#f59e0b', '#10b981'];
-                        $i = 0;
-                        while($row = $priority_stats->fetch_assoc()): ?>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background: <?= $colors[$i] ?>"></div>
-                            <span><?= ucfirst($row['priority']) ?> (<?= $row['total'] ?>)</span>
-                        </div>
-                        <?php $i++; endwhile; ?>
-                    </div>
-                </div>
-            </div>
+            <form method="POST" class="report-form">
+                <input type="hidden" name="action" value="<?= $action == 'edit' ? 'update' : 'create' ?>">
+                <?php if ($action == 'edit'): ?>
+                <input type="hidden" name="report_id" value="<?= $report_id ?>">
+                <?php endif; ?>
 
-            <!-- Status Distribution -->
-            <div class="report-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-chart-donut"></i> Status Distribution</h3>
-                </div>
-                <div class="card-content">
-                    <div class="chart-container">
-                        <canvas id="statusChart"></canvas>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="title">Report Title *</label>
+                        <input type="text" id="title" name="title" required 
+                               value="<?= htmlspecialchars($edit_report['title'] ?? '') ?>"
+                               placeholder="Enter report title">
                     </div>
-                </div>
-            </div>
 
-            <!-- Monthly Trends -->
-            <div class="report-card large">
-                <div class="card-header">
-                    <h3><i class="fas fa-chart-line"></i> Monthly Trends</h3>
-                </div>
-                <div class="card-content">
-                    <div class="chart-container">
-                        <canvas id="trendsChart"></canvas>
+                    <div class="form-group">
+                        <label for="report_type">Report Type *</label>
+                        <select id="report_type" name="report_type" required>
+                            <option value="">Select Type</option>
+                            <?php foreach ($report_types as $value => $label): ?>
+                            <option value="<?= $value ?>" <?= ($edit_report['report_type'] ?? '') == $value ? 'selected' : '' ?>>
+                                <?= $label ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
-                </div>
-            </div>
 
-            <!-- Daily Activity -->
-            <div class="report-card large">
-                <div class="card-header">
-                    <h3><i class="fas fa-chart-area"></i> Daily Activity (Last 7 Days)</h3>
-                </div>
-                <div class="card-content">
-                    <div class="chart-container">
-                        <canvas id="dailyChart"></canvas>
+                    <div class="form-group">
+                        <label for="date_from">Start Date *</label>
+                        <input type="date" id="date_from" name="date_from" required
+                               value="<?= $edit_report['date_from'] ?? date('Y-m-d', strtotime('-30 days')) ?>">
                     </div>
-                </div>
-            </div>
 
-            <!-- Developer Productivity -->
-            <div class="report-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-users-cog"></i> Developer Productivity</h3>
-                </div>
-                <div class="card-content">
-                    <?php if($dev_productivity->num_rows > 0): ?>
-                    <div class="dev-list">
-                        <?php while($dev = $dev_productivity->fetch_assoc()): ?>
-                        <div class="dev-item">
-                            <div class="dev-info">
-                                <span class="dev-name"><?= htmlspecialchars($dev['developer_name']) ?></span>
-                                <div class="dev-stats">
-                                    <span class="stat completed"><?= $dev['completed_tasks'] ?> Done</span>
-                                    <span class="stat active"><?= $dev['active_tasks'] ?> Active</span>
-                                    <span class="stat time"><?= $dev['avg_completion_time'] ?? 0 ?>d Avg</span>
-                                </div>
-                            </div>
-                            <div class="score-circle">
-                                <?= $dev['completed_tasks'] ?>
-                            </div>
-                        </div>
-                        <?php endwhile; ?>
+                    <div class="form-group">
+                        <label for="date_to">End Date *</label>
+                        <input type="date" id="date_to" name="date_to" required
+                               value="<?= $edit_report['date_to'] ?? date('Y-m-d') ?>">
                     </div>
-                    <?php else: ?>
-                    <div class="no-data">No developer data available for selected period</div>
-                    <?php endif; ?>
                 </div>
-            </div>
 
-            <!-- App Details Table -->
-            <div class="report-card large">
-                <div class="card-header">
-                    <h3><i class="fas fa-table"></i> App Details</h3>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="4" 
+                              placeholder="Enter report description"><?= htmlspecialchars($edit_report['description'] ?? '') ?></textarea>
                 </div>
-                <div class="card-content">
-                    <?php if($app_performance->num_rows > 0): ?>
-                    <div class="table-responsive">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>App Name</th>
-                                    <th>Total Tasks</th>
-                                    <th>Completed</th>
-                                    <th>In Progress</th>
-                                    <th>High Priority</th>
-                                    <th>Avg Days</th>
-                                    <th>Completion Rate</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php 
-                                $app_performance->data_seek(0);
-                                while($app = $app_performance->fetch_assoc()): 
-                                $completion_rate = $app['total_todos'] > 0 ? round(($app['completed'] / $app['total_todos']) * 100, 1) : 0;
-                                ?>
-                                <tr>
-                                    <td><strong><?= htmlspecialchars($app['app_name']) ?></strong></td>
-                                    <td><?= $app['total_todos'] ?></td>
-                                    <td><span class="badge badge-success"><?= $app['completed'] ?></span></td>
-                                    <td><span class="badge badge-warning"><?= $app['in_progress'] ?></span></td>
-                                    <td><span class="badge badge-danger"><?= $app['high_priority_count'] ?></span></td>
-                                    <td><?= $app['avg_completion_days'] ?? '-' ?></td>
-                                    <td>
-                                        <div class="progress-bar">
-                                            <div class="progress-fill" style="width: <?= $completion_rate ?>%"></div>
-                                            <span><?= $completion_rate ?>%</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <?php endwhile; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <?php else: ?>
-                    <div class="no-data">No app performance data available for selected period</div>
-                    <?php endif; ?>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> <?= $action == 'edit' ? 'Update Report' : 'Create Report' ?>
+                    </button>
+                    <a href="index.php?page=reports" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <?php elseif ($action == 'view'): ?>
+        <!-- View Report - Simple Version -->
+        <div class="view-container">
+            <div class="view-header">
+                <h2>Report Details</h2>
+                <div class="view-actions">
+                    <a href="index.php?page=reports&action=edit&id=<?= $report_id ?>" class="btn btn-secondary">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    <button onclick="deleteReport(<?= $report_id ?>)" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
                 </div>
             </div>
+            
+            <?php
+            $stmt = $koneksi->prepare("SELECT r.*, u.name as creator_name FROM reports r LEFT JOIN users u ON r.created_by = u.id WHERE r.id = ?");
+            $stmt->bind_param("i", $report_id);
+            $stmt->execute();
+            $current_report = $stmt->get_result()->fetch_assoc();
+            ?>
+            
+            <?php if ($current_report): ?>
+            <div class="view-content">
+                <div class="detail-group">
+                    <label>Title:</label>
+                    <span><?= htmlspecialchars($current_report['title']) ?></span>
+                </div>
+                
+                <div class="detail-group">
+                    <label>Type:</label>
+                    <span><?= $report_types[$current_report['report_type']] ?? ucfirst($current_report['report_type']) ?></span>
+                </div>
+                
+                <div class="detail-group">
+                    <label>Period:</label>
+                    <span><?= date('M j, Y', strtotime($current_report['date_from'])) ?> - <?= date('M j, Y', strtotime($current_report['date_to'])) ?></span>
+                </div>
+                
+                <div class="detail-group">
+                    <label>Status:</label>
+                    <span class="badge <?= getStatusBadgeClass($current_report['status']) ?>">
+                        <?= ucfirst($current_report['status']) ?>
+                    </span>
+                </div>
+                
+                <div class="detail-group">
+                    <label>Created By:</label>
+                    <span><?= htmlspecialchars($current_report['creator_name']) ?></span>
+                </div>
+                
+                <div class="detail-group">
+                    <label>Created:</label>
+                    <span><?= date('M j, Y H:i', strtotime($current_report['created_at'])) ?></span>
+                </div>
+                
+                <?php if (!empty($current_report['description'])): ?>
+                <div class="detail-group">
+                    <label>Description:</label>
+                    <p><?= htmlspecialchars($current_report['description']) ?></p>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php else: ?>
+            <div class="no-data">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Report Not Found</h3>
+                <p>The requested report does not exist or has been deleted.</p>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-exclamation-triangle"></i> Confirm Delete</h3>
+            <button onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete this report? This action cannot be undone.</p>
+        </div>
+        <div class="modal-actions">
+            <form method="POST" id="deleteForm">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="report_id" id="deleteReportId">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Delete Report
+                </button>
+                <button type="button" onclick="closeDeleteModal()" class="btn btn-secondary">Cancel</button>
+            </form>
         </div>
     </div>
 </div>
 
 <style>
 .reports-container {
-    max-width: 1400px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
 }
 
 .page-header {
-    margin-bottom: 32px;
-    text-align: center;
-    padding: 20px 0;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 24px;
 }
 
-.page-header h1 {
-    font-size: 2.2rem;
+.header-content {
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.header-left h1 {
+    font-size: 1.8rem;
     color: #1f2937;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin-bottom: 8px;
-    font-weight: 700;
+    gap: 10px;
+    margin-bottom: 4px;
+    font-weight: 600;
 }
 
-.page-header p {
+.header-left p {
     color: #6b7280;
-    font-size: 1.1rem;
     margin: 0;
+    font-size: 0.95rem;
 }
 
-.filter-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    margin-bottom: 32px;
-    border: 1px solid #e2e8f0;
-}
-
-.date-filter {
-    padding: 24px;
+.alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 20px;
     display: flex;
-    gap: 20px;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+}
+
+.alert-success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.alert-error {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+}
+
+.alert button {
+    position: absolute;
+    right: 12px;
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Filters */
+.filters-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 24px;
+}
+
+.filters-form {
+    padding: 20px;
+    display: flex;
+    gap: 16px;
     align-items: end;
     flex-wrap: wrap;
 }
 
 .filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex: 1;
+    min-width: 200px;
 }
 
-.filter-group label {
+.search-input,
+.filter-group select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
     font-size: 0.9rem;
-    font-weight: 600;
-    color: #374151;
 }
 
-.filter-group input {
-    padding: 10px 14px;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-}
-
-.filter-group input:focus {
+.search-input:focus,
+.filter-group select:focus {
     border-color: #3b82f6;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
-.health-overview {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin-bottom: 32px;
-}
-
-.health-card {
+/* List Container */
+.list-container {
     background: white;
-    padding: 24px;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    border: 1px solid #e2e8f0;
-    transition: transform 0.3s ease;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.health-card:hover {
-    transform: translateY(-2px);
+.list-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+    border-radius: 8px 8px 0 0;
 }
 
-.health-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.4rem;
-}
-
-.bg-blue { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
-.bg-green { background: linear-gradient(135deg, #10b981, #059669); }
-.bg-red { background: linear-gradient(135deg, #ef4444, #dc2626); }
-.bg-orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
-.bg-purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-
-.health-info h3 {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin-bottom: 4px;
-}
-
-.health-info p {
-    font-size: 0.95rem;
+.results-count {
+    font-size: 0.9rem;
     color: #6b7280;
-    margin: 0;
     font-weight: 500;
 }
 
-.reports-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 24px;
+.reports-list {
+    padding: 0;
 }
 
-.report-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
+.list-item {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background-color 0.2s ease;
 }
 
-.report-card.large {
-    grid-column: span 2;
+.list-item:hover {
+    background: #f9fafb;
 }
 
-.card-header {
-    padding: 20px 24px;
-    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
-    border-bottom: 1px solid #e2e8f0;
+.list-item:last-child {
+    border-bottom: none;
 }
 
-.card-header h3 {
+.item-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background: #e0e7ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+    flex-shrink: 0;
+}
+
+.item-icon i {
+    font-size: 1.2rem;
+    color: #3730a3;
+}
+
+.item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.item-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.item-title {
     font-size: 1.1rem;
     font-weight: 600;
     color: #1f2937;
     margin: 0;
+}
+
+.item-meta {
     display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.card-content {
-    padding: 24px;
-}
-
-.chart-container {
-    position: relative;
-    height: 300px;
-    margin-bottom: 16px;
-}
-
-.chart-legend {
-    display: flex;
-    justify-content: center;
-    gap: 24px;
-    margin-top: 20px;
     flex-wrap: wrap;
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-.legend-color {
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-}
-
-.dev-list {
-    display: flex;
-    flex-direction: column;
     gap: 16px;
+    margin-bottom: 8px;
 }
 
-.dev-item {
+.meta-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 16px;
-    border-radius: 8px;
-    background: #f9fafb;
-    border: 1px solid #f3f4f6;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: #6b7280;
 }
 
-.dev-name {
-    font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 6px;
-    display: block;
-    font-size: 1rem;
+.meta-item i {
+    font-size: 0.75rem;
 }
 
-.dev-stats {
+.item-description {
+    color: #6b7280;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin: 8px 0 0 0;
+}
+
+.item-actions {
     display: flex;
     gap: 8px;
-    font-size: 0.8rem;
+    flex-shrink: 0;
 }
 
-.stat {
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-weight: 500;
-}
-
-.stat.completed { background: #dcfce7; color: #166534; }
-.stat.active { background: #fef3c7; color: #d97706; }
-.stat.time { background: #e0e7ff; color: #3730a3; }
-
-.score-circle {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #10b981, #059669);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 700;
-    font-size: 1.1rem;
-}
-
-.table-responsive {
-    overflow-x: auto;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-}
-
-.data-table th,
-.data-table td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.data-table th {
-    background: #f8fafc;
-    font-weight: 600;
-    color: #374151;
-}
-
-.data-table tr:hover {
-    background: #f9fafb;
-}
-
+/* Badges */
 .badge {
-    padding: 4px 8px;
-    border-radius: 6px;
+    padding: 3px 8px;
+    border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 500;
 }
 
-.badge-success { background: #dcfce7; color: #166534; }
-.badge-warning { background: #fef3c7; color: #d97706; }
-.badge-danger { background: #fee2e2; color: #dc2626; }
+.badge-success {
+    background: #dcfce7;
+    color: #166534;
+}
 
-.progress-bar {
-    position: relative;
-    height: 20px;
+.badge-secondary {
     background: #f3f4f6;
-    border-radius: 10px;
-    overflow: hidden;
-    min-width: 80px;
+    color: #6b7280;
 }
 
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(135deg, #10b981, #059669);
-    transition: width 0.3s ease;
-}
-
-.progress-bar span {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: #1f2937;
-}
-
+/* Buttons */
 .btn {
-    padding: 10px 18px;
+    padding: 8px 16px;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
     font-weight: 500;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     font-size: 0.9rem;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
+}
+
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 0.8rem;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    background: #3b82f6;
     color: white;
 }
 
 .btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.btn-outline {
     background: white;
     color: #6b7280;
-    border: 2px solid #d1d5db;
+    border: 1px solid #d1d5db;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
 }
 
 .btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
+/* Forms */
+.form-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-header {
+    padding: 20px 24px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    border-radius: 8px 8px 0 0;
+}
+
+.form-header h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.report-form {
+    padding: 24px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* View Container */
+.view-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.view-header {
+    padding: 20px 24px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.view-header h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.view-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.view-content {
+    padding: 24px;
+}
+
+.detail-group {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    gap: 16px;
+}
+
+.detail-group label {
+    font-weight: 600;
+    color: #374151;
+    min-width: 120px;
+    font-size: 0.9rem;
+}
+
+.detail-group span,
+.detail-group p {
+    color: #6b7280;
+    margin: 0;
+    flex: 1;
+}
+
+.detail-group p {
+    line-height: 1.5;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background: white;
+    margin: 15% auto;
+    padding: 0;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    width: 90%;
+    max-width: 400px;
+}
+
+.modal-header {
+    padding: 20px;
+    background: #fee2e2;
+    border-bottom: 1px solid #fca5a5;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    color: #dc2626;
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-header button {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #dc2626;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-body p {
+    color: #6b7280;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.modal-actions {
+    padding: 0 20px 20px;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+/* No Data */
 .no-data {
     text-align: center;
-    color: #9ca3af;
-    font-style: italic;
-    padding: 40px;
-    background: #f9fafb;
-    border-radius: 8px;
+    padding: 60px 40px;
+    color: #6b7280;
 }
 
-@media (max-width: 1200px) {
-    .report-card.large {
-        grid-column: span 1;
+.no-data i {
+    font-size: 2.5rem;
+    color: #d1d5db;
+    margin-bottom: 16px;
+}
+
+.no-data h3 {
+    font-size: 1.3rem;
+    color: #374151;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.no-data p {
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .reports-container {
+        padding: 16px;
     }
     
-    .reports-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .date-filter {
+    .header-content {
         flex-direction: column;
         align-items: stretch;
+        text-align: center;
     }
     
-    .health-overview {
-        grid-template-columns: repeat(2, 1fr);
+    .filters-form {
+        flex-direction: column;
+        gap: 12px;
     }
     
-    .chart-legend {
-        gap: 16px;
+    .filter-group {
+        min-width: auto;
     }
     
-    .dev-item {
+    .list-item {
         flex-direction: column;
         align-items: flex-start;
-        gap: 12px;
+        gap: 16px;
+        padding: 16px;
+    }
+    
+    .item-icon {
+        margin-right: 0;
+    }
+    
+    .item-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .item-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .item-actions {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .view-header {
+        flex-direction: column;
+        gap: 16px;
+        align-items: flex-start;
+    }
+    
+    .view-actions {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .detail-group {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .detail-group label {
+        min-width: auto;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-left h1 {
+        font-size: 1.5rem;
+    }
+    
+    .btn {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+    
+    .item-title {
+        font-size: 1rem;
+    }
+    
+    .meta-item {
+        font-size: 0.75rem;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
     }
 }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Chart.js Global Configuration
-Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
-Chart.defaults.color = '#6b7280';
+// JavaScript functions for CRUD operations
 
-// App Performance Chart
-const appCtx = document.getElementById('appPerformanceChart').getContext('2d');
-new Chart(appCtx, {
-    type: 'bar',
-    data: {
-        labels: [<?php 
-            $app_performance->data_seek(0);
-            $labels = [];
-            while($row = $app_performance->fetch_assoc()) {
-                $labels[] = "'" . addslashes($row['app_name']) . "'";
-            }
-            echo implode(',', $labels);
-        ?>],
-        datasets: [{
-            label: 'Total Tasks',
-            data: [<?php 
-                $app_performance->data_seek(0);
-                $data = [];
-                while($row = $app_performance->fetch_assoc()) {
-                    $data[] = $row['total_todos'];
-                }
-                echo implode(',', $data);
-            ?>],
-            backgroundColor: 'rgba(59, 130, 246, 0.8)',
-            borderColor: '#3b82f6',
-            borderWidth: 1
-        }, {
-            label: 'Completed',
-            data: [<?php 
-                $app_performance->data_seek(0);
-                $data = [];
-                while($row = $app_performance->fetch_assoc()) {
-                    $data[] = $row['completed'];
-                }
-                echo implode(',', $data);
-            ?>],
-            backgroundColor: 'rgba(16, 185, 129, 0.8)',
-            borderColor: '#10b981',
-            borderWidth: 1
-        }, {
-            label: 'In Progress',
-            data: [<?php 
-                $app_performance->data_seek(0);
-                $data = [];
-                while($row = $app_performance->fetch_assoc()) {
-                    $data[] = $row['in_progress'];
-                }
-                echo implode(',', $data);
-            ?>],
-            backgroundColor: 'rgba(245, 158, 11, 0.8)',
-            borderColor: '#f59e0b',
-            borderWidth: 1
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'top',
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                grid: {
-                    color: '#f3f4f6'
-                }
-            },
-            x: {
-                grid: {
-                    display: false
-                }
-            }
-        }
-    }
-});
-
-// Priority Chart
-const priorityCtx = document.getElementById('priorityChart').getContext('2d');
-new Chart(priorityCtx, {
-    type: 'doughnut',
-    data: {
-        labels: [<?php 
-            $priority_stats->data_seek(0);
-            $labels = [];
-            while($row = $priority_stats->fetch_assoc()) {
-                $labels[] = "'" . ucfirst($row['priority']) . "'";
-            }
-            echo implode(',', $labels);
-        ?>],
-        datasets: [{
-            data: [<?php 
-                $priority_stats->data_seek(0);
-                $data = [];
-                while($row = $priority_stats->fetch_assoc()) {
-                    $data[] = $row['total'];
-                }
-                echo implode(',', $data);
-            ?>],
-            backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
-            borderWidth: 0
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
-            }
-        }
-    }
-});
-
-// Status Distribution Chart
-const statusCtx = document.getElementById('statusChart').getContext('2d');
-new Chart(statusCtx, {
-    type: 'pie',
-    data: {
-        labels: [<?php 
-            $status_distribution->data_seek(0);
-            $labels = [];
-            while($row = $status_distribution->fetch_assoc()) {
-                $labels[] = "'" . ucfirst(str_replace('_', ' ', $row['status'])) . "'";
-            }
-            echo implode(',', $labels);
-        ?>],
-        datasets: [{
-            data: [<?php 
-                $status_distribution->data_seek(0);
-                $data = [];
-                while($row = $status_distribution->fetch_assoc()) {
-                    $data[] = $row['count'];
-                }
-                echo implode(',', $data);
-            ?>],
-            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
-            borderWidth: 0
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom',
-                labels: {
-                    padding: 20,
-                    usePointStyle: true
-                }
-            }
-        }
-    }
-});
-
-// Trends Chart
-const trendsCtx = document.getElementById('trendsChart').getContext('2d');
-new Chart(trendsCtx, {
-    type: 'line',
-    data: {
-        labels: [<?php 
-            $monthly_trends->data_seek(0);
-            $labels = [];
-            while($row = $monthly_trends->fetch_assoc()) {
-                $labels[] = "'" . date('M Y', strtotime($row['month'] . '-01')) . "'";
-            }
-            echo implode(',', array_reverse($labels));
-        ?>],
-        datasets: [{
-            label: 'Tasks Created',
-            data: [<?php 
-                $monthly_trends->data_seek(0);
-                $data = [];
-                while($row = $monthly_trends->fetch_assoc()) {
-                    $data[] = $row['todos_created'];
-                }
-                echo implode(',', array_reverse($data));
-            ?>],
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            tension: 0.4,
-            fill: true
-        }, {
-            label: 'Tasks Completed',
-            data: [<?php 
-                $monthly_trends->data_seek(0);
-                $data = [];
-                while($row = $monthly_trends->fetch_assoc()) {
-                    $data[] = $row['todos_completed'];
-                }
-                echo implode(',', array_reverse($data));
-            ?>],
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            tension: 0.4,
-            fill: true
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'top'
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                grid: {
-                    color: '#f3f4f6'
-                }
-            },
-            x: {
-                grid: {
-                    display: false
-                }
-            }
-        }
-    }
-});
-
-// Daily Activity Chart
-const dailyCtx = document.getElementById('dailyChart').getContext('2d');
-new Chart(dailyCtx, {
-    type: 'bar',
-    data: {
-        labels: [<?php 
-            $daily_activity->data_seek(0);
-            $labels = [];
-            while($row = $daily_activity->fetch_assoc()) {
-                $labels[] = "'" . date('M j', strtotime($row['date'])) . "'";
-            }
-            echo implode(',', $labels);
-        ?>],
-        datasets: [{
-            label: 'Created',
-            data: [<?php 
-                $daily_activity->data_seek(0);
-                $data = [];
-                while($row = $daily_activity->fetch_assoc()) {
-                    $data[] = $row['todos_created'];
-                }
-                echo implode(',', $data);
-            ?>],
-            backgroundColor: 'rgba(59, 130, 246, 0.7)',
-            borderColor: '#3b82f6',
-            borderWidth: 1
-        }, {
-            label: 'Completed',
-            data: [<?php 
-                $daily_activity->data_seek(0);
-                $data = [];
-                while($row = $daily_activity->fetch_assoc()) {
-                    $data[] = $row['todos_completed'];
-                }
-                echo implode(',', $data);
-            ?>],
-            backgroundColor: 'rgba(16, 185, 129, 0.7)',
-            borderColor: '#10b981',
-            borderWidth: 1
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'top'
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                grid: {
-                    color: '#f3f4f6'
-                }
-            },
-            x: {
-                grid: {
-                    display: false
-                }
-            }
-        }
-    }
-});
-
-function exportReport() {
-    // Simple export functionality
-    const reportData = {
-        period: '<?= $date_from ?> to <?= $date_to ?>',
-        generated: new Date().toISOString(),
-        system_health: <?= json_encode($system_health) ?>,
-        summary: 'Development Reports - ' + new Date().toLocaleDateString()
-    };
-    
-    // You can replace this with actual PDF/Excel export functionality
-    setTimeout(() => {
-        alert('Report exported successfully! You can integrate this with libraries like jsPDF or xlsx for PDF/Excel export.');
-    }, 100);
+function showCreateForm() {
+    window.location.href = 'index.php?page=reports&action=create';
 }
 
-// Auto refresh data every 5 minutes
-setInterval(() => {
-    if (document.visibilityState === 'visible') {
-        location.reload();
-    }
-}, 300000);
+function deleteReport(reportId) {
+    document.getElementById('deleteReportId').value = reportId;
+    document.getElementById('deleteModal').style.display = 'block';
+}
 
-// Add smooth animations when page loads
-window.addEventListener('load', () => {
-    const cards = document.querySelectorAll('.health-card, .report-card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-        setTimeout(() => {
-            card.style.transition = 'all 0.6s ease';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, index * 100);
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('deleteModal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Form validation
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('.report-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const title = document.getElementById('title').value.trim();
+            const reportType = document.getElementById('report_type').value;
+            const dateFrom = document.getElementById('date_from').value;
+            const dateTo = document.getElementById('date_to').value;
+            
+            if (!title || !reportType || !dateFrom || !dateTo) {
+                e.preventDefault();
+                showNotification('Please fill in all required fields.', 'error');
+                return;
+            }
+            
+            if (new Date(dateFrom) > new Date(dateTo)) {
+                e.preventDefault();
+                showNotification('Start date must be before end date.', 'error');
+                return;
+            }
+            
+            if (new Date(dateTo) > new Date()) {
+                e.preventDefault();
+                showNotification('End date cannot be in the future.', 'error');
+                return;
+            }
+        });
+    }
+    
+    // Auto-submit filters on change
+    const filterSelects = document.querySelectorAll('.filters-form select');
+    filterSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            this.form.submit();
+        });
+    });
+    
+    // Search input with enter key
+    const searchInput = document.querySelector('.search-input');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                this.form.submit();
+            }
+        });
+    }
+});
+
+// Show notification
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type}`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
+        ${message}
+        <button onclick="this.parentElement.remove();">×</button>
+    `;
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.right = '20px';
+    notification.style.zIndex = '9999';
+    notification.style.minWidth = '300px';
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + N = New Report
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        if (window.location.href.includes('page=reports') && !window.location.href.includes('action=')) {
+            showCreateForm();
+        }
+    }
+    
+    // Escape = Close modal
+    if (e.key === 'Escape') {
+        closeDeleteModal();
+    }
+});
+
+// Smooth scroll for better UX
+document.addEventListener('DOMContentLoaded', function() {
+    const links = document.querySelectorAll('a[href*="#"]');
+    links.forEach(link => {
+        link.addEventListener('click', function(e) {
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                e.preventDefault();
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+});
+
+// Add loading states for better UX
+function addLoadingState(button) {
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    button.disabled = true;
+    
+    return function() {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    };
+}
+
+// Enhanced form submission with loading state
+document.addEventListener('DOMContentLoaded', function() {
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function() {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn && !submitBtn.disabled) {
+                addLoadingState(submitBtn);
+            }
+        });
     });
 });
 </script>

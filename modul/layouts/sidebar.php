@@ -24,19 +24,19 @@ $menu_items = [
     'todos' => [
         'icon' => 'fas fa-list-check',
         'text' => 'Todos',
-        'roles' => ['admin'],
+        'roles' => ['admin', 'programmer', 'support'],
         'tooltip' => 'Kelola Tugas'
     ],
     'taken' => [
         'icon' => 'fas fa-chart-line',
         'text' => 'Taken',
         'roles' => ['admin', 'programmer', 'support'],
-        'tooltip' => 'Progress Tugas'
+        'tooltip' => 'Pengambilan Tugas'
     ],
     'reports' => [
         'icon' => 'fas fa-chart-bar',
         'text' => 'Reports',
-        'roles' => ['admin', 'programmer'],
+        'roles' => ['admin', 'programmer', 'support'],
         'tooltip' => 'Laporan Sistem'
     ],
     'settings' => [
