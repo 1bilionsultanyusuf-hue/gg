@@ -1,5 +1,3 @@
-[file name]: login.php
-[file content begin]
 <?php
 session_start();
 require_once '../../config.php';
@@ -546,4 +544,3 @@ setTimeout(() => {
             }
         });
     </script>
-[file content end]
