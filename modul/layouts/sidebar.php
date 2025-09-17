@@ -6,7 +6,7 @@ $menu_items = [
     'dashboard' => [
         'icon' => 'fas fa-home',
         'text' => 'Dashboard',
-        'roles' => ['admin', 'programmer', 'support'],
+        'roles' => ['admin', 'programmer', 'support', 'client'],
         'tooltip' => 'Dashboard'
     ],
     'apps' => [
@@ -24,7 +24,7 @@ $menu_items = [
     'todos' => [
         'icon' => 'fas fa-list-check',
         'text' => 'Todos',
-        'roles' => ['admin', 'programmer', 'support'],
+        'roles' => ['admin', 'programmer', 'support', 'client'],
         'tooltip' => 'Kelola Tugas'
     ],
     'taken' => [
@@ -36,7 +36,7 @@ $menu_items = [
     'reports' => [
         'icon' => 'fas fa-chart-bar',
         'text' => 'Reports',
-        'roles' => ['admin', 'programmer', 'support'],
+        'roles' => ['admin', 'programmer', 'support', 'client'],
         'tooltip' => 'Laporan Sistem'
     ],
     'settings' => [

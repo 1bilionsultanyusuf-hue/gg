@@ -31,16 +31,16 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 // Role-based page access control - WITH SETTINGS
 $role_access = [
     'dashboard' => ['admin'],           // Dashboard khusus admin
-    'dashboard_manager' => ['manager'], // Dashboard khusus manager 
+    'dashboard_client' => ['client'], // Dashboard khusus manager 
     'dashboard_pr' => ['programmer'],   // Dashboard khusus programmer
     'dashboard_support' => ['support'], // Dashboard khusus support
-    'apps' => ['admin', 'manager', 'programmer', 'support'],
-    'users' => ['admin', 'manager'],
-    'todos' => ['admin', 'manager', 'programmer', 'support'],
+    'apps' => ['admin', 'programmer', 'support'],
+    'users' => ['admin'],
+    'todos' => ['admin', 'programmer', 'client', 'support'],
     'profile' => ['admin', 'manager', 'programmer', 'support'],
-    'taken' => ['admin', 'manager', 'programmer', 'support'],
-    'reports' => ['admin', 'manager', 'programmer', 'support'],
-    'logout' => ['admin', 'manager', 'programmer', 'support'],
+    'taken' => ['admin', 'programmer', 'support'],
+    'reports' => ['admin', 'client', 'programmer', 'support'],
+    'logout' => ['admin', 'client', 'programmer', 'support'],
     'settings' => ['admin'],            // Settings hanya untuk admin
 ];
 
@@ -53,8 +53,8 @@ if($page == 'dashboard') {
         case 'admin':
             $page = 'dashboard';
             break;
-        case 'manager':
-            $page = 'dashboard_manager';
+        case 'client':
+            $page = 'dashboard_client';
             break;
         case 'programmer':
             $page = 'dashboard_pr';
@@ -82,8 +82,8 @@ if (isset($role_access[$page]) && !in_array($user_role, $role_access[$page])) {
         case 'admin':
             header('Location: index.php?page=dashboard');
             break;
-        case 'manager':
-            header('Location: index.php?page=dashboard_manager');
+        case 'client':
+            header('Location: index.php?page=dashboard_client');
             break;
         case 'programmer':
             header('Location: index.php?page=dashboard_pr');
@@ -102,8 +102,8 @@ if(!in_array($page, $allowed_pages)) {
         case 'admin':
             $page = 'dashboard';
             break;
-        case 'manager':
-            $page = 'dashboard_manager';
+        case 'client':
+            $page = 'dashboard_client';
             break;
         case 'programmer':
             $page = 'dashboard_pr';
@@ -174,8 +174,8 @@ include 'modul/layouts/header.php';
             case 'dashboard':
                 include "modul/dashboard/dashboard.php"; // Dashboard khusus admin
                 break;
-            case 'dashboard_manager':
-                include "modul/dashboard/dashboard_manager.php"; // Dashboard khusus manager
+            case 'dashboard_client':
+                include "modul/dashboard/dashboard_client.php"; // Dashboard khusus manager
                 break;
             case 'dashboard_pr':
                 include "modul/dashboard/dashboard_pr.php"; // Dashboard khusus programmer
@@ -189,8 +189,8 @@ include 'modul/layouts/header.php';
                     case 'admin':
                         include "modul/dashboard/dashboard.php";
                         break;
-                    case 'manager':
-                        include "modul/dashboard/dashboard_manager.php";
+                    case 'client':
+                        include "modul/dashboard/dashboard_client.php";
                         break;
                     case 'programmer':
                         include "modul/dashboard/dashboard_pr.php";

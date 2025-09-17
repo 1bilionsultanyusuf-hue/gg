@@ -143,20 +143,31 @@ if (!empty($params)) {
     $users_result = $koneksi->query($users_query);
 }
 
-// Get user statistics
+// Get user statistics - Updated with client role
 $total_users = $koneksi->query("SELECT COUNT(*) as count FROM users")->fetch_assoc()['count'];
 $admin_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'admin'")->fetch_assoc()['count'];
+$client_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'client'")->fetch_assoc()['count'];
 $programmer_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'programmer'")->fetch_assoc()['count'];
 $support_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'support'")->fetch_assoc()['count'];
 
-// Helper functions
+// Helper functions - Updated with client role
 function getRoleColor($role) {
-    $colors = ['admin'=>'#dc2626','programmer'=>'#0066ff','support'=>'#10b981'];
+    $colors = [
+        'admin' => '#dc2626',
+        'client' => '#7c3aed', // Purple for client
+        'programmer' => '#0066ff',
+        'support' => '#10b981'
+    ];
     return $colors[$role] ?? '#6b7280';
 }
 
 function getRoleIcon($role) {
-    $icons = ['admin'=>'fas fa-crown','programmer'=>'fas fa-code','support'=>'fas fa-headset'];
+    $icons = [
+        'admin' => 'fas fa-crown',
+        'client' => 'fas fa-briefcase', // Briefcase icon for client
+        'programmer' => 'fas fa-code',
+        'support' => 'fas fa-headset'
+    ];
     return $icons[$role] ?? 'fas fa-user';
 }
 
@@ -180,6 +191,16 @@ function getGenderIcon($gender) {
 
 function getGenderText($gender) {
     return $gender == 'female' ? 'Perempuan' : 'Laki-laki';
+}
+
+function getRoleDisplayName($role) {
+    $names = [
+        'admin' => 'Administrator',
+        'client' => 'Client',
+        'programmer' => 'Programmer',
+        'support' => 'Support'
+    ];
+    return $names[$role] ?? ucfirst($role);
 }
 ?>
 
@@ -216,7 +237,7 @@ function getGenderText($gender) {
         </div>
     </div>
 
-    <!-- Statistics Cards -->
+    <!-- Statistics Cards - Updated with Client -->
     <div class="stats-grid">
         <div class="stat-card bg-gradient-blue">
             <div class="stat-icon">
@@ -235,6 +256,16 @@ function getGenderText($gender) {
             <div class="stat-content">
                 <h3 class="stat-number"><?= $admin_count ?></h3>
                 <p class="stat-label">Administrator</p>
+            </div>
+        </div>
+
+        <div class="stat-card bg-gradient-purple">
+            <div class="stat-icon">
+                <i class="fas fa-briefcase"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number"><?= $client_count ?></h3>
+                <p class="stat-label">Client</p>
             </div>
         </div>
 
@@ -267,7 +298,7 @@ function getGenderText($gender) {
                 <span class="section-count"><?= $users_result->num_rows ?> pengguna</span>
             </div>
             
-            <!-- Filters -->
+            <!-- Filters - Updated with Client -->
             <div class="filters-container">
                 <div class="search-box">
                     <i class="fas fa-search search-icon"></i>
@@ -279,6 +310,7 @@ function getGenderText($gender) {
                     <select id="roleFilter" onchange="applyFilters()">
                         <option value="">Semua Role</option>
                         <option value="admin" <?= $role_filter == 'admin' ? 'selected' : '' ?>>Administrator</option>
+                        <option value="client" <?= $role_filter == 'client' ? 'selected' : '' ?>>Client</option>
                         <option value="programmer" <?= $role_filter == 'programmer' ? 'selected' : '' ?>>Programmer</option>
                         <option value="support" <?= $role_filter == 'support' ? 'selected' : '' ?>>Support</option>
                     </select>
@@ -324,7 +356,7 @@ function getGenderText($gender) {
                         <div class="user-list-main">
                             <div class="user-name-section">
                                 <h3 class="user-list-name"><?= htmlspecialchars($user['name']) ?></h3>
-                                <span class="user-role-text"><?= ucfirst($user['role']) ?></span>
+                                <span class="user-role-text role-badge-<?= $user['role'] ?>"><?= getRoleDisplayName($user['role']) ?></span>
                             </div>
                             <div class="user-details">
                                 <span class="user-email">
@@ -400,7 +432,7 @@ function getGenderText($gender) {
     </div>
 </div>
 
-<!-- Modal Tambah/Edit User -->
+<!-- Modal Tambah/Edit User - Updated with Client -->
 <div id="userModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -438,6 +470,7 @@ function getGenderText($gender) {
                         <select id="userRole" name="role" required>
                             <option value="">Pilih Role</option>
                             <option value="admin">👑 Administrator</option>
+                            <option value="client">💼 Client</option>
                             <option value="programmer">💻 Programmer</option>
                             <option value="support">🎧 Support</option>
                         </select>
@@ -705,7 +738,7 @@ document.addEventListener('DOMContentLoaded', function() {
 /* Statistics Grid */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 20px;
     margin-bottom: 32px;
 }
@@ -727,6 +760,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
 .bg-gradient-red { background: linear-gradient(135deg, #dc2626, #ef4444); color: white; }
+.bg-gradient-purple { background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; }
 .bg-gradient-green { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
 .bg-gradient-orange { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
 
@@ -976,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .role-admin { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.role-client { background: linear-gradient(90deg, #7c3aed, #a855f7); }
 .role-programmer { background: linear-gradient(90deg, #0066ff, #33ccff); }
 .role-support { background: linear-gradient(90deg, #10b981, #34d399); }
 
@@ -1012,11 +1047,15 @@ document.addEventListener('DOMContentLoaded', function() {
     font-size: 0.75rem;
     font-weight: 500;
     color: white;
-    background: #6b7280;
     padding: 2px 8px;
     border-radius: 12px;
     text-transform: uppercase;
 }
+
+.role-badge-admin { background: #dc2626; }
+.role-badge-client { background: #7c3aed; }
+.role-badge-programmer { background: #0066ff; }
+.role-badge-support { background: #10b981; }
 
 .user-details {
     display: flex;
