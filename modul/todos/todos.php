@@ -61,7 +61,67 @@ if (isset($_POST['delete_todo'])) {
     }
 }
 
-// Get todos data with related info
+// Pagination setup
+$limit = 10; // Items per page
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$offset = ($page - 1) * $limit;
+
+// Search functionality
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$filter_priority = isset($_GET['priority']) ? trim($_GET['priority']) : '';
+$filter_app = isset($_GET['app']) ? (int)$_GET['app'] : 0;
+
+// Build WHERE clause for filters
+$where_conditions = [];
+$params = [];
+$param_types = '';
+
+if (!empty($search)) {
+    $where_conditions[] = "(t.title LIKE ? OR t.description LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $param_types .= 'ss';
+}
+
+if (!empty($filter_priority) && in_array($filter_priority, ['high', 'medium', 'low'])) {
+    $where_conditions[] = "t.priority = ?";
+    $params[] = $filter_priority;
+    $param_types .= 's';
+}
+
+if (!empty($filter_app) && $filter_app > 0) {
+    $where_conditions[] = "t.app_id = ?";
+    $params[] = $filter_app;
+    $param_types .= 'i';
+}
+
+$where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+
+// Get total count for pagination
+$count_query = "
+    SELECT COUNT(*) as total 
+    FROM todos t
+    LEFT JOIN apps a ON t.app_id = a.id
+    LEFT JOIN users u ON t.user_id = u.id
+    LEFT JOIN taken tk ON t.id = tk.id_todos
+    $where_clause
+";
+
+if (!empty($params)) {
+    $count_stmt = $koneksi->prepare($count_query);
+    if ($param_types && !empty($params)) {
+        $count_stmt->bind_param($param_types, ...$params);
+    }
+    $count_stmt->execute();
+    $total_records = $count_stmt->get_result()->fetch_assoc()['total'];
+    $count_stmt->close();
+} else {
+    $total_records = $koneksi->query($count_query)->fetch_assoc()['total'];
+}
+
+$total_pages = ceil($total_records / $limit);
+
+// Get todos data with pagination
 $todos_query = "
     SELECT t.*, 
            a.name as app_name,
@@ -72,9 +132,26 @@ $todos_query = "
     LEFT JOIN apps a ON t.app_id = a.id
     LEFT JOIN users u ON t.user_id = u.id
     LEFT JOIN taken tk ON t.id = tk.id_todos
+    $where_clause
     ORDER BY t.created_at DESC
+    LIMIT ? OFFSET ?
 ";
-$todos_result = $koneksi->query($todos_query);
+
+// Prepare parameters for pagination query
+$pagination_params = $params; // Copy existing params
+$pagination_param_types = $param_types;
+
+// Add LIMIT and OFFSET parameters
+$pagination_params[] = $limit;
+$pagination_params[] = $offset;
+$pagination_param_types .= 'ii';
+
+$todos_stmt = $koneksi->prepare($todos_query);
+if (!empty($pagination_params) && $pagination_param_types) {
+    $todos_stmt->bind_param($pagination_param_types, ...$pagination_params);
+}
+$todos_stmt->execute();
+$todos_result = $todos_stmt->get_result();
 
 // Get apps for dropdown
 $apps_query = "SELECT id, name FROM apps ORDER BY name";
@@ -85,6 +162,24 @@ $total_todos = $koneksi->query("SELECT COUNT(*) as count FROM todos")->fetch_ass
 $high_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'high'")->fetch_assoc()['count'];
 $medium_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'medium'")->fetch_assoc()['count'];
 $low_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'low'")->fetch_assoc()['count'];
+
+function getPriorityIcon($priority) {
+    $icons = [
+        'high' => 'fas fa-exclamation-triangle',
+        'medium' => 'fas fa-minus',
+        'low' => 'fas fa-arrow-down'
+    ];
+    return $icons[$priority] ?? 'fas fa-circle';
+}
+
+function getPriorityColor($priority) {
+    $colors = [
+        'high' => '#ef4444',
+        'medium' => '#f59e0b',
+        'low' => '#10b981'
+    ];
+    return $colors[$priority] ?? '#6b7280';
+}
 ?>
 
 <div class="main-content" style="margin-top: 80px;">
@@ -165,87 +260,203 @@ $low_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE prior
         </div>
     </div>
 
-    <!-- Todos Grid -->
-    <div class="todos-grid">
-        <?php while($todo = $todos_result->fetch_assoc()): ?>
-        <div class="todo-card priority-<?= $todo['priority'] ?>">
-            <div class="todo-card-header">
-                <div class="todo-priority priority-<?= $todo['priority'] ?>">
-                    <i class="fas fa-<?= getPriorityIcon($todo['priority']) ?>"></i>
-                    <?= ucfirst($todo['priority']) ?>
-                </div>
-                <div class="todo-actions">
-                    <button class="action-btn" onclick="editTodo(<?= $todo['id'] ?>, <?= $todo['app_id'] ?>, '<?= htmlspecialchars($todo['title'], ENT_QUOTES) ?>', '<?= htmlspecialchars($todo['description'], ENT_QUOTES) ?>', '<?= $todo['priority'] ?>')" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="action-btn danger" onclick="deleteTodo(<?= $todo['id'] ?>, '<?= htmlspecialchars($todo['title'], ENT_QUOTES) ?>')" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
+    <!-- Todos Container -->
+    <div class="todos-container">
+        <div class="section-header">
+            <div class="section-title-container">
+                <h2 class="section-title">Daftar Todo</h2>
+                <span class="section-count"><?= $total_records ?> todo</span>
             </div>
             
-            <div class="todo-content">
-                <h3 class="todo-title"><?= htmlspecialchars($todo['title']) ?></h3>
-                <p class="todo-description">
-                    <?= htmlspecialchars(substr($todo['description'], 0, 120)) ?>
-                    <?= strlen($todo['description']) > 120 ? '...' : '' ?>
-                </p>
+            <!-- Filters -->
+            <div class="filters-container">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Cari judul atau deskripsi..." 
+                           value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
+                </div>
                 
-                <div class="todo-meta">
-                    <div class="meta-item">
-                        <i class="fas fa-cube"></i>
-                        <span><?= htmlspecialchars($todo['app_name']) ?></span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-user"></i>
-                        <span><?= htmlspecialchars($todo['user_name']) ?></span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-calendar"></i>
-                        <span><?= date('d/m/Y', strtotime($todo['created_at'])) ?></span>
-                    </div>
+                <div class="filter-dropdown">
+                    <select id="priorityFilter" onchange="applyFilters()">
+                        <option value="">Semua Prioritas</option>
+                        <option value="high" <?= $filter_priority == 'high' ? 'selected' : '' ?>>High Priority</option>
+                        <option value="medium" <?= $filter_priority == 'medium' ? 'selected' : '' ?>>Medium Priority</option>
+                        <option value="low" <?= $filter_priority == 'low' ? 'selected' : '' ?>>Low Priority</option>
+                    </select>
                 </div>
-            </div>
-            
-            <div class="todo-footer">
-                <?php if($todo['taken_status']): ?>
-                <div class="status-badge status-<?= $todo['taken_status'] ?>">
-                    <i class="fas fa-<?= $todo['taken_status'] == 'done' ? 'check-circle' : 'clock' ?>"></i>
-                    <?= $todo['taken_status'] == 'done' ? 'Completed' : 'In Progress' ?>
+
+                <div class="filter-dropdown">
+                    <select id="appFilter" onchange="applyFilters()">
+                        <option value="">Semua Aplikasi</option>
+                        <?php 
+                        $apps_result->data_seek(0);
+                        while($app = $apps_result->fetch_assoc()): 
+                        ?>
+                        <option value="<?= $app['id'] ?>" <?= $filter_app == $app['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($app['name']) ?>
+                        </option>
+                        <?php endwhile; ?>
+                    </select>
                 </div>
-                <?php else: ?>
-                <div class="status-badge status-available">
-                    <i class="fas fa-hand-paper"></i>
-                    Available
-                </div>
+                
+                <?php if ($filter_priority || $search || $filter_app): ?>
+                <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
+                    <i class="fas fa-times"></i>
+                </button>
                 <?php endif; ?>
             </div>
         </div>
-        <?php endwhile; ?>
         
-        <!-- Add New Todo Card -->
-        <div class="todo-card add-new-card" onclick="openAddTodoModal()">
+        <!-- Add New Todo Button -->
+        <div class="todo-list-item add-new-item" onclick="openAddTodoModal()">
             <div class="add-new-content">
                 <div class="add-new-icon">
                     <i class="fas fa-plus"></i>
                 </div>
-                <h3>Tambah Todo Baru</h3>
-                <p>Klik untuk menambahkan todo</p>
+                <div class="add-new-text">
+                    <h3>Tambah Todo Baru</h3>
+                    <p>Klik untuk menambahkan todo baru</p>
+                </div>
             </div>
         </div>
+        
+        <!-- Todos List -->
+        <div class="todos-list">
+            <?php if ($todos_result->num_rows > 0): ?>
+                <?php $no = $offset + 1; while($todo = $todos_result->fetch_assoc()): ?>
+                <div class="todo-list-item" data-todo-id="<?= $todo['id'] ?>">
+                    <div class="todo-priority-container">
+                        <div class="todo-priority-badge priority-<?= $todo['priority'] ?>">
+                            <i class="<?= getPriorityIcon($todo['priority']) ?>"></i>
+                        </div>
+                        <div class="todo-number"><?= $no++ ?></div>
+                    </div>
+                    
+                    <div class="todo-list-content">
+                        <div class="todo-list-main">
+                            <div class="todo-title-section">
+                                <h3 class="todo-list-title"><?= htmlspecialchars($todo['title']) ?></h3>
+                                <span class="todo-priority-text priority-<?= $todo['priority'] ?>"><?= ucfirst($todo['priority']) ?></span>
+                            </div>
+                            <div class="todo-description">
+                                <?= htmlspecialchars($todo['description']) ?>
+                            </div>
+                            <div class="todo-details">
+                                <span class="todo-app">
+                                    <i class="fas fa-cube"></i>
+                                    <?= htmlspecialchars($todo['app_name']) ?>
+                                </span>
+                                <span class="todo-user">
+                                    <i class="fas fa-user"></i>
+                                    <?= htmlspecialchars($todo['user_name']) ?>
+                                </span>
+                                <span class="todo-date">
+                                    <i class="fas fa-calendar"></i>
+                                    <?= date('d/m/Y H:i', strtotime($todo['created_at'])) ?>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="todo-status-container">
+                        <?php if($todo['taken_status']): ?>
+                        <div class="status-badge status-<?= $todo['taken_status'] ?>">
+                            <i class="fas fa-<?= $todo['taken_status'] == 'done' ? 'check-circle' : 'clock' ?>"></i>
+                            <?= $todo['taken_status'] == 'done' ? 'Completed' : 'In Progress' ?>
+                        </div>
+                        <?php else: ?>
+                        <div class="status-badge status-available">
+                            <i class="fas fa-hand-paper"></i>
+                            Available
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div class="todo-list-actions">
+                        <button class="action-btn-small edit" 
+                                onclick="editTodo(<?= $todo['id'] ?>, <?= $todo['app_id'] ?>, '<?= htmlspecialchars($todo['title'], ENT_QUOTES) ?>', '<?= htmlspecialchars($todo['description'], ENT_QUOTES) ?>', '<?= $todo['priority'] ?>')" 
+                                title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="action-btn-small delete" 
+                                onclick="deleteTodo(<?= $todo['id'] ?>, '<?= htmlspecialchars($todo['title'], ENT_QUOTES) ?>')" 
+                                title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <div class="no-data">
+                    <div class="no-data-icon">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <h3>Tidak ada todo ditemukan</h3>
+                    <p>Tidak ada todo yang sesuai dengan filter yang diterapkan.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Pagination -->
+        <?php if ($total_pages > 1): ?>
+        <div class="pagination-container">
+            <div class="pagination">
+                <?php
+                // Build query string for pagination
+                $query_params = [];
+                if (!empty($search)) $query_params['search'] = $search;
+                if (!empty($filter_priority)) $query_params['priority'] = $filter_priority;
+                if (!empty($filter_app)) $query_params['app'] = $filter_app;
+                
+                $query_string = !empty($query_params) ? '&' . http_build_query($query_params) : '';
+                ?>
+                
+                <?php if ($page > 1): ?>
+                <a href="?page=1<?= $query_string ?>" class="pagination-btn">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+                <a href="?page=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+                <?php endif; ?>
+
+                <?php
+                $start = max(1, $page - 2);
+                $end = min($total_pages, $page + 2);
+                
+                if ($start > 1) {
+                    echo '<span class="pagination-dots">...</span>';
+                }
+                
+                for ($i = $start; $i <= $end; $i++):
+                ?>
+                <a href="?page=<?= $i ?><?= $query_string ?>" 
+                   class="pagination-btn <?= $i == $page ? 'active' : '' ?>">
+                    <?= $i ?>
+                </a>
+                <?php endfor; ?>
+                
+                <?php if ($end < $total_pages) {
+                    echo '<span class="pagination-dots">...</span>';
+                } ?>
+
+                <?php if ($page < $total_pages): ?>
+                <a href="?page=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+                <a href="?page=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+                <?php endif; ?>
+            </div>
+            
+            <div class="pagination-info">
+                Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_records) ?> dari <?= $total_records ?> data
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
-
-<?php
-function getPriorityIcon($priority) {
-    $icons = [
-        'high' => 'exclamation-triangle',
-        'medium' => 'minus',
-        'low' => 'arrow-down'
-    ];
-    return $icons[$priority] ?? 'circle';
-}
-?>
 
 <!-- Add/Edit Todo Modal -->
 <div id="todoModal" class="modal">
@@ -336,6 +547,7 @@ function getPriorityIcon($priority) {
     align-items: center;
     gap: 10px;
     animation: slideDown 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .alert-success {
@@ -367,6 +579,25 @@ function getPriorityIcon($priority) {
     align-items: center;
 }
 
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.page-subtitle {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.mr-2 { margin-right: 8px; }
+.mr-3 { margin-right: 12px; }
+
+/* Buttons */
 .btn {
     padding: 12px 24px;
     border-radius: 8px;
@@ -376,6 +607,8 @@ function getPriorityIcon($priority) {
     transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
+    text-decoration: none;
+    font-size: 0.9rem;
 }
 
 .btn-primary {
@@ -386,12 +619,17 @@ function getPriorityIcon($priority) {
 .btn-primary:hover {
     background: linear-gradient(90deg, #0044cc, #00aaff);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,102,255,0.3);
 }
 
 .btn-secondary {
     background: #f8fafc;
     color: #64748b;
     border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+    background: #f1f5f9;
 }
 
 .btn-danger {
@@ -402,12 +640,13 @@ function getPriorityIcon($priority) {
 .btn-danger:hover {
     background: linear-gradient(90deg, #dc2626, #b91c1c);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239,68,68,0.3);
 }
 
 /* Statistics Grid */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 20px;
     margin-bottom: 32px;
 }
@@ -427,108 +666,128 @@ function getPriorityIcon($priority) {
     transform: translateY(-4px);
 }
 
-.bg-gradient-blue { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
-.bg-gradient-red { background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; }
-.bg-gradient-orange { background: linear-gradient(135deg, #ff7b7b, #ff9999); color: white; }
-.bg-gradient-green { background: linear-gradient(135deg, #56ab2f, #a8e6cf); color: white; }
+.bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
+.bg-gradient-red { background: linear-gradient(135deg, #dc2626, #ef4444); color: white; }
+.bg-gradient-orange { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
+.bg-gradient-green { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
 
 .stat-icon {
     font-size: 2.5rem;
     opacity: 0.8;
 }
 
-.stat-number {
+.stat-content h3 {
     font-size: 2.2rem;
     font-weight: 700;
     margin-bottom: 4px;
 }
 
-.stat-label {
+.stat-content p {
     font-size: 0.9rem;
     opacity: 0.9;
+    margin: 0;
 }
 
-/* Todos Grid */
-.todos-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 24px;
-}
-
-.todo-card {
+/* Todos Container */
+.todos-container {
     background: white;
     border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     overflow: hidden;
-    transition: all 0.3s ease;
-    border-left: 4px solid #e5e7eb;
 }
 
-.todo-card.priority-high {
-    border-left-color: #ef4444;
-}
-
-.todo-card.priority-medium {
-    border-left-color: #f59e0b;
-}
-
-.todo-card.priority-low {
-    border-left-color: #10b981;
-}
-
-.todo-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-}
-
-.todo-card-header {
-    padding: 20px 24px 0;
+.section-header {
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid #f3f4f6;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
 }
 
-.todo-priority {
+.section-title-container {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
+    gap: 12px;
+}
+
+.section-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.section-count {
+    color: #6b7280;
+    font-size: 0.9rem;
+    background: #f3f4f6;
+    padding: 4px 12px;
     border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: white;
 }
 
-.todo-priority.priority-high {
-    background: linear-gradient(90deg, #ef4444, #dc2626);
-}
-
-.todo-priority.priority-medium {
-    background: linear-gradient(90deg, #f59e0b, #d97706);
-}
-
-.todo-priority.priority-low {
-    background: linear-gradient(90deg, #10b981, #059669);
-}
-
-.todo-actions {
+/* Filters Container */
+.filters-container {
     display: flex;
-    gap: 8px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-.todo-card:hover .todo-actions {
-    opacity: 1;
+.search-box {
+    position: relative;
+    min-width: 250px;
 }
 
-.action-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    border: none;
-    background: #f8fafc;
-    color: #64748b;
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.filter-dropdown select {
+    padding: 10px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+    min-width: 150px;
+    transition: all 0.3s ease;
+}
+
+.filter-dropdown select:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.btn-clear-filter {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #dc2626;
+    background: #fee2e2;
+    color: #dc2626;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
@@ -536,55 +795,224 @@ function getPriorityIcon($priority) {
     justify-content: center;
 }
 
-.action-btn:hover {
-    background: #e2e8f0;
+.btn-clear-filter:hover {
+    background: #fecaca;
+    transform: scale(1.1);
 }
 
-.action-btn.danger:hover {
-    background: #fee2e2;
-    color: #dc2626;
+/* Todos List */
+.todos-list {
+    max-height: 600px;
+    overflow-y: auto;
 }
 
-.todo-content {
-    padding: 20px 24px;
+.todos-list::-webkit-scrollbar {
+    width: 6px;
 }
 
-.todo-title {
-    font-size: 1.3rem;
+.todos-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.todos-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.todos-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.todo-list-item {
+    display: flex;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.todo-list-item:hover {
+    background: #f8fafc;
+}
+
+.todo-list-item:last-child {
+    border-bottom: none;
+}
+
+/* Add New Item */
+.add-new-item {
+    border: 2px dashed #d1d5db !important;
+    background: #f9fafb !important;
+    margin: 16px 24px;
+    border-radius: 12px;
+    justify-content: center;
+}
+
+.add-new-item:hover {
+    border-color: #0066ff !important;
+    background: #eff6ff !important;
+}
+
+.add-new-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #6b7280;
+}
+
+.add-new-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #0066ff, #33ccff);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.add-new-text h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    color: #374151;
+}
+
+.add-new-text p {
+    font-size: 0.85rem;
+    margin: 0;
+    color: #9ca3af;
+}
+
+/* Todo Priority Container */
+.todo-priority-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 16px;
+    flex-shrink: 0;
+}
+
+.todo-priority-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: white;
+    margin-bottom: 8px;
+}
+
+.todo-priority-badge.priority-high {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.todo-priority-badge.priority-medium {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.todo-priority-badge.priority-low {
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.todo-number {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Todo List Content */
+.todo-list-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.todo-list-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.todo-title-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.todo-list-title {
+    font-size: 1.1rem;
     font-weight: 600;
     color: #1f2937;
-    margin-bottom: 8px;
+    margin: 0;
+    flex: 1;
+}
+
+.todo-priority-text {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+}
+
+.todo-priority-text.priority-high {
+    background: #ef4444;
+}
+
+.todo-priority-text.priority-medium {
+    background: #f59e0b;
+}
+
+.todo-priority-text.priority-low {
+    background: #10b981;
 }
 
 .todo-description {
     color: #6b7280;
     font-size: 0.9rem;
     line-height: 1.5;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
-.todo-meta {
+.todo-details {
     display: flex;
-    flex-direction: column;
+    gap: 20px;
+    font-size: 0.85rem;
+    color: #6b7280;
+    flex-wrap: wrap;
+}
+
+.todo-app,
+.todo-user,
+.todo-date {
+    display: flex;
+    align-items: center;
     gap: 6px;
 }
 
-.meta-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: #6b7280;
-}
-
-.meta-item i {
+.todo-app i,
+.todo-user i,
+.todo-date i {
     width: 16px;
     font-size: 0.8rem;
 }
 
-.todo-footer {
-    padding: 20px 24px;
-    border-top: 1px solid #f3f4f6;
+/* Todo Status Container */
+.todo-status-container {
+    margin: 0 20px;
+    flex-shrink: 0;
 }
 
 .status-badge {
@@ -610,38 +1038,135 @@ function getPriorityIcon($priority) {
     background: linear-gradient(90deg, #6b7280, #9ca3af);
 }
 
-.add-new-card {
-    border: 2px dashed #d1d5db;
-    background: #f9fafb;
+/* Todo List Actions */
+.todo-list-actions {
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    flex-shrink: 0;
+}
+
+.todo-list-item:hover .todo-list-actions {
+    opacity: 1;
+}
+
+.action-btn-small {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: none;
+    background: #f8fafc;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 300px;
-    cursor: pointer;
-    transition: all 0.3s ease;
+    font-size: 0.8rem;
 }
 
-.add-new-card:hover {
-    border-color: #0066ff;
-    background: #eff6ff;
+.action-btn-small:hover {
+    transform: scale(1.1);
 }
 
-.add-new-content {
+.action-btn-small.edit:hover {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.action-btn-small.delete:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* No Data State */
+.no-data {
     text-align: center;
+    padding: 60px 24px;
     color: #6b7280;
 }
 
-.add-new-icon {
-    width: 60px;
-    height: 60px;
+.no-data-icon {
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #0066ff, #33ccff);
-    color: white;
+    background: #f3f4f6;
+    margin: 0 auto 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    margin: 0 auto 16px;
+    font-size: 2rem;
+    color: #9ca3af;
+}
+
+.no-data h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.no-data p {
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Pagination */
+.pagination-container {
+    padding: 24px;
+    border-top: 1px solid #f1f5f9;
+    background: #f8fafc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pagination-btn {
+    min-width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.pagination-btn:hover {
+    background: #f8fafc;
+    border-color: #0066ff;
+    color: #0066ff;
+    transform: translateY(-2px);
+}
+
+.pagination-btn.active {
+    background: linear-gradient(135deg, #0066ff, #33ccff);
+    color: white;
+    border-color: #0066ff;
+}
+
+.pagination-dots {
+    color: #9ca3af;
+    padding: 0 8px;
+    font-weight: 500;
+}
+
+.pagination-info {
+    color: #6b7280;
+    font-size: 0.9rem;
 }
 
 /* Modal Styles */
@@ -784,12 +1309,95 @@ function getPriorityIcon($priority) {
         text-align: center;
     }
     
-    .todos-grid {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+    }
+    
+    .filters-container {
+        justify-content: stretch;
+    }
+    
+    .search-box {
+        min-width: auto;
+        flex: 1;
+    }
+    
+    .filter-dropdown select {
+        min-width: auto;
+        flex: 1;
+    }
+    
+    .todo-list-item {
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 16px;
+    }
+    
+    .todo-priority-container {
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        margin-right: 0;
+        margin-bottom: 8px;
+    }
+    
+    .todo-number {
+        margin-bottom: 0;
+    }
+    
+    .todo-details {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .todo-status-container {
+        margin: 8px 0 0 0;
+        order: 3;
+    }
+    
+    .todo-list-actions {
+        opacity: 1;
+        margin-top: 8px;
+        justify-content: center;
+        order: 4;
+    }
+    
+    .pagination-container {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .pagination {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .todos-list {
+        max-height: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
         grid-template-columns: 1fr;
     }
     
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+    .pagination-btn {
+        min-width: 35px;
+        height: 35px;
+        font-size: 0.85rem;
+    }
+    
+    .add-new-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
     }
 }
 </style>
@@ -839,6 +1447,46 @@ function closeDeleteModal() {
     document.body.style.overflow = '';
 }
 
+// Filter functions
+function applyFilters() {
+    const priorityFilter = document.getElementById('priorityFilter').value;
+    const appFilter = document.getElementById('appFilter').value;
+    const searchValue = document.getElementById('searchInput').value;
+    
+    let url = new URL(window.location);
+    url.searchParams.delete('priority');
+    url.searchParams.delete('app');
+    url.searchParams.delete('search');
+    url.searchParams.delete('page'); // Reset to first page when filtering
+    
+    if (priorityFilter) {
+        url.searchParams.set('priority', priorityFilter);
+    }
+    if (appFilter) {
+        url.searchParams.set('app', appFilter);
+    }
+    if (searchValue) {
+        url.searchParams.set('search', searchValue);
+    }
+    
+    window.location.href = url.toString();
+}
+
+function handleSearch(event) {
+    if (event.key === 'Enter') {
+        applyFilters();
+    }
+}
+
+function clearFilters() {
+    let url = new URL(window.location);
+    url.searchParams.delete('priority');
+    url.searchParams.delete('app');
+    url.searchParams.delete('search');
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
+}
+
 // Close modals when clicking outside
 document.addEventListener('click', function(e) {
     if(e.target.classList.contains('modal')) {
@@ -857,5 +1505,12 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
+});
+
+// Auto-submit form when Enter is pressed in search input
+document.querySelector('input[name="search"]') && document.querySelector('input[name="search"]').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        applyFilters();
+    }
 });
 </script>
