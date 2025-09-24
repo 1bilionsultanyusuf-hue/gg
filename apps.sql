@@ -30,6 +30,20 @@ CREATE TABLE `taken` (
   `user_id` INT
 );
 
+CREATE TABLE `reports` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `date` DATE NOT NULL,                 
+  `user_id` INT NOT NULL,               
+  `role` ENUM('client','support','programmer','admin') NOT NULL,
+  `activity` TEXT NOT NULL,            
+  `problem` TEXT,                       
+  `status` ENUM('in_progress','done','pending') DEFAULT 'pending',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_reports_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+
 ALTER TABLE `todos` ADD FOREIGN KEY (`app_id`) REFERENCES `apps` (`id`) ON DELETE CASCADE;
 
 ALTER TABLE `taken` ADD FOREIGN KEY (`id_todos`) REFERENCES `todos` (`id`);

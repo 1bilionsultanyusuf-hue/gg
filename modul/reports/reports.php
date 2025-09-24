@@ -1,22 +1,58 @@
 <?php
 // modul/data/reports.php
+// Handle form submission for new report
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_report'])) {
+    // Get current logged in user ID (sesuaikan dengan sistem session Anda)
+    $user_id = $_SESSION['user_id']; // Atau $_SESSION['id'] atau sesuai system Anda
+    $activity = $_POST['activity'];
+    $problem = $_POST['problem'] ?? '';
+    $status = $_POST['status'];
+    $report_date = $_POST['report_date'] ?? date('Y-m-d');
+    
+    // Get user role
+    $user_role_query = $koneksi->prepare("SELECT role FROM users WHERE id = ?");
+    $user_role_query->bind_param('i', $user_id);
+    $user_role_query->execute();
+    $user_role_result = $user_role_query->get_result();
+    
+    // Validate required fields
+    if (empty($activity) || empty($status)) {
+        $error = 'Semua field wajib harus diisi!';
+    } else if ($user_role_result->num_rows === 0) {
+        $error = 'User tidak ditemukan!';
+    } else {
+        $user_data = $user_role_result->fetch_assoc();
+        $role = $user_data['role'];
+        
+        // Insert new report
+        $insert_report = $koneksi->prepare("
+            INSERT INTO reports (date, user_id, activity, problem, status) 
+            VALUES (?, ?, ?, ?, ?)
+        ");
+        $insert_report->bind_param('sisss', $report_date, $user_id, $activity, $problem, $status);
+        
+        if ($insert_report->execute()) {
+            $message = 'Laporan berhasil ditambahkan!';
+        } else {
+            $error = 'Gagal menambahkan laporan: ' . $koneksi->error;
+        }
+    }
+}
+
 // Handle filters and pagination
-$message = '';
-$error = '';
+$message = $message ?? '';
+$error = $error ?? '';
 
 // Filter parameters
 $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
 $date_filter = isset($_GET['date']) ? $_GET['date'] : '';
 $user_filter = isset($_GET['user']) ? $_GET['user'] : '';
-$app_filter = isset($_GET['app']) ? $_GET['app'] : '';
 $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 
-// Pagination - perbaiki bagian ini
-$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1; // Pastikan page minimal 1
+// Pagination
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $records_per_page = 15;
 $offset = ($page - 1) * $records_per_page;
-
-// Pastikan offset tidak negatif
 $offset = max(0, $offset);
 
 // Build WHERE conditions
@@ -31,25 +67,19 @@ if (!empty($role_filter)) {
 }
 
 if (!empty($date_filter)) {
-    $where_conditions[] = "DATE(tk.date) = ?";
+    $where_conditions[] = "r.date = ?";
     $params[] = $date_filter;
     $param_types .= 's';
 }
 
 if (!empty($user_filter)) {
-    $where_conditions[] = "u.id = ?";
+    $where_conditions[] = "r.user_id = ?";
     $params[] = $user_filter;
     $param_types .= 'i';
 }
 
-if (!empty($app_filter)) {
-    $where_conditions[] = "a.id = ?";
-    $params[] = $app_filter;
-    $param_types .= 'i';
-}
-
 if (!empty($status_filter)) {
-    $where_conditions[] = "tk.status = ?";
+    $where_conditions[] = "r.status = ?";
     $params[] = $status_filter;
     $param_types .= 's';
 }
@@ -59,10 +89,8 @@ $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_c
 // Get total count for pagination
 $count_query = "
     SELECT COUNT(*) as total
-    FROM taken tk
-    LEFT JOIN todos t ON tk.id_todos = t.id
-    LEFT JOIN apps a ON t.app_id = a.id
-    LEFT JOIN users u ON tk.user_id = u.id
+    FROM reports r
+    LEFT JOIN users u ON r.user_id = u.id
     $where_clause
 ";
 
@@ -77,23 +105,16 @@ if (!empty($params)) {
 
 $total_pages = ceil($total_records / $records_per_page);
 
-// Get report data - ganti query ini
+// Get report data
 $reports_query = "
-    SELECT tk.*, 
-           t.title as todo_title,
-           t.description as todo_description,
-           t.priority,
-           t.created_at as todo_created,
-           a.name as app_name,
+    SELECT r.*, 
            u.name as user_name,
-           u.role as user_role,
-           u.email as user_email
-    FROM taken tk
-    LEFT JOIN todos t ON tk.id_todos = t.id
-    LEFT JOIN apps a ON t.app_id = a.id
-    LEFT JOIN users u ON tk.user_id = u.id
+           u.email as user_email,
+           u.role as user_role
+    FROM reports r
+    LEFT JOIN users u ON r.user_id = u.id
     $where_clause
-    ORDER BY tk.date DESC, tk.id DESC
+    ORDER BY r.date DESC, r.created_at DESC
     LIMIT ? OFFSET ?
 ";
 
@@ -114,17 +135,16 @@ if (!empty($params)) {
 
 // Get filter options
 $users_options = $koneksi->query("SELECT id, name, role FROM users ORDER BY name");
-$apps_options = $koneksi->query("SELECT id, name FROM apps ORDER BY name");
 
 // Get statistics for dashboard
 $today = date('Y-m-d');
 $yesterday = date('Y-m-d', strtotime('-1 day'));
 $this_week = date('Y-m-d', strtotime('-7 days'));
 
-$stats_today = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE DATE(date) = '$today'")->fetch_assoc()['count'];
-$stats_completed_today = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE DATE(date) = '$today' AND status = 'done'")->fetch_assoc()['count'];
-$stats_in_progress = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE status = 'in_progress'")->fetch_assoc()['count'];
-$stats_this_week = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE date >= '$this_week'")->fetch_assoc()['count'];
+$stats_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today'")->fetch_assoc()['count'];
+$stats_completed_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today' AND status = 'done'")->fetch_assoc()['count'];
+$stats_in_progress = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'in_progress'")->fetch_assoc()['count'];
+$stats_pending = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'pending'")->fetch_assoc()['count'];
 
 // Helper functions
 function getRoleColor($role) {
@@ -147,51 +167,31 @@ function getRoleIcon($role) {
     return $icons[$role] ?? 'fas fa-user';
 }
 
-function getPriorityColor($priority) {
-    $colors = [
-        'high' => '#ef4444',
-        'medium' => '#f59e0b',
-        'low' => '#10b981'
-    ];
-    return $colors[$priority] ?? '#6b7280';
-}
-
 function getStatusColor($status) {
     $colors = [
         'done' => '#10b981',
-        'in_progress' => '#f59e0b'
+        'in_progress' => '#f59e0b',
+        'pending' => '#6b7280'
     ];
     return $colors[$status] ?? '#6b7280';
 }
 
-function getActivityDescription($report) {
-    $role = strtolower($report['user_role']);
-    $status = $report['status'];
-    $todo_title = $report['todo_title'];
-    $app_name = $report['app_name'];
-    
-    switch($role) {
-        case 'programmer':
-            if($status == 'done') {
-                return "Menyelesaikan pengembangan: '$todo_title' pada aplikasi $app_name";
-            } else {
-                return "Sedang mengerjakan: '$todo_title' pada aplikasi $app_name";
-            }
-        case 'support':
-            if($status == 'done') {
-                return "Menyelesaikan support: '$todo_title' pada aplikasi $app_name";
-            } else {
-                return "Sedang menangani: '$todo_title' pada aplikasi $app_name";
-            }
-        case 'client':
-            if($status == 'done') {
-                return "Menyelesaikan review: '$todo_title' pada aplikasi $app_name";
-            } else {
-                return "Sedang mereview: '$todo_title' pada aplikasi $app_name";
-            }
-        default:
-            return "Mengerjakan: '$todo_title' pada aplikasi $app_name";
-    }
+function getStatusIcon($status) {
+    $icons = [
+        'done' => 'fas fa-check-circle',
+        'in_progress' => 'fas fa-clock',
+        'pending' => 'fas fa-pause-circle'
+    ];
+    return $icons[$status] ?? 'fas fa-question-circle';
+}
+
+function getStatusText($status) {
+    $texts = [
+        'done' => 'Selesai',
+        'in_progress' => 'In Progress',
+        'pending' => 'Pending'
+    ];
+    return $texts[$status] ?? 'Unknown';
 }
 
 function timeAgo($datetime) {
@@ -204,9 +204,36 @@ function timeAgo($datetime) {
     
     return date('d M Y', strtotime($datetime));
 }
+
+function buildFilterQuery() {
+    global $role_filter, $date_filter, $user_filter, $status_filter;
+    
+    $params = [];
+    if ($role_filter) $params[] = "role=$role_filter";
+    if ($date_filter) $params[] = "date=$date_filter";
+    if ($user_filter) $params[] = "user=$user_filter";
+    if ($status_filter) $params[] = "status=$status_filter";
+    
+    return !empty($params) ? '&' . implode('&', $params) : '';
+}
 ?>
 
 <div class="main-content" style="margin-top: 80px;">
+    <!-- Success/Error Messages -->
+    <?php if ($message): ?>
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle mr-2"></i>
+        <?= htmlspecialchars($message) ?>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($error): ?>
+    <div class="alert alert-error">
+        <i class="fas fa-exclamation-circle mr-2"></i>
+        <?= htmlspecialchars($error) ?>
+    </div>
+    <?php endif; ?>
+
     <!-- Page Header -->
     <div class="page-header">
         <div class="header-content">
@@ -219,6 +246,10 @@ function timeAgo($datetime) {
             </p>
         </div>
         <div class="header-actions">
+            <button class="btn btn-success" onclick="openAddReportModal()">
+                <i class="fas fa-plus mr-2"></i>
+                Tambah Laporan
+            </button>
             <button class="btn btn-secondary" onclick="exportReport()">
                 <i class="fas fa-download mr-2"></i>
                 Export PDF
@@ -264,11 +295,11 @@ function timeAgo($datetime) {
 
         <div class="stat-card bg-gradient-purple">
             <div class="stat-icon">
-                <i class="fas fa-calendar-week"></i>
+                <i class="fas fa-pause-circle"></i>
             </div>
             <div class="stat-content">
-                <h3 class="stat-number"><?= $stats_this_week ?></h3>
-                <p class="stat-label">Minggu Ini</p>
+                <h3 class="stat-number"><?= $stats_pending ?></h3>
+                <p class="stat-label">Pending</p>
             </div>
         </div>
     </div>
@@ -277,7 +308,7 @@ function timeAgo($datetime) {
     <div class="filters-section">
         <div class="filters-header">
             <h3>Filter Laporan</h3>
-            <?php if($role_filter || $date_filter || $user_filter || $app_filter || $status_filter): ?>
+            <?php if($role_filter || $date_filter || $user_filter || $status_filter): ?>
             <button class="btn-clear-filters" onclick="clearAllFilters()">
                 <i class="fas fa-times mr-2"></i>
                 Hapus Semua Filter
@@ -306,21 +337,12 @@ function timeAgo($datetime) {
                 <label>Pengguna</label>
                 <select id="userFilter" onchange="applyFilters()">
                     <option value="">Semua Pengguna</option>
-                    <?php while($user = $users_options->fetch_assoc()): ?>
+                    <?php 
+                    $users_options->data_seek(0); // Reset pointer
+                    while($user = $users_options->fetch_assoc()): 
+                    ?>
                     <option value="<?= $user['id'] ?>" <?= $user_filter == $user['id'] ? 'selected' : '' ?>>
                         <?= htmlspecialchars($user['name']) ?> (<?= ucfirst($user['role']) ?>)
-                    </option>
-                    <?php endwhile; ?>
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label>Aplikasi</label>
-                <select id="appFilter" onchange="applyFilters()">
-                    <option value="">Semua Aplikasi</option>
-                    <?php while($app = $apps_options->fetch_assoc()): ?>
-                    <option value="<?= $app['id'] ?>" <?= $app_filter == $app['id'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($app['name']) ?>
                     </option>
                     <?php endwhile; ?>
                 </select>
@@ -330,6 +352,7 @@ function timeAgo($datetime) {
                 <label>Status</label>
                 <select id="statusFilter" onchange="applyFilters()">
                     <option value="">Semua Status</option>
+                    <option value="pending" <?= $status_filter == 'pending' ? 'selected' : '' ?>>Pending</option>
                     <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
                     <option value="done" <?= $status_filter == 'done' ? 'selected' : '' ?>>Done</option>
                 </select>
@@ -364,31 +387,36 @@ function timeAgo($datetime) {
 
                 <div class="report-content">
                     <div class="activity-description">
-                        <p><?= getActivityDescription($report) ?></p>
+                        <p><strong>Aktivitas:</strong> <?= htmlspecialchars($report['activity']) ?></p>
+                        <?php if (!empty($report['problem'])): ?>
+                        <div class="activity-notes">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span><strong>Problem:</strong> <?= htmlspecialchars($report['problem']) ?></span>
+                        </div>
+                        <?php endif; ?>
                         <div class="activity-meta">
-                            <span class="priority-badge" style="background: <?= getPriorityColor($report['priority']) ?>">
-                                <?= ucfirst($report['priority']) ?> Priority
-                            </span>
                             <span class="status-badge" style="background: <?= getStatusColor($report['status']) ?>">
-                                <i class="fas fa-<?= $report['status'] == 'done' ? 'check-circle' : 'clock' ?>"></i>
-                                <?= $report['status'] == 'done' ? 'Selesai' : 'In Progress' ?>
+                                <i class="<?= getStatusIcon($report['status']) ?>"></i>
+                                <?= getStatusText($report['status']) ?>
                             </span>
                         </div>
                     </div>
                     
                     <div class="activity-details">
                         <div class="detail-item">
-                            <i class="fas fa-cube"></i>
-                            <span><?= htmlspecialchars($report['app_name']) ?></span>
-                        </div>
-                        <div class="detail-item">
                             <i class="fas fa-calendar"></i>
                             <span><?= date('d M Y', strtotime($report['date'])) ?></span>
                         </div>
                         <div class="detail-item">
                             <i class="fas fa-clock"></i>
-                            <span><?= timeAgo($report['date']) ?></span>
+                            <span><?= timeAgo($report['created_at']) ?></span>
                         </div>
+                        <?php if (!empty($report['user_email'])): ?>
+                        <div class="detail-item">
+                            <i class="fas fa-envelope"></i>
+                            <span><?= htmlspecialchars($report['user_email']) ?></span>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -396,8 +424,11 @@ function timeAgo($datetime) {
                     <button class="btn-action" onclick="viewDetails(<?= $report['id'] ?>)" title="Detail">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="btn-action" onclick="viewTodo(<?= $report['id_todos'] ?>)" title="Lihat Todo">
-                        <i class="fas fa-tasks"></i>
+                    <button class="btn-action btn-edit" onclick="editReport(<?= $report['id'] ?>)" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-action btn-delete" onclick="deleteReport(<?= $report['id'] ?>)" title="Hapus">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
@@ -456,23 +487,75 @@ function timeAgo($datetime) {
     </div>
 </div>
 
-<?php
-function buildFilterQuery() {
-    global $role_filter, $date_filter, $user_filter, $app_filter, $status_filter;
-    
-    $params = [];
-    if ($role_filter) $params[] = "role=$role_filter";
-    if ($date_filter) $params[] = "date=$date_filter";
-    if ($user_filter) $params[] = "user=$user_filter";
-    if ($app_filter) $params[] = "app=$app_filter";
-    if ($status_filter) $params[] = "status=$status_filter";
-    
-    return !empty($params) ? '&' . implode('&', $params) : '';
-}
-?>
+<!-- Add Report Modal -->
+<div id="addReportModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>
+                <i class="fas fa-plus mr-2"></i>
+                Tambah Laporan Aktivitas
+            </h3>
+            <button class="modal-close" onclick="closeAddReportModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form method="POST" onsubmit="return validateAddReportForm()">
+            <input type="hidden" name="add_report" value="1">
+            
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="status">Status <span class="required">*</span></label>
+                        <select id="status" name="status" required>
+                            <option value="">Pilih Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="done">Selesai</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="report_date">Tanggal</label>
+                        <input type="date" id="report_date" name="report_date" 
+                               value="<?= date('Y-m-d') ?>" required>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="activity">Aktivitas <span class="required">*</span></label>
+                        <textarea id="activity" name="activity" rows="4" required
+                                  placeholder="Jelaskan aktivitas yang dilakukan..."></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="problem">Problem/Kendala</label>
+                        <textarea id="problem" name="problem" rows="3" 
+                                  placeholder="Jelaskan problem atau kendala yang dihadapi (opsional)..."></textarea>
+                    </div>
+                </div>
+
+                <div class="selected-info" id="selectedInfo" style="display: none;">
+                    <h4>Ringkasan Laporan:</h4>
+                    <div id="summaryContent"></div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAddReportModal()">
+                    <i class="fas fa-times mr-2"></i>
+                    Batal
+                </button>
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-save mr-2"></i>
+                    Simpan Laporan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <style>
-/* Page Header */
+/* Page Layout */
 .page-header {
     background: white;
     border-radius: 16px;
@@ -504,6 +587,30 @@ function buildFilterQuery() {
     gap: 12px;
 }
 
+/* Alert Messages */
+.alert {
+    padding: 16px 20px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    animation: slideInDown 0.3s ease;
+}
+
+.alert-success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.alert-error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+/* Button Styles */
 .btn {
     padding: 12px 20px;
     border-radius: 8px;
@@ -514,6 +621,7 @@ function buildFilterQuery() {
     display: inline-flex;
     align-items: center;
     font-size: 0.9rem;
+    text-decoration: none;
 }
 
 .btn-primary {
@@ -534,6 +642,16 @@ function buildFilterQuery() {
 
 .btn-secondary:hover {
     background: #f1f5f9;
+}
+
+.btn-success {
+    background: linear-gradient(90deg, #10b981, #34d399);
+    color: white;
+}
+
+.btn-success:hover {
+    background: linear-gradient(90deg, #059669, #10b981);
+    transform: translateY(-2px);
 }
 
 .mr-2 { margin-right: 8px; }
@@ -772,13 +890,29 @@ function buildFilterQuery() {
     line-height: 1.4;
 }
 
+.activity-notes {
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 0.85rem;
+    color: #92400e;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.activity-notes i {
+    color: #f59e0b;
+}
+
 .activity-meta {
     display: flex;
     gap: 8px;
     margin-bottom: 12px;
 }
 
-.priority-badge,
 .status-badge {
     padding: 4px 8px;
     border-radius: 12px;
@@ -834,6 +968,173 @@ function buildFilterQuery() {
     background: #e2e8f0;
     color: #0066ff;
     transform: scale(1.05);
+}
+
+.btn-edit:hover {
+    color: #f59e0b;
+}
+
+.btn-delete:hover {
+    color: #ef4444;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    animation: slideUp 0.3s ease;
+}
+
+.modal-header {
+    padding: 24px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+.modal-close {
+    background: #f3f4f6;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #6b7280;
+    transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.modal-body {
+    padding: 20px 24px;
+}
+
+.modal-footer {
+    padding: 0 24px 24px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* Form Styles */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.required {
+    color: #ef4444;
+}
+
+.form-group select,
+.form-group input,
+.form-group textarea {
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.form-group select:focus,
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* Selected Info */
+.selected-info {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+}
+
+.selected-info h4 {
+    color: #0c4a6e;
+    font-size: 1rem;
+    margin: 0 0 12px 0;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid #e0f2fe;
+    font-size: 0.85rem;
+}
+
+.summary-item:last-child {
+    border-bottom: none;
+}
+
+.summary-label {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.summary-value {
+    color: #1e293b;
 }
 
 /* Pagination */
@@ -914,6 +1215,22 @@ function buildFilterQuery() {
     margin: 0;
 }
 
+/* Animations */
+@keyframes slideInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(100%); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .page-header {
@@ -922,12 +1239,22 @@ function buildFilterQuery() {
         text-align: center;
     }
 
+    .header-actions {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 16px;
     }
 
     .filters-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-grid {
         grid-template-columns: 1fr;
     }
 
@@ -967,6 +1294,16 @@ function buildFilterQuery() {
     .pagination {
         justify-content: center;
     }
+
+    .modal-footer {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .modal-footer .btn {
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 @media (max-width: 480px) {
@@ -991,6 +1328,16 @@ function buildFilterQuery() {
         gap: 12px;
         text-align: center;
     }
+
+    .header-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
 }
 </style>
 
@@ -1000,21 +1347,18 @@ function applyFilters() {
     const roleFilter = document.getElementById('roleFilter').value;
     const dateFilter = document.getElementById('dateFilter').value;
     const userFilter = document.getElementById('userFilter').value;
-    const appFilter = document.getElementById('appFilter').value;
     const statusFilter = document.getElementById('statusFilter').value;
     
     let url = new URL(window.location);
     url.searchParams.delete('role');
     url.searchParams.delete('date');
     url.searchParams.delete('user');
-    url.searchParams.delete('app');
     url.searchParams.delete('status');
-    url.searchParams.delete('page'); // Reset to page 1 when filtering
+    url.searchParams.delete('page');
     
     if (roleFilter) url.searchParams.set('role', roleFilter);
     if (dateFilter) url.searchParams.set('date', dateFilter);
     if (userFilter) url.searchParams.set('user', userFilter);
-    if (appFilter) url.searchParams.set('app', appFilter);
     if (statusFilter) url.searchParams.set('status', statusFilter);
     
     window.location.href = url.toString();
@@ -1025,7 +1369,6 @@ function clearAllFilters() {
     url.searchParams.delete('role');
     url.searchParams.delete('date');
     url.searchParams.delete('user');
-    url.searchParams.delete('app');
     url.searchParams.delete('status');
     url.searchParams.delete('page');
     window.location.href = url.toString();
@@ -1036,22 +1379,107 @@ function refreshReport() {
 }
 
 function exportReport() {
-    // Create export URL with current filters
     const params = new URLSearchParams(window.location.search);
     params.set('export', 'pdf');
-    
-    // You can implement PDF export functionality here
     alert('Fitur export PDF akan segera tersedia!');
 }
 
-function viewDetails(takenId) {
-    // Open modal or navigate to detail page
-    alert('Detail untuk ID: ' + takenId);
+// Add Report Modal Functions
+function openAddReportModal() {
+    document.getElementById('addReportModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    updateSummary();
 }
 
-function viewTodo(todoId) {
-    // Navigate to todo detail or open modal
-    alert('Todo ID: ' + todoId);
+function closeAddReportModal() {
+    document.getElementById('addReportModal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+    
+    // Reset form
+    document.querySelector('#addReportModal form').reset();
+    document.getElementById('selectedInfo').style.display = 'none';
+    
+    // Set current date
+    document.getElementById('report_date').value = new Date().toISOString().split('T')[0];
+}
+
+function validateAddReportForm() {
+    const activity = document.getElementById('activity').value;
+    const status = document.getElementById('status').value;
+    
+    if (!activity || !status) {
+        alert('Harap lengkapi semua field yang wajib diisi!');
+        return false;
+    }
+    
+    return confirm('Apakah Anda yakin ingin menyimpan laporan ini?');
+}
+
+// Update summary when form changes (tanpa user selection)
+function updateSummary() {
+    const activityField = document.getElementById('activity');
+    const statusSelect = document.getElementById('status');
+    const problemField = document.getElementById('problem');
+    const selectedInfo = document.getElementById('selectedInfo');
+    const summaryContent = document.getElementById('summaryContent');
+    
+    function generateSummary() {
+        const activity = activityField.value;
+        const status = statusSelect.value;
+        const problem = problemField.value;
+        
+        if (activity && status) {
+            const statusText = status === 'done' ? 'Selesai' : (status === 'in_progress' ? 'In Progress' : 'Pending');
+            
+            let summary = `
+                <div class="summary-item">
+                    <span class="summary-label">Aktivitas:</span>
+                    <span class="summary-value">${activity.substring(0, 50)}${activity.length > 50 ? '...' : ''}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Status:</span>
+                    <span class="summary-value">${statusText}</span>
+                </div>
+            `;
+            
+            if (problem) {
+                summary += `
+                    <div class="summary-item">
+                        <span class="summary-label">Problem:</span>
+                        <span class="summary-value">${problem.substring(0, 50)}${problem.length > 50 ? '...' : ''}</span>
+                    </div>
+                `;
+            }
+            
+            summaryContent.innerHTML = summary;
+            selectedInfo.style.display = 'block';
+        } else {
+            selectedInfo.style.display = 'none';
+        }
+    }
+    
+    // Add event listeners
+    activityField.addEventListener('input', generateSummary);
+    statusSelect.addEventListener('change', generateSummary);
+    problemField.addEventListener('input', generateSummary);
+}
+
+// View functions
+function viewDetails(reportId) {
+    alert('Detail untuk Report ID: ' + reportId);
+    // Implement detail view
+}
+
+function editReport(reportId) {
+    alert('Edit laporan ID: ' + reportId);
+    // Implement edit functionality
+}
+
+function deleteReport(reportId) {
+    if (confirm('Apakah Anda yakin ingin menghapus laporan ini?')) {
+        // Implement delete functionality
+        alert('Delete Report ID: ' + reportId);
+    }
 }
 
 // Auto-refresh every 5 minutes
@@ -1078,171 +1506,57 @@ setInterval(function() {
         lastUpdate.remove();
     }, 3000);
     
-    // Refresh page silently
     window.location.reload();
-}, 300000); // 5 minutes
+}, 300000);
 
-// Add animation styles
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideInRight {
-        from { opacity: 0; transform: translateX(100%); }
-        to { opacity: 1; transform: translateX(0); }
-    }
-`;
-document.head.appendChild(style);
-
-// Initialize filters on page load
+// Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     // Set today as default date if no filters are applied
     const dateFilter = document.getElementById('dateFilter');
     const urlParams = new URLSearchParams(window.location.search);
     
-    if (!urlParams.has('date') && !urlParams.has('role') && !urlParams.has('user') && !urlParams.has('app') && !urlParams.has('status')) {
+    if (!urlParams.has('date') && !urlParams.has('role') && !urlParams.has('user') && !urlParams.has('status')) {
         const today = new Date().toISOString().split('T')[0];
         dateFilter.value = today;
     }
+    
+    // Set current date for add report form
+    document.getElementById('report_date').value = new Date().toISOString().split('T')[0];
+    
+    // Initialize summary update
+    updateSummary();
+    
+    // Close modal when clicking outside
+    document.getElementById('addReportModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeAddReportModal();
+        }
+    });
+    
+    // Auto-dismiss alerts after 5 seconds
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.animation = 'slideInDown 0.3s ease reverse';
+            setTimeout(() => alert.remove(), 300);
+        }, 5000);
+    });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + N to open add report modal
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        openAddReportModal();
+    }
+    
+    // Escape to close modal
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('addReportModal');
+        if (modal.style.display === 'flex') {
+            closeAddReportModal();
+        }
+    }
 });
 </script>
-
-<!-- Detail Modal Template (for future implementation) -->
-<div id="detailModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 600px;">
-        <div class="modal-header">
-            <h3>Detail Aktivitas</h3>
-            <button class="modal-close" onclick="closeDetailModal()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div id="detailContent">
-                <!-- Content will be loaded dynamically -->
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeDetailModal()">
-                Tutup
-            </button>
-        </div>
-    </div>
-</div>
-
-<style>
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 1000;
-    padding: 20px;
-    overflow-y: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-content {
-    background: white;
-    border-radius: 16px;
-    width: 100%;
-    max-width: 500px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    animation: slideUp 0.3s ease;
-}
-
-.modal-header {
-    padding: 24px 24px 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-header h3 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0;
-}
-
-.modal-close {
-    background: #f3f4f6;
-    border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #6b7280;
-    transition: all 0.3s ease;
-}
-
-.modal-close:hover {
-    background: #e5e7eb;
-    color: #374151;
-}
-
-.modal-body {
-    padding: 20px 24px;
-}
-
-.modal-footer {
-    padding: 0 24px 24px;
-    display: flex;
-    justify-content: flex-end;
-}
-
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Additional utility classes for enhanced functionality */
-.activity-status-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 8px;
-}
-
-.status-done { background: #10b981; }
-.status-in-progress { background: #f59e0b; }
-
-.loading-skeleton {
-    background: linear-gradient(90deg, #f3f4f6, #e5e7eb, #f3f4f6);
-    background-size: 200px 100%;
-    animation: loading 1.5s infinite;
-}
-
-@keyframes loading {
-    0% { background-position: -200px 0; }
-    100% { background-position: calc(200px + 100%) 0; }
-}
-
-/* Print styles for reports */
-@media print {
-    .page-header .header-actions,
-    .filters-section,
-    .pagination-container,
-    .report-actions {
-        display: none !important;
-    }
-    
-    .main-content {
-        margin-top: 0 !important;
-    }
-    
-    .report-item {
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-    
-    .stats-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
-</style>
