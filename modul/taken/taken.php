@@ -8,11 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 if (!$koneksi) {
     die("Koneksi database gagal: " . mysqli_connect_error());
 }
-// Debugging
-if (isset($_POST['take_task'])) {
-    error_log("POST data: " . print_r($_POST, true));
-    error_log("Session user_id: " . $_SESSION['user_id']);
-}
+
 // Handle CRUD Operations for Taken Tasks
 $message = '';
 $error = '';
@@ -21,9 +17,6 @@ $error = '';
 if (isset($_POST['take_task'])) {
     $todo_id = (int)$_POST['todo_id'];
     $user_id = $_SESSION['user_id'];
-    
-    // Debug info
-    error_log("Attempting to take task: $todo_id by user: $user_id");
     
     // Check if task exists and is not taken
     $check_query = "
@@ -39,31 +32,19 @@ if (isset($_POST['take_task'])) {
     
     if ($check_result->num_rows == 0) {
         $error = "Tugas tidak ditemukan!";
-        error_log("Task not found: $todo_id");
     } else {
         $task_data = $check_result->fetch_assoc();
         if ($task_data['taken_id']) {
             $error = "Tugas ini sudah diambil oleh orang lain!";
-            error_log("Task already taken: $todo_id");
         } else {
-            // Insert into taken table
-            $insert_stmt = $koneksi->prepare("INSERT INTO taken (id_todos, user_id, status, date) VALUES (?, ?, 'in_progress', NOW())");
-            $insert_stmt->bind_param("ii", $todo_id, $user_id);
+            // Insert into taken table - sesuai struktur SQL yang benar
+            $insert_stmt = $koneksi->prepare("INSERT INTO taken (id_todos, user_id, taken_by, status, date) VALUES (?, ?, ?, 'in_progress', CURDATE())");
+            $insert_stmt->bind_param("iii", $todo_id, $user_id, $user_id);
             
             if ($insert_stmt->execute()) {
                 $message = "Tugas '" . htmlspecialchars($task_data['title']) . "' berhasil diambil!";
-                error_log("Task taken successfully: $todo_id by user: $user_id");
-                
-                // Optional: Add to system logs if table exists
-                $log_stmt = $koneksi->prepare("INSERT INTO system_logs (user_id, action, description, created_at) VALUES (?, 'TASK_TAKEN', ?, NOW())");
-                if ($log_stmt) {
-                    $log_desc = "User mengambil tugas: " . $task_data['title'];
-                    $log_stmt->bind_param("is", $user_id, $log_desc);
-                    $log_stmt->execute();
-                }
             } else {
                 $error = "Gagal mengambil tugas: " . $koneksi->error;
-                error_log("Failed to take task: " . $koneksi->error);
             }
         }
     }
@@ -75,26 +56,21 @@ if (isset($_POST['update_status'])) {
     $status = $_POST['status'];
     $user_id = $_SESSION['user_id'];
     
-    // Verify ownership
-    $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
+    // Verify ownership - menggunakan taken_by karena user_id mungkin berbeda
+    $check_owner = $koneksi->prepare("SELECT taken_by, user_id FROM taken WHERE id = ?");
     $check_owner->bind_param("i", $taken_id);
     $check_owner->execute();
     $owner_result = $check_owner->get_result();
     
     if ($owner_result->num_rows > 0) {
         $owner = $owner_result->fetch_assoc();
-        if ($owner['user_id'] == $user_id || $_SESSION['user_role'] == 'admin') {
-            $stmt = $koneksi->prepare("UPDATE taken SET status = ?, date = NOW() WHERE id = ?");
+        if ($owner['taken_by'] == $user_id || $_SESSION['user_role'] == 'admin') {
+            // Update status
+            $stmt = $koneksi->prepare("UPDATE taken SET status = ? WHERE id = ?");
             $stmt->bind_param("si", $status, $taken_id);
             
             if ($stmt->execute()) {
                 $message = "Status tugas berhasil diperbarui menjadi " . ucfirst(str_replace('_', ' ', $status)) . "!";
-                
-                // Log activity
-                $log_stmt = $koneksi->prepare("INSERT INTO system_logs (user_id, action, description, created_at) VALUES (?, 'TASK_STATUS_UPDATED', ?, NOW())");
-                $log_desc = "User mengubah status tugas ID: " . $taken_id . " menjadi " . $status;
-                $log_stmt->bind_param("is", $user_id, $log_desc);
-                $log_stmt->execute();
             } else {
                 $error = "Gagal memperbarui status!";
             }
@@ -110,25 +86,19 @@ if (isset($_POST['release_task'])) {
     $user_id = $_SESSION['user_id'];
     
     // Verify ownership
-    $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
+    $check_owner = $koneksi->prepare("SELECT taken_by FROM taken WHERE id = ?");
     $check_owner->bind_param("i", $taken_id);
     $check_owner->execute();
     $owner_result = $check_owner->get_result();
     
     if ($owner_result->num_rows > 0) {
         $owner = $owner_result->fetch_assoc();
-        if ($owner['user_id'] == $user_id || $_SESSION['user_role'] == 'admin') {
+        if ($owner['taken_by'] == $user_id || $_SESSION['user_role'] == 'admin') {
             $stmt = $koneksi->prepare("DELETE FROM taken WHERE id = ?");
             $stmt->bind_param("i", $taken_id);
             
             if ($stmt->execute()) {
                 $message = "Tugas berhasil dilepas dan tersedia kembali!";
-                
-                // Log activity
-                $log_stmt = $koneksi->prepare("INSERT INTO system_logs (user_id, action, description, created_at) VALUES (?, 'TASK_RELEASED', ?, NOW())");
-                $log_desc = "User melepas tugas ID: " . $taken_id;
-                $log_stmt->bind_param("is", $user_id, $log_desc);
-                $log_stmt->execute();
             } else {
                 $error = "Gagal melepas tugas!";
             }
@@ -138,11 +108,10 @@ if (isset($_POST['release_task'])) {
     }
 }
 
-// Get taken tasks with detailed info - dengan filter user yang lebih baik
+// Get taken tasks - sesuai struktur SQL yang benar
 $filter_clause = "";
 if ($_SESSION['user_role'] != 'admin') {
-    // Non-admin hanya bisa lihat tugas mereka sendiri dan tugas yang sudah completed
-    $filter_clause = " AND (tk.user_id = " . $_SESSION['user_id'] . " OR tk.status = 'done')";
+    $filter_clause = " AND (tk.taken_by = " . $_SESSION['user_id'] . " OR tk.status = 'done')";
 }
 
 $taken_query = "
@@ -151,19 +120,21 @@ $taken_query = "
            t.description as todo_description,
            t.priority,
            u.name as user_name,
+           taken_user.name as taken_by_name,
            a.name as app_name,
            t.created_at as todo_created_at,
-           DATEDIFF(NOW(), tk.date) as days_taken
+           DATEDIFF(CURDATE(), tk.date) as days_worked
     FROM taken tk
     JOIN todos t ON tk.id_todos = t.id
     JOIN users u ON tk.user_id = u.id
+    JOIN users taken_user ON tk.taken_by = taken_user.id
     JOIN apps a ON t.app_id = a.id
     WHERE 1=1 $filter_clause
     ORDER BY tk.date DESC
 ";
 $taken_result = $koneksi->query($taken_query);
 
-// Get available tasks (not taken yet) - dengan prioritas lebih baik
+// Get available tasks (not taken yet)
 $available_query = "
     SELECT t.*, 
            a.name as app_name,
@@ -183,16 +154,11 @@ $available_query = "
 ";
 $available_result = $koneksi->query($available_query);
 
-// Tambahkan debugging
-if (!$available_result) {
-    error_log("Available query error: " . $koneksi->error);
-}
-
-// Get statistics dengan data yang lebih akurat
+// Get statistics - sesuai struktur tabel yang benar
 $total_taken = $koneksi->query("SELECT COUNT(*) as count FROM taken")->fetch_assoc()['count'];
 $in_progress = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE status = 'in_progress'")->fetch_assoc()['count'];
 $completed = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE status = 'done'")->fetch_assoc()['count'];
-$my_tasks = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE user_id = " . $_SESSION['user_id'])->fetch_assoc()['count'];
+$my_tasks = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE taken_by = " . $_SESSION['user_id'])->fetch_assoc()['count'];
 $available_count = $koneksi->query("
     SELECT COUNT(*) as count FROM todos t 
     LEFT JOIN taken tk ON t.id = tk.id_todos 
@@ -210,8 +176,7 @@ function getPriorityColor($priority) {
 function getStatusBadge($status) {
     $badges = [
         'in_progress' => ['text' => 'Sedang Dikerjakan', 'class' => 'badge-warning'],
-        'done' => ['text' => 'Selesai', 'class' => 'badge-success'],
-        'pending' => ['text' => 'Menunggu', 'class' => 'badge-info']
+        'done' => ['text' => 'Selesai', 'class' => 'badge-success']
     ];
     return $badges[$status] ?? ['text' => ucfirst($status), 'class' => 'badge-secondary'];
 }
@@ -247,7 +212,7 @@ function getStatusBadge($status) {
                 Task Management
             </h1>
             <p class="page-subtitle">
-                Ambil dan kelola tugas yang tersedia untuk dikerjakan
+                Ambil dan kelola tugas yang dikirim client
             </p>
         </div>
         <div class="header-actions">
@@ -358,32 +323,34 @@ function getStatusBadge($status) {
                             </div>
                             <div class="meta-item">
                                 <i class="fas fa-user"></i>
-                                <span>Dikerjakan: <?= htmlspecialchars($task['user_name']) ?></span>
+                                <span>Dikerjakan: <?= htmlspecialchars($task['taken_by_name']) ?></span>
                             </div>
                         </div>
                         <div class="meta-row">
                             <div class="meta-item">
                                 <i class="fas fa-calendar"></i>
-                                <span>Diambil: <?= date('d/m/Y H:i', strtotime($task['date'])) ?></span>
+                                <span>Diambil: <?= date('d/m/Y', strtotime($task['date'])) ?></span>
                             </div>
                             <div class="meta-item">
                                 <i class="fas fa-hourglass-half"></i>
-                                <span><?= $task['days_taken'] ?> hari</span>
+                                <span><?= $task['days_worked'] ?> hari dikerjakan</span>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-item">
+                                <i class="fas fa-user-plus"></i>
+                                <span>Dibuat oleh: <?= htmlspecialchars($task['user_name']) ?></span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="task-actions">
-                    <?php if ($task['user_id'] == $_SESSION['user_id'] || $_SESSION['user_role'] == 'admin'): ?>
+                    <?php if ($task['taken_by'] == $_SESSION['user_id'] || $_SESSION['user_role'] == 'admin'): ?>
                         <?php if ($task['status'] == 'in_progress'): ?>
                         <button class="btn btn-success btn-sm" onclick="updateTaskStatus(<?= $task['id'] ?>, 'done')">
                             <i class="fas fa-check mr-1"></i>
                             Selesai
-                        </button>
-                        <button class="btn btn-warning btn-sm" onclick="updateTaskStatus(<?= $task['id'] ?>, 'pending')">
-                            <i class="fas fa-pause mr-1"></i>
-                            Pending
                         </button>
                         <?php elseif ($task['status'] == 'done'): ?>
                         <button class="btn btn-info btn-sm" onclick="updateTaskStatus(<?= $task['id'] ?>, 'in_progress')">
@@ -399,7 +366,7 @@ function getStatusBadge($status) {
                     <?php else: ?>
                         <div class="task-owner-info">
                             <i class="fas fa-info-circle"></i>
-                            <span>Task milik <?= htmlspecialchars($task['user_name']) ?></span>
+                            <span>Task milik <?= htmlspecialchars($task['taken_by_name']) ?></span>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -410,7 +377,7 @@ function getStatusBadge($status) {
         <div class="empty-state">
             <i class="fas fa-clipboard-list"></i>
             <h3>Belum Ada Tugas Yang Dikerjakan</h3>
-            <p>Klik "Ambil Tugas Baru" untuk mulai mengerjakan tugas yang tersedia</p>
+            <p>Klik "Ambil Tugas Baru" untuk mulai mengerjakan tugas dari client</p>
         </div>
         <?php endif; ?>
     </div>
@@ -422,7 +389,7 @@ function getStatusBadge($status) {
         <div class="modal-header">
             <h3>
                 <i class="fas fa-clipboard-list mr-2"></i>
-                Pilih Tugas Yang Tersedia
+                Tugas dari Client yang Tersedia
                 <span class="task-count-badge"><?= $available_count ?> tugas</span>
             </h3>
             <button class="modal-close" onclick="closeAvailableTasksModal()">
@@ -465,7 +432,7 @@ function getStatusBadge($status) {
                             </span>
                             <span class="meta-badge">
                                 <i class="fas fa-user"></i>
-                                Dibuat: <?= htmlspecialchars($task['creator_name']) ?>
+                                Client: <?= htmlspecialchars($task['creator_name']) ?>
                             </span>
                             <span class="meta-badge">
                                 <i class="fas fa-calendar"></i>
@@ -489,7 +456,7 @@ function getStatusBadge($status) {
             <div class="empty-state-modal">
                 <i class="fas fa-check-double"></i>
                 <h3>Semua Tugas Sudah Diambil</h3>
-                <p>Tidak ada tugas yang tersedia saat ini. Coba lagi nanti!</p>
+                <p>Tidak ada tugas baru dari client saat ini.</p>
                 <button class="btn btn-primary" onclick="refreshPage()">
                     <i class="fas fa-sync-alt mr-2"></i>
                     Refresh Halaman
@@ -534,7 +501,7 @@ function getStatusBadge($status) {
 </div>
 
 <style>
-/* Enhanced Styles */
+/* Task Management Styles */
 * {
     box-sizing: border-box;
 }
@@ -709,7 +676,7 @@ function getStatusBadge($status) {
     align-items: center;
 }
 
-/* Form Select */
+/* Form Elements */
 .form-select {
     padding: 8px 12px;
     border: 2px solid #e5e7eb;
@@ -783,7 +750,6 @@ function getStatusBadge($status) {
 
 .badge-success { background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
 .badge-warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
-.badge-info { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
 .badge-secondary { background: linear-gradient(135deg, #6b7280, #4b5563); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
 
 .task-content {
@@ -1263,31 +1229,6 @@ function getStatusBadge($status) {
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Loading States */
-.loading {
-    position: relative;
-    color: transparent !important;
-}
-
-.loading::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 16px;
-    height: 16px;
-    border: 2px solid transparent;
-    border-top: 2px solid currentColor;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    color: white;
-}
-
-@keyframes spin {
-    to { transform: translate(-50%, -50%) rotate(360deg); }
-}
-
 /* Responsive Design */
 @media (max-width: 1024px) {
     .tasks-grid {
@@ -1398,54 +1339,10 @@ function getStatusBadge($status) {
         align-items: flex-start;
     }
 }
-
-/* Custom Scrollbar */
-.available-tasks-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.available-tasks-list::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 3px;
-}
-
-.available-tasks-list::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
-}
-
-.available-tasks-list::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-
-/* Focus States */
-.btn:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-}
-
-.form-select:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-/* Print Styles */
-@media print {
-    .modal, .btn, .alert {
-        display: none !important;
-    }
-    
-    .task-card {
-        break-inside: avoid;
-        box-shadow: none;
-        border: 1px solid #ddd;
-    }
-}
 </style>
 
 <script>
-// Enhanced JavaScript functionality
+// Task Management JavaScript
 document.addEventListener('DOMContentLoaded', function() {
     initializeTaskManagement();
 });
@@ -1463,10 +1360,6 @@ function initializeTaskManagement() {
         }, 5000);
     });
 
-    // Initialize tooltips and interactions
-    addInteractiveFeatures();
-    
-    // Setup keyboard shortcuts
     setupKeyboardShortcuts();
 }
 
@@ -1475,12 +1368,6 @@ function openAvailableTasksModal() {
     const modal = document.getElementById('availableTasksModal');
     modal.classList.add('show');
     document.body.style.overflow = 'hidden';
-    
-    // Focus on first task for accessibility
-    setTimeout(() => {
-        const firstTask = modal.querySelector('.take-task-btn');
-        if (firstTask) firstTask.focus();
-    }, 300);
 }
 
 function closeAvailableTasksModal() {
@@ -1493,7 +1380,7 @@ function releaseTask(takenId, taskTitle) {
     const cleanTitle = taskTitle.replace(/'/g, "\\'");
     document.getElementById('releaseMessage').innerHTML = 
         `Apakah Anda yakin ingin melepas tugas "<strong>${cleanTitle}</strong>"?<br>
-        <small class="text-muted">Tugas akan tersedia kembali untuk diambil orang lain.</small>`;
+        <small style="color: #6b7280; font-size: 0.85rem;">Tugas akan tersedia kembali untuk programmer lain.</small>`;
     document.getElementById('releaseTakenId').value = takenId;
     document.getElementById('releaseModal').classList.add('show');
     document.body.style.overflow = 'hidden';
@@ -1508,13 +1395,10 @@ function closeReleaseModal() {
 function updateTaskStatus(takenId, status) {
     const statusText = {
         'done': 'selesai',
-        'in_progress': 'sedang dikerjakan',
-        'pending': 'pending'
+        'in_progress': 'sedang dikerjakan'
     };
     
     if (confirm(`Apakah Anda yakin ingin mengubah status tugas menjadi "${statusText[status]}"?`)) {
-        showLoadingState();
-        
         const form = document.createElement('form');
         form.method = 'POST';
         form.innerHTML = `
@@ -1527,19 +1411,15 @@ function updateTaskStatus(takenId, status) {
     }
 }
 
-// Enhanced Task Taking with confirmation
 function confirmTakeTask(form, taskTitle) {
     const cleanTitle = taskTitle.replace(/'/g, "\\'");
     
-    if (confirm(`Apakah Anda yakin ingin mengambil tugas:\n"${cleanTitle}"?\n\nTugas ini akan menjadi tanggung jawab Anda.`)) {
+    if (confirm(`Apakah Anda yakin ingin mengambil tugas dari client:\n"${cleanTitle}"?\n\nTugas ini akan menjadi tanggung jawab Anda.`)) {
         const button = form.querySelector('button[name="take_task"]');
         
-        // Add loading state
         button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Mengambil tugas...';
         button.disabled = true;
-        button.classList.add('loading');
         
-        // Close modal after short delay for UX
         setTimeout(() => {
             closeAvailableTasksModal();
         }, 500);
@@ -1580,7 +1460,6 @@ function filterAvailableTasks() {
     });
 }
 
-// Description Toggle
 function toggleDescription(element) {
     const parent = element.closest('.task-description');
     const fullDesc = parent.querySelector('.full-desc');
@@ -1595,93 +1474,22 @@ function toggleDescription(element) {
     }
 }
 
-// Utility Functions
 function refreshPage() {
-    showLoadingState();
     location.reload();
 }
 
-function showLoadingState() {
-    // Add loading overlay
-    const overlay = document.createElement('div');
-    overlay.className = 'loading-overlay';
-    overlay.innerHTML = `
-        <div class="loading-spinner">
-            <i class="fas fa-spinner fa-spin"></i>
-            <p>Memuat...</p>
-        </div>
-    `;
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(255,255,255,0.9);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        flex-direction: column;
-        gap: 12px;
-    `;
-    document.body.appendChild(overlay);
-}
-
-// Interactive Features
-function addInteractiveFeatures() {
-    // Add ripple effect to buttons
-    const buttons = document.querySelectorAll('.btn');
-    buttons.forEach(button => {
-        button.addEventListener('click', createRipple);
-    });
-    
-    // Add task card hover effects
-    const taskCards = document.querySelectorAll('.task-card');
-    taskCards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-4px) scale(1.02)';
-        });
-        
-        card.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0) scale(1)';
-        });
-    });
-}
-
-function createRipple(event) {
-    const button = event.currentTarget;
-    const circle = document.createElement('span');
-    const diameter = Math.max(button.clientWidth, button.clientHeight);
-    const radius = diameter / 2;
-    
-    circle.style.width = circle.style.height = `${diameter}px`;
-    circle.style.left = `${event.clientX - button.offsetLeft - radius}px`;
-    circle.style.top = `${event.clientY - button.offsetTop - radius}px`;
-    circle.classList.add('ripple');
-    
-    const ripple = button.querySelector('.ripple');
-    if (ripple) ripple.remove();
-    
-    button.appendChild(circle);
-}
-
-// Keyboard Shortcuts
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', function(e) {
-        // Ctrl/Cmd + N: Open new task modal
         if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
             e.preventDefault();
             openAvailableTasksModal();
         }
         
-        // Escape: Close modals
         if (e.key === 'Escape') {
             closeAvailableTasksModal();
             closeReleaseModal();
         }
         
-        // Ctrl/Cmd + R: Refresh
         if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
             e.preventDefault();
             refreshPage();
@@ -1696,43 +1504,4 @@ document.addEventListener('click', function(e) {
         closeReleaseModal();
     }
 });
-
-// Auto-refresh every 5 minutes when page is visible
-setInterval(() => {
-    if (document.visibilityState === 'visible' && !document.querySelector('.modal.show')) {
-        // Check for new available tasks silently
-        checkForNewTasks();
-    }
-}, 300000);
-
-function checkForNewTasks() {
-    // This could be implemented with AJAX to check for new tasks without full refresh
-    console.log('Checking for new tasks...');
-}
-
-// Add CSS for ripple effect
-const style = document.createElement('style');
-style.textContent = `
-    .btn {
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .ripple {
-        position: absolute;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.4);
-        transform: scale(0);
-        animation: ripple 0.6s linear;
-        pointer-events: none;
-    }
-    
-    @keyframes ripple {
-        to {
-            transform: scale(4);
-            opacity: 0;
-        }
-    }
-`;
-document.head.appendChild(style);
 </script>

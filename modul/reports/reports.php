@@ -1,40 +1,156 @@
 <?php
 // modul/data/reports.php
-// Handle form submission for new report
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_report'])) {
-    // Get current logged in user ID (sesuaikan dengan sistem session Anda)
-    $user_id = $_SESSION['user_id']; // Atau $_SESSION['id'] atau sesuai system Anda
+// Enhanced Reports Module with Role-Based Access Control
+
+// Get current logged in user info
+$current_user_id = $_SESSION['user_id'];
+$current_user_query = $koneksi->prepare("SELECT role, name FROM users WHERE id = ?");
+$current_user_query->bind_param('i', $current_user_id);
+$current_user_query->execute();
+$current_user_result = $current_user_query->get_result();
+
+if ($current_user_result->num_rows === 0) {
+    die('User tidak ditemukan dalam sistem!');
+}
+
+$current_user = $current_user_result->fetch_assoc();
+$current_user_role = $current_user['role'];
+
+// Define role permissions
+$role_permissions = [
+    'admin' => [
+        'can_create' => true,
+        'can_view_all' => true,
+        'can_edit_all' => true,
+        'can_delete_all' => true,
+        'can_view_own' => true,
+        'can_edit_own' => true,
+        'can_delete_own' => true
+    ],
+    'client' => [
+        'can_create' => true,
+        'can_view_all' => false,
+        'can_edit_all' => false,
+        'can_delete_all' => false,
+        'can_view_own' => true,
+        'can_edit_own' => true,
+        'can_delete_own' => true
+    ],
+    'programmer' => [
+        'can_create' => true,
+        'can_view_all' => true,
+        'can_edit_all' => false,
+        'can_delete_all' => false,
+        'can_view_own' => true,
+        'can_edit_own' => true,
+        'can_delete_own' => true
+    ],
+    'support' => [
+        'can_create' => true,
+        'can_view_all' => true,
+        'can_edit_all' => false,
+        'can_delete_all' => false,
+        'can_view_own' => true,
+        'can_edit_own' => true,
+        'can_delete_own' => true
+    ]
+];
+
+$current_permissions = $role_permissions[$current_user_role] ?? [];
+
+// Handle report deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_report'])) {
+    $report_id = (int)$_POST['report_id'];
+    
+    // Check permissions
+    $report_check = $koneksi->prepare("SELECT user_id FROM reports WHERE id = ?");
+    $report_check->bind_param('i', $report_id);
+    $report_check->execute();
+    $report_data = $report_check->get_result()->fetch_assoc();
+    
+    $can_delete = false;
+    if ($current_permissions['can_delete_all']) {
+        $can_delete = true;
+    } elseif ($current_permissions['can_delete_own'] && $report_data['user_id'] == $current_user_id) {
+        $can_delete = true;
+    }
+    
+    if ($can_delete) {
+        $delete_stmt = $koneksi->prepare("DELETE FROM reports WHERE id = ?");
+        $delete_stmt->bind_param('i', $report_id);
+        if ($delete_stmt->execute()) {
+            $message = 'Laporan berhasil dihapus!';
+        } else {
+            $error = 'Gagal menghapus laporan!';
+        }
+    } else {
+        $error = 'Anda tidak memiliki izin untuk menghapus laporan ini!';
+    }
+}
+
+// Handle report editing
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_report'])) {
+    $report_id = (int)$_POST['report_id'];
     $activity = $_POST['activity'];
     $problem = $_POST['problem'] ?? '';
     $status = $_POST['status'];
-    $report_date = $_POST['report_date'] ?? date('Y-m-d');
     
-    // Get user role
-    $user_role_query = $koneksi->prepare("SELECT role FROM users WHERE id = ?");
-    $user_role_query->bind_param('i', $user_id);
-    $user_role_query->execute();
-    $user_role_result = $user_role_query->get_result();
+    // Check permissions
+    $report_check = $koneksi->prepare("SELECT user_id FROM reports WHERE id = ?");
+    $report_check->bind_param('i', $report_id);
+    $report_check->execute();
+    $report_data = $report_check->get_result()->fetch_assoc();
     
-    // Validate required fields
-    if (empty($activity) || empty($status)) {
-        $error = 'Semua field wajib harus diisi!';
-    } else if ($user_role_result->num_rows === 0) {
-        $error = 'User tidak ditemukan!';
-    } else {
-        $user_data = $user_role_result->fetch_assoc();
-        $role = $user_data['role'];
-        
-        // Insert new report
-        $insert_report = $koneksi->prepare("
-            INSERT INTO reports (date, user_id, activity, problem, status) 
-            VALUES (?, ?, ?, ?, ?)
-        ");
-        $insert_report->bind_param('sisss', $report_date, $user_id, $activity, $problem, $status);
-        
-        if ($insert_report->execute()) {
-            $message = 'Laporan berhasil ditambahkan!';
+    $can_edit = false;
+    if ($current_permissions['can_edit_all']) {
+        $can_edit = true;
+    } elseif ($current_permissions['can_edit_own'] && $report_data['user_id'] == $current_user_id) {
+        $can_edit = true;
+    }
+    
+    if ($can_edit) {
+        if (empty($activity) || empty($status)) {
+            $error = 'Semua field wajib harus diisi!';
         } else {
-            $error = 'Gagal menambahkan laporan: ' . $koneksi->error;
+            $update_stmt = $koneksi->prepare("UPDATE reports SET activity = ?, problem = ?, status = ? WHERE id = ?");
+            $update_stmt->bind_param('sssi', $activity, $problem, $status, $report_id);
+            if ($update_stmt->execute()) {
+                $message = 'Laporan berhasil diperbarui!';
+            } else {
+                $error = 'Gagal memperbarui laporan!';
+            }
+        }
+    } else {
+        $error = 'Anda tidak memiliki izin untuk mengedit laporan ini!';
+    }
+}
+
+// Handle form submission for new report
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_report'])) {
+    if (!$current_permissions['can_create']) {
+        $error = 'Anda tidak memiliki izin untuk membuat laporan!';
+    } else {
+        $activity = $_POST['activity'];
+        $problem = $_POST['problem'] ?? '';
+        $status = $_POST['status'];
+        $report_date = $_POST['report_date'] ?? date('Y-m-d');
+        
+        // Validate required fields
+        if (empty($activity) || empty($status)) {
+            $error = 'Semua field wajib harus diisi!';
+        } else {
+            // Insert new report
+            $insert_report = $koneksi->prepare("
+                INSERT INTO reports (date, user_id, activity, problem, status) 
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $insert_report->bind_param('sisss', $report_date, $current_user_id, $activity, $problem, $status);
+            
+            if ($insert_report->execute()) {
+                $message = 'Laporan berhasil ditambahkan!';
+            } else {
+                $error = 'Gagal menambahkan laporan: ' . $koneksi->error;
+            }
         }
     }
 }
@@ -55,10 +171,17 @@ $records_per_page = 15;
 $offset = ($page - 1) * $records_per_page;
 $offset = max(0, $offset);
 
-// Build WHERE conditions
+// Build WHERE conditions based on permissions
 $where_conditions = [];
 $params = [];
 $param_types = '';
+
+// Apply view permissions
+if (!$current_permissions['can_view_all']) {
+    $where_conditions[] = "r.user_id = ?";
+    $params[] = $current_user_id;
+    $param_types .= 'i';
+}
 
 if (!empty($role_filter)) {
     $where_conditions[] = "u.role = ?";
@@ -133,18 +256,32 @@ if (!empty($params)) {
     $reports_result = $reports_stmt->get_result();
 }
 
-// Get filter options
-$users_options = $koneksi->query("SELECT id, name, role FROM users ORDER BY name");
+// Get filter options (only show users current user can see)
+if ($current_permissions['can_view_all']) {
+    $users_options = $koneksi->query("SELECT id, name, role FROM users ORDER BY name");
+} else {
+    $users_options = $koneksi->prepare("SELECT id, name, role FROM users WHERE id = ? ORDER BY name");
+    $users_options->bind_param('i', $current_user_id);
+    $users_options->execute();
+    $users_options = $users_options->get_result();
+}
 
-// Get statistics for dashboard
+// Get statistics for dashboard (based on permission)
 $today = date('Y-m-d');
 $yesterday = date('Y-m-d', strtotime('-1 day'));
 $this_week = date('Y-m-d', strtotime('-7 days'));
 
-$stats_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today'")->fetch_assoc()['count'];
-$stats_completed_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today' AND status = 'done'")->fetch_assoc()['count'];
-$stats_in_progress = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'in_progress'")->fetch_assoc()['count'];
-$stats_pending = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'pending'")->fetch_assoc()['count'];
+if ($current_permissions['can_view_all']) {
+    $stats_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today'")->fetch_assoc()['count'];
+    $stats_completed_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today' AND status = 'done'")->fetch_assoc()['count'];
+    $stats_in_progress = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'in_progress'")->fetch_assoc()['count'];
+    $stats_pending = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'pending'")->fetch_assoc()['count'];
+} else {
+    $stats_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today' AND user_id = $current_user_id")->fetch_assoc()['count'];
+    $stats_completed_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today' AND status = 'done' AND user_id = $current_user_id")->fetch_assoc()['count'];
+    $stats_in_progress = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'in_progress' AND user_id = $current_user_id")->fetch_assoc()['count'];
+    $stats_pending = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'pending' AND user_id = $current_user_id")->fetch_assoc()['count'];
+}
 
 // Helper functions
 function getRoleColor($role) {
@@ -216,9 +353,60 @@ function buildFilterQuery() {
     
     return !empty($params) ? '&' . implode('&', $params) : '';
 }
+
+function canEditReport($report_user_id) {
+    global $current_permissions, $current_user_id;
+    
+    if ($current_permissions['can_edit_all']) return true;
+    if ($current_permissions['can_edit_own'] && $report_user_id == $current_user_id) return true;
+    
+    return false;
+}
+
+function canDeleteReport($report_user_id) {
+    global $current_permissions, $current_user_id;
+    
+    if ($current_permissions['can_delete_all']) return true;
+    if ($current_permissions['can_delete_own'] && $report_user_id == $current_user_id) return true;
+    
+    return false;
+}
 ?>
 
 <div class="main-content" style="margin-top: 80px;">
+    <!-- Permission Info Banner -->
+    <div class="permission-info">
+        <div class="permission-content">
+            <div class="permission-user">
+                <div class="user-avatar" style="background: <?= getRoleColor($current_user_role) ?>">
+                    <i class="<?= getRoleIcon($current_user_role) ?>"></i>
+                </div>
+                <div>
+                    <h4><?= htmlspecialchars($current_user['name']) ?></h4>
+                    <span style="color: <?= getRoleColor($current_user_role) ?>"><?= ucfirst($current_user_role) ?></span>
+                </div>
+            </div>
+            <div class="permission-badges">
+                <?php if ($current_permissions['can_view_all']): ?>
+                <span class="perm-badge view-all"><i class="fas fa-eye"></i> Lihat Semua</span>
+                <?php endif; ?>
+                <?php if ($current_permissions['can_create']): ?>
+                <span class="perm-badge create"><i class="fas fa-plus"></i> Buat Laporan</span>
+                <?php endif; ?>
+                <?php if ($current_permissions['can_edit_all']): ?>
+                <span class="perm-badge edit-all"><i class="fas fa-edit"></i> Edit Semua</span>
+                <?php elseif ($current_permissions['can_edit_own']): ?>
+                <span class="perm-badge edit-own"><i class="fas fa-edit"></i> Edit Milik Sendiri</span>
+                <?php endif; ?>
+                <?php if ($current_permissions['can_delete_all']): ?>
+                <span class="perm-badge delete-all"><i class="fas fa-trash"></i> Hapus Semua</span>
+                <?php elseif ($current_permissions['can_delete_own']): ?>
+                <span class="perm-badge delete-own"><i class="fas fa-trash"></i> Hapus Milik Sendiri</span>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
     <!-- Success/Error Messages -->
     <?php if ($message): ?>
     <div class="alert alert-success">
@@ -239,21 +427,25 @@ function buildFilterQuery() {
         <div class="header-content">
             <h1 class="page-title">
                 <i class="fas fa-chart-line mr-3"></i>
-                Laporan Aktivitas
+                <?= $current_permissions['can_view_all'] ? 'Semua Laporan Aktivitas' : 'Laporan Aktivitas Saya' ?>
             </h1>
             <p class="page-subtitle">
-                Monitor dan analisis aktivitas semua pengguna dalam sistem
+                <?= $current_permissions['can_view_all'] ? 'Monitor dan analisis aktivitas semua pengguna dalam sistem' : 'Monitor dan kelola laporan aktivitas Anda' ?>
             </p>
         </div>
         <div class="header-actions">
+            <?php if ($current_permissions['can_create']): ?>
             <button class="btn btn-success" onclick="openAddReportModal()">
                 <i class="fas fa-plus mr-2"></i>
                 Tambah Laporan
             </button>
+            <?php endif; ?>
+            <?php if ($current_permissions['can_view_all']): ?>
             <button class="btn btn-secondary" onclick="exportReport()">
                 <i class="fas fa-download mr-2"></i>
                 Export PDF
             </button>
+            <?php endif; ?>
             <button class="btn btn-primary" onclick="refreshReport()">
                 <i class="fas fa-sync-alt mr-2"></i>
                 Refresh
@@ -269,7 +461,7 @@ function buildFilterQuery() {
             </div>
             <div class="stat-content">
                 <h3 class="stat-number"><?= $stats_today ?></h3>
-                <p class="stat-label">Aktivitas Hari Ini</p>
+                <p class="stat-label"><?= $current_permissions['can_view_all'] ? 'Aktivitas Hari Ini' : 'Aktivitas Saya Hari Ini' ?></p>
             </div>
         </div>
 
@@ -305,6 +497,7 @@ function buildFilterQuery() {
     </div>
 
     <!-- Filters Section -->
+    <?php if ($current_permissions['can_view_all']): ?>
     <div class="filters-section">
         <div class="filters-header">
             <h3>Filter Laporan</h3>
@@ -359,6 +552,7 @@ function buildFilterQuery() {
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
     <!-- Reports Table -->
     <div class="reports-container">
@@ -399,6 +593,12 @@ function buildFilterQuery() {
                                 <i class="<?= getStatusIcon($report['status']) ?>"></i>
                                 <?= getStatusText($report['status']) ?>
                             </span>
+                            <?php if ($report['user_id'] == $current_user_id): ?>
+                            <span class="owner-badge">
+                                <i class="fas fa-user"></i>
+                                Milik Anda
+                            </span>
+                            <?php endif; ?>
                         </div>
                     </div>
                     
@@ -411,7 +611,7 @@ function buildFilterQuery() {
                             <i class="fas fa-clock"></i>
                             <span><?= timeAgo($report['created_at']) ?></span>
                         </div>
-                        <?php if (!empty($report['user_email'])): ?>
+                        <?php if (!empty($report['user_email']) && $current_permissions['can_view_all']): ?>
                         <div class="detail-item">
                             <i class="fas fa-envelope"></i>
                             <span><?= htmlspecialchars($report['user_email']) ?></span>
@@ -424,12 +624,16 @@ function buildFilterQuery() {
                     <button class="btn-action" onclick="viewDetails(<?= $report['id'] ?>)" title="Detail">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="btn-action btn-edit" onclick="editReport(<?= $report['id'] ?>)" title="Edit">
+                    <?php if (canEditReport($report['user_id'])): ?>
+                    <button class="btn-action btn-edit" onclick="editReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>', '<?= htmlspecialchars(addslashes($report['problem'])) ?>', '<?= $report['status'] ?>')" title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
+                    <?php endif; ?>
+                    <?php if (canDeleteReport($report['user_id'])): ?>
                     <button class="btn-action btn-delete" onclick="deleteReport(<?= $report['id'] ?>)" title="Hapus">
                         <i class="fas fa-trash"></i>
                     </button>
+                    <?php endif; ?>
                 </div>
             </div>
             <?php endwhile; ?>
@@ -488,6 +692,7 @@ function buildFilterQuery() {
 </div>
 
 <!-- Add Report Modal -->
+<?php if ($current_permissions['can_create']): ?>
 <div id="addReportModal" class="modal" style="display: none;">
     <div class="modal-content" style="max-width: 600px;">
         <div class="modal-header">
@@ -553,8 +758,181 @@ function buildFilterQuery() {
         </form>
     </div>
 </div>
+<?php endif; ?>
+
+<!-- Edit Report Modal -->
+<div id="editReportModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>
+                <i class="fas fa-edit mr-2"></i>
+                Edit Laporan Aktivitas
+            </h3>
+            <button class="modal-close" onclick="closeEditReportModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form method="POST" onsubmit="return validateEditReportForm()">
+            <input type="hidden" name="edit_report" value="1">
+            <input type="hidden" name="report_id" id="edit_report_id">
+            
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="edit_status">Status <span class="required">*</span></label>
+                        <select id="edit_status" name="status" required>
+                            <option value="">Pilih Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="done">Selesai</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="edit_activity">Aktivitas <span class="required">*</span></label>
+                        <textarea id="edit_activity" name="activity" rows="4" required
+                                  placeholder="Jelaskan aktivitas yang dilakukan..."></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="edit_problem">Problem/Kendala</label>
+                        <textarea id="edit_problem" name="problem" rows="3" 
+                                  placeholder="Jelaskan problem atau kendala yang dihadapi (opsional)..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEditReportModal()">
+                    <i class="fas fa-times mr-2"></i>
+                    Batal
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save mr-2"></i>
+                    Perbarui Laporan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteConfirmModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3>
+                <i class="fas fa-exclamation-triangle mr-2" style="color: #ef4444;"></i>
+                Konfirmasi Hapus
+            </h3>
+            <button class="modal-close" onclick="closeDeleteConfirmModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="modal-body">
+            <p>Apakah Anda yakin ingin menghapus laporan ini?</p>
+            <p style="color: #6b7280; font-size: 0.9rem;">Tindakan ini tidak dapat dibatalkan.</p>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteConfirmModal()">
+                <i class="fas fa-times mr-2"></i>
+                Batal
+            </button>
+            <button type="button" class="btn btn-danger" onclick="confirmDeleteReport()">
+                <i class="fas fa-trash mr-2"></i>
+                Hapus Laporan
+            </button>
+        </div>
+    </div>
+</div>
 
 <style>
+/* Permission Info Banner */
+.permission-info {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.permission-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.permission-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.permission-user .user-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.1rem;
+}
+
+.permission-user h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 2px 0;
+}
+
+.permission-user span {
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.permission-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.perm-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: white;
+}
+
+.perm-badge.view-all { background: #3b82f6; }
+.perm-badge.create { background: #10b981; }
+.perm-badge.edit-all { background: #f59e0b; }
+.perm-badge.edit-own { background: #fbbf24; }
+.perm-badge.delete-all { background: #ef4444; }
+.perm-badge.delete-own { background: #f87171; }
+
+.owner-badge {
+    padding: 4px 8px;
+    background: #0066ff;
+    color: white;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
 /* Page Layout */
 .page-header {
     background: white;
@@ -651,6 +1029,16 @@ function buildFilterQuery() {
 
 .btn-success:hover {
     background: linear-gradient(90deg, #059669, #10b981);
+    transform: translateY(-2px);
+}
+
+.btn-danger {
+    background: linear-gradient(90deg, #ef4444, #f87171);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(90deg, #dc2626, #ef4444);
     transform: translateY(-2px);
 }
 
@@ -1233,6 +1621,12 @@ function buildFilterQuery() {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    .permission-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
     .page-header {
         flex-direction: column;
         gap: 16px;
@@ -1338,16 +1732,23 @@ function buildFilterQuery() {
         width: 100%;
         justify-content: center;
     }
+
+    .permission-badges {
+        justify-content: center;
+    }
 }
 </style>
 
 <script>
+// Global variables for delete confirmation
+let deleteReportId = null;
+
 // Filter functions
 function applyFilters() {
-    const roleFilter = document.getElementById('roleFilter').value;
-    const dateFilter = document.getElementById('dateFilter').value;
-    const userFilter = document.getElementById('userFilter').value;
-    const statusFilter = document.getElementById('statusFilter').value;
+    const roleFilter = document.getElementById('roleFilter')?.value || '';
+    const dateFilter = document.getElementById('dateFilter')?.value || '';
+    const userFilter = document.getElementById('userFilter')?.value || '';
+    const statusFilter = document.getElementById('statusFilter')?.value || '';
     
     let url = new URL(window.location);
     url.searchParams.delete('role');
@@ -1379,28 +1780,34 @@ function refreshReport() {
 }
 
 function exportReport() {
-    const params = new URLSearchParams(window.location.search);
-    params.set('export', 'pdf');
     alert('Fitur export PDF akan segera tersedia!');
 }
 
 // Add Report Modal Functions
 function openAddReportModal() {
-    document.getElementById('addReportModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    updateSummary();
+    const modal = document.getElementById('addReportModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        updateSummary();
+    }
 }
 
 function closeAddReportModal() {
-    document.getElementById('addReportModal').style.display = 'none';
-    document.body.style.overflow = 'auto';
-    
-    // Reset form
-    document.querySelector('#addReportModal form').reset();
-    document.getElementById('selectedInfo').style.display = 'none';
-    
-    // Set current date
-    document.getElementById('report_date').value = new Date().toISOString().split('T')[0];
+    const modal = document.getElementById('addReportModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        
+        // Reset form
+        document.querySelector('#addReportModal form').reset();
+        const selectedInfo = document.getElementById('selectedInfo');
+        if (selectedInfo) selectedInfo.style.display = 'none';
+        
+        // Set current date
+        const dateField = document.getElementById('report_date');
+        if (dateField) dateField.value = new Date().toISOString().split('T')[0];
+    }
 }
 
 function validateAddReportForm() {
@@ -1415,13 +1822,99 @@ function validateAddReportForm() {
     return confirm('Apakah Anda yakin ingin menyimpan laporan ini?');
 }
 
-// Update summary when form changes (tanpa user selection)
+// Edit Report Modal Functions
+function editReport(reportId, activity, problem, status) {
+    const modal = document.getElementById('editReportModal');
+    if (modal) {
+        document.getElementById('edit_report_id').value = reportId;
+        document.getElementById('edit_activity').value = activity;
+        document.getElementById('edit_problem').value = problem;
+        document.getElementById('edit_status').value = status;
+        
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeEditReportModal() {
+    const modal = document.getElementById('editReportModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        
+        // Reset form
+        document.querySelector('#editReportModal form').reset();
+    }
+}
+
+function validateEditReportForm() {
+    const activity = document.getElementById('edit_activity').value;
+    const status = document.getElementById('edit_status').value;
+    
+    if (!activity || !status) {
+        alert('Harap lengkapi semua field yang wajib diisi!');
+        return false;
+    }
+    
+    return confirm('Apakah Anda yakin ingin memperbarui laporan ini?');
+}
+
+// Delete Report Functions
+function deleteReport(reportId) {
+    deleteReportId = reportId;
+    const modal = document.getElementById('deleteConfirmModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeDeleteConfirmModal() {
+    const modal = document.getElementById('deleteConfirmModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        deleteReportId = null;
+    }
+}
+
+function confirmDeleteReport() {
+    if (deleteReportId) {
+        // Create form and submit
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.style.display = 'none';
+        
+        const deleteInput = document.createElement('input');
+        deleteInput.type = 'hidden';
+        deleteInput.name = 'delete_report';
+        deleteInput.value = '1';
+        
+        const idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = 'report_id';
+        idInput.value = deleteReportId;
+        
+        form.appendChild(deleteInput);
+        form.appendChild(idInput);
+        document.body.appendChild(form);
+        
+        form.submit();
+    }
+    closeDeleteConfirmModal();
+}
+
+// Update summary when form changes
 function updateSummary() {
     const activityField = document.getElementById('activity');
     const statusSelect = document.getElementById('status');
     const problemField = document.getElementById('problem');
     const selectedInfo = document.getElementById('selectedInfo');
     const summaryContent = document.getElementById('summaryContent');
+    
+    if (!activityField || !statusSelect || !problemField || !selectedInfo || !summaryContent) {
+        return;
+    }
     
     function generateSummary() {
         const activity = activityField.value;
@@ -1466,20 +1959,7 @@ function updateSummary() {
 
 // View functions
 function viewDetails(reportId) {
-    alert('Detail untuk Report ID: ' + reportId);
-    // Implement detail view
-}
-
-function editReport(reportId) {
-    alert('Edit laporan ID: ' + reportId);
-    // Implement edit functionality
-}
-
-function deleteReport(reportId) {
-    if (confirm('Apakah Anda yakin ingin menghapus laporan ini?')) {
-        // Implement delete functionality
-        alert('Delete Report ID: ' + reportId);
-    }
+    alert('Detail untuk Report ID: ' + reportId + '\nFitur detail akan segera tersedia!');
 }
 
 // Auto-refresh every 5 minutes
@@ -1515,21 +1995,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const dateFilter = document.getElementById('dateFilter');
     const urlParams = new URLSearchParams(window.location.search);
     
-    if (!urlParams.has('date') && !urlParams.has('role') && !urlParams.has('user') && !urlParams.has('status')) {
+    if (dateFilter && !urlParams.has('date') && !urlParams.has('role') && !urlParams.has('user') && !urlParams.has('status')) {
         const today = new Date().toISOString().split('T')[0];
         dateFilter.value = today;
     }
     
     // Set current date for add report form
-    document.getElementById('report_date').value = new Date().toISOString().split('T')[0];
+    const reportDate = document.getElementById('report_date');
+    if (reportDate) {
+        reportDate.value = new Date().toISOString().split('T')[0];
+    }
     
     // Initialize summary update
     updateSummary();
     
-    // Close modal when clicking outside
-    document.getElementById('addReportModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeAddReportModal();
+    // Close modals when clicking outside
+    const modals = ['addReportModal', 'editReportModal', 'deleteConfirmModal'];
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    if (modalId === 'addReportModal') closeAddReportModal();
+                    else if (modalId === 'editReportModal') closeEditReportModal();
+                    else if (modalId === 'deleteConfirmModal') closeDeleteConfirmModal();
+                }
+            });
         }
     });
     
@@ -1545,18 +2036,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + N to open add report modal
+    // Ctrl/Cmd + N to open add report modal (only if user can create)
     if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault();
-        openAddReportModal();
-    }
-    
-    // Escape to close modal
-    if (e.key === 'Escape') {
         const modal = document.getElementById('addReportModal');
-        if (modal.style.display === 'flex') {
-            closeAddReportModal();
+        if (modal) {
+            openAddReportModal();
         }
     }
+    
+    // Escape to close any open modal
+    if (e.key === 'Escape') {
+        const modals = ['addReportModal', 'editReportModal', 'deleteConfirmModal'];
+        modals.forEach(modalId => {
+            const modal = document.getElementById(modalId);
+            if (modal && modal.style.display === 'flex') {
+                if (modalId === 'addReportModal') closeAddReportModal();
+                else if (modalId === 'editReportModal') closeEditReportModal();
+                else if (modalId === 'deleteConfirmModal') closeDeleteConfirmModal();
+            }
+        });
+    }
 });
+
+// Prevent form resubmission on page refresh
+if (window.history.replaceState) {
+    window.history.replaceState(null, null, window.location.href);
+}
 </script>
