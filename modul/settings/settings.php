@@ -183,14 +183,6 @@ function getProfilePhotoUrlLocal($user_data) {
                 <i class="fas fa-user"></i>
                 Profil
             </button>
-            <button class="tab-btn" onclick="showTab('system-tab')">
-                <i class="fas fa-cogs"></i>
-                Sistem
-            </button>
-            <button class="tab-btn" onclick="showTab('security-tab')">
-                <i class="fas fa-shield-alt"></i>
-                Keamanan
-            </button>
             <button class="tab-btn" onclick="showTab('appearance-tab')">
                 <i class="fas fa-palette"></i>
                 Tampilan
@@ -328,121 +320,6 @@ function getProfilePhotoUrlLocal($user_data) {
                             </button>
                         </div>
                     </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- System Settings Tab -->
-        <div id="system-tab" class="tab-content">
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>Pengaturan Sistem</h3>
-                    <p>Konfigurasi pengaturan aplikasi</p>
-                </div>
-                <div class="card-content">
-                    <?php if (!empty($system_success)): ?>
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i>
-                        <?= $system_success ?>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <form method="POST" class="settings-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="app_name">Nama Aplikasi</label>
-                                <input type="text" id="app_name" name="app_name" value="IT Core Dashboard">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="timezone">Zona Waktu</label>
-                                <select id="timezone" name="timezone">
-                                    <option value="Asia/Jakarta" selected>Asia/Jakarta (WIB)</option>
-                                    <option value="Asia/Makassar">Asia/Makassar (WITA)</option>
-                                    <option value="Asia/Jayapura">Asia/Jayapura (WIT)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="language">Bahasa</label>
-                                <select id="language" name="language">
-                                    <option value="id" selected>Bahasa Indonesia</option>
-                                    <option value="en">English</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="items_per_page">Item Per Halaman</label>
-                                <select id="items_per_page" name="items_per_page">
-                                    <option value="10" selected>10</option>
-                                    <option value="25">25</option>
-                                    <option value="50">50</option>
-                                    <option value="100">100</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="form-actions">
-                            <button type="submit" name="update_system" class="btn btn-primary">
-                                <i class="fas fa-save mr-2"></i>
-                                Simpan Pengaturan
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- Security Tab -->
-        <div id="security-tab" class="tab-content">
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>Keamanan</h3>
-                    <p>Pengaturan keamanan dan privasi</p>
-                </div>
-                <div class="card-content">
-                    <div class="security-option">
-                        <div class="option-info">
-                            <h4>Login Dua Faktor</h4>
-                            <p>Tambahkan lapisan keamanan extra untuk akun Anda</p>
-                        </div>
-                        <div class="option-control">
-                            <label class="toggle-switch">
-                                <input type="checkbox">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="security-option">
-                        <div class="option-info">
-                            <h4>Notifikasi Login</h4>
-                            <p>Dapatkan notifikasi saat ada login ke akun Anda</p>
-                        </div>
-                        <div class="option-control">
-                            <label class="toggle-switch">
-                                <input type="checkbox" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="security-option">
-                        <div class="option-info">
-                            <h4>Session Timeout</h4>
-                            <p>Logout otomatis setelah tidak aktif</p>
-                        </div>
-                        <div class="option-control">
-                            <select class="form-control">
-                                <option value="30">30 menit</option>
-                                <option value="60" selected>1 jam</option>
-                                <option value="120">2 jam</option>
-                                <option value="0">Tidak pernah</option>
-                            </select>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
