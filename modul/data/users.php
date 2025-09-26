@@ -12,25 +12,34 @@ if (isset($_POST['add_user'])) {
     $gender = trim($_POST['gender']); 
     
     if (!empty($name) && !empty($email) && !empty($role) && !empty($password) && !empty($gender)) {
-        // Check if email already exists
-        $check_email = $koneksi->prepare("SELECT id FROM users WHERE email = ?");
-        $check_email->bind_param("s", $email);
-        $check_email->execute();
-        $result = $check_email->get_result();
-        
-        if ($result->num_rows > 0) {
-            $error = "Email sudah terdaftar!";
+        // Validasi tidak boleh ada spasi dalam email, password, dan username
+        if (strpos($name, ' ') !== false) {
+            $error = "Username tidak boleh mengandung spasi!";
+        } elseif (strpos($email, ' ') !== false) {
+            $error = "Email tidak boleh mengandung spasi!";
+        } elseif (strpos($password, ' ') !== false) {
+            $error = "Password tidak boleh mengandung spasi!";
         } else {
-            // Hash password untuk keamanan
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            // Check if email already exists
+            $check_email = $koneksi->prepare("SELECT id FROM users WHERE email = ?");
+            $check_email->bind_param("s", $email);
+            $check_email->execute();
+            $result = $check_email->get_result();
             
-            $stmt = $koneksi->prepare("INSERT INTO users (name, email, role, password, gender) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssss", $name, $email, $role, $hashed_password, $gender);
-            
-            if ($stmt->execute()) {
-                $message = "Pengguna '$name' berhasil ditambahkan!";
+            if ($result->num_rows > 0) {
+                $error = "Email sudah terdaftar!";
             } else {
-                $error = "Gagal menambahkan pengguna: " . $stmt->error;
+                // Hash password untuk keamanan
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                
+                $stmt = $koneksi->prepare("INSERT INTO users (name, email, role, password, gender) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param("sssss", $name, $email, $role, $hashed_password, $gender);
+                
+                if ($stmt->execute()) {
+                    $message = "Pengguna '$name' berhasil ditambahkan!";
+                } else {
+                    $error = "Gagal menambahkan pengguna: " . $stmt->error;
+                }
             }
         }
     } else {
@@ -48,28 +57,37 @@ if (isset($_POST['edit_user'])) {
     $gender = trim($_POST['gender']); 
     
     if (!empty($name) && !empty($email) && !empty($role) && !empty($gender)) {
-        $check_email = $koneksi->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
-        $check_email->bind_param("si", $email, $id);
-        $check_email->execute();
-        $result = $check_email->get_result();
-        
-        if ($result->num_rows > 0) {
-            $error = "Email sudah digunakan pengguna lain!";
+        // Validasi tidak boleh ada spasi dalam email, password, dan username
+        if (strpos($name, ' ') !== false) {
+            $error = "Username tidak boleh mengandung spasi!";
+        } elseif (strpos($email, ' ') !== false) {
+            $error = "Email tidak boleh mengandung spasi!";
+        } elseif (!empty($password) && strpos($password, ' ') !== false) {
+            $error = "Password tidak boleh mengandung spasi!";
         } else {
-            if (!empty($password)) {
-                // Hash password baru
-                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, role = ?, password = ?, gender = ? WHERE id = ?");
-                $stmt->bind_param("sssssi", $name, $email, $role, $hashed_password, $gender, $id);
-            } else {
-                $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, role = ?, gender = ? WHERE id = ?");
-                $stmt->bind_param("ssssi", $name, $email, $role, $gender, $id);
-            }
+            $check_email = $koneksi->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
+            $check_email->bind_param("si", $email, $id);
+            $check_email->execute();
+            $result = $check_email->get_result();
             
-            if ($stmt->execute()) {
-                $message = "Pengguna berhasil diperbarui!";
+            if ($result->num_rows > 0) {
+                $error = "Email sudah digunakan pengguna lain!";
             } else {
-                $error = "Gagal memperbarui pengguna: " . $stmt->error;
+                if (!empty($password)) {
+                    // Hash password baru
+                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                    $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, role = ?, password = ?, gender = ? WHERE id = ?");
+                    $stmt->bind_param("sssssi", $name, $email, $role, $hashed_password, $gender, $id);
+                } else {
+                    $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, role = ?, gender = ? WHERE id = ?");
+                    $stmt->bind_param("ssssi", $name, $email, $role, $gender, $id);
+                }
+                
+                if ($stmt->execute()) {
+                    $message = "Pengguna berhasil diperbarui!";
+                } else {
+                    $error = "Gagal memperbarui pengguna: " . $stmt->error;
+                }
             }
         }
     } else {
@@ -455,15 +473,19 @@ function getRoleDisplayName($role) {
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="userName">Nama Lengkap *</label>
-                        <input type="text" id="userName" name="name" required placeholder="Masukkan nama lengkap">
+                        <label for="userName">Username *</label>
+                        <input type="text" id="userName" name="name" required placeholder="Masukkan username (tanpa spasi)" 
+                               oninput="validateNoSpaces(this)">
+                        <small class="form-help">Username tidak boleh mengandung spasi</small>
                     </div>
                 </div>
                 
                 <div class="form-row">
                     <div class="form-group">
                         <label for="userEmail">Email *</label>
-                        <input type="email" id="userEmail" name="email" required placeholder="user@example.com">
+                        <input type="email" id="userEmail" name="email" required placeholder="user@example.com" 
+                               oninput="validateNoSpaces(this)">
+                        <small class="form-help">Email tidak boleh mengandung spasi</small>
                     </div>
                     <div class="form-group">
                         <label for="userRole">Role *</label>
@@ -479,8 +501,10 @@ function getRoleDisplayName($role) {
                 
                 <div class="form-group">
                     <label for="userPassword">Password <span id="passwordRequiredText">*</span></label>
-                    <input type="password" id="userPassword" name="password" placeholder="Masukkan password">
+                    <input type="password" id="userPassword" name="password" placeholder="Masukkan password (tanpa spasi)" 
+                           oninput="validateNoSpaces(this)">
                     <small id="passwordHelp" class="form-help" style="display:none;">Kosongkan jika tidak ingin mengubah password</small>
+                    <small class="form-help">Password tidak boleh mengandung spasi</small>
                 </div>
             </form>
         </div>
@@ -520,6 +544,19 @@ function getRoleDisplayName($role) {
 </div>
 
 <script>
+// Validate no spaces function
+function validateNoSpaces(input) {
+    if (input.value.includes(' ')) {
+        input.setCustomValidity('Field ini tidak boleh mengandung spasi');
+        input.style.borderColor = '#dc2626';
+        input.style.backgroundColor = '#fee2e2';
+    } else {
+        input.setCustomValidity('');
+        input.style.borderColor = '';
+        input.style.backgroundColor = '';
+    }
+}
+
 // JavaScript functions untuk modal dan CRUD operations
 function openAddUserModal() {
     document.getElementById('userModal').classList.add('show');
@@ -532,6 +569,14 @@ function openAddUserModal() {
     document.getElementById('passwordHelp').style.display = 'none';
     document.getElementById('userPassword').required = true;
     document.body.style.overflow = 'hidden';
+    
+    // Reset validation styles
+    const inputs = document.querySelectorAll('#userForm input');
+    inputs.forEach(input => {
+        input.style.borderColor = '';
+        input.style.backgroundColor = '';
+        input.setCustomValidity('');
+    });
 }
 
 function editUser(id, name, email, role, gender) {
@@ -549,12 +594,28 @@ function editUser(id, name, email, role, gender) {
     document.getElementById('userPassword').required = false;
     document.getElementById('userPassword').value = '';
     document.body.style.overflow = 'hidden';
+    
+    // Reset validation styles
+    const inputs = document.querySelectorAll('#userForm input');
+    inputs.forEach(input => {
+        input.style.borderColor = '';
+        input.style.backgroundColor = '';
+        input.setCustomValidity('');
+    });
 }
 
 function closeUserModal() {
     document.getElementById('userModal').classList.remove('show');
     document.getElementById('userForm').reset();
     document.body.style.overflow = '';
+    
+    // Reset validation styles
+    const inputs = document.querySelectorAll('#userForm input');
+    inputs.forEach(input => {
+        input.style.borderColor = '';
+        input.style.backgroundColor = '';
+        input.setCustomValidity('');
+    });
 }
 
 function deleteUser(id, name) {
@@ -1348,6 +1409,12 @@ document.addEventListener('DOMContentLoaded', function() {
     font-size: 0.8rem;
     color: #6b7280;
     margin-top: 4px;
+}
+
+/* Validation styles for inputs with spaces */
+.form-group input.error {
+    border-color: #dc2626 !important;
+    background-color: #fee2e2 !important;
 }
 
 /* Delete Modal Specific */

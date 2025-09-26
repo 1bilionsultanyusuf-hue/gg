@@ -42,7 +42,7 @@ $menu_items = [
     'settings' => [
         'icon' => 'fas fa-cog',
         'text' => 'Settings',
-        'roles' => ['admin'],
+        'roles' => ['admin', 'programmer', 'support', 'client'],
         'tooltip' => 'Pengaturan Sistem'
     ]
 ];

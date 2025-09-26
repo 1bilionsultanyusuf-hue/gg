@@ -41,7 +41,7 @@ $role_access = [
     'taken' => ['admin', 'programmer', 'support'],
     'reports' => ['admin', 'client', 'programmer', 'support'],
     'logout' => ['admin', 'client', 'programmer', 'support'],
-    'settings' => ['admin'],            // Settings hanya untuk admin
+    'settings' => ['admin', 'client', 'programmer', 'support'],            // Settings hanya untuk admin
 ];
 
 // Get user role and determine default dashboard

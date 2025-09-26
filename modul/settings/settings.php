@@ -11,7 +11,6 @@ $user_data = $stmt->get_result()->fetch_assoc();
 $photo_success = '';
 $photo_error = '';
 $profile_success = '';
-$system_success = '';
 $errors = [];
 
 // Handle photo upload
@@ -82,12 +81,16 @@ if (isset($_POST['update_profile'])) {
     // Validation
     if (empty($name)) {
         $errors[] = "Nama tidak boleh kosong";
+    } elseif (strpos($name, ' ') !== false) {
+        $errors[] = "Username tidak boleh mengandung spasi";
     }
     
     if (empty($email)) {
         $errors[] = "Email tidak boleh kosong";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = "Format email tidak valid";
+    } elseif (strpos($email, ' ') !== false) {
+        $errors[] = "Email tidak boleh mengandung spasi";
     }
     
     // Check if email already exists for other users
@@ -106,6 +109,8 @@ if (isset($_POST['update_profile'])) {
             $errors[] = "Password lama harus diisi untuk mengubah password";
         } elseif ($current_password !== $user_data['password']) {
             $errors[] = "Password lama tidak benar";
+        } elseif (strpos($new_password, ' ') !== false) {
+            $errors[] = "Password baru tidak boleh mengandung spasi";
         }
     }
     
@@ -137,18 +142,6 @@ if (isset($_POST['update_profile'])) {
     }
 }
 
-// Handle system settings (example)
-if (isset($_POST['update_system'])) {
-    $app_name = trim($_POST['app_name']);
-    $timezone = $_POST['timezone'];
-    $language = $_POST['language'];
-    $items_per_page = $_POST['items_per_page'];
-    
-    // Here you would typically save to a settings table
-    // For now, just show success message
-    $system_success = "Pengaturan sistem berhasil diperbarui!";
-}
-
 function getRoleIcon($role) {
     $icons = [
         'admin' => '<i class="fas fa-crown"></i>',
@@ -159,7 +152,7 @@ function getRoleIcon($role) {
     return $icons[$role] ?? '<i class="fas fa-user"></i>';
 }
 
-// Get profile photo URL - Local function untuk settings page
+// Get profile photo URL - Local function untuk profile page
 function getProfilePhotoUrlLocal($user_data) {
     if (!empty($user_data['profile_photo']) && file_exists($user_data['profile_photo'])) {
         return $user_data['profile_photo'] . '?v=' . time();
@@ -169,326 +162,144 @@ function getProfilePhotoUrlLocal($user_data) {
 ?>
 
 <div class="main-content">
-    <div class="settings-container">
+    <div class="profile-container">
         
-        <!-- Settings Header -->
-        <div class="settings-header">
-            <h1><i class="fas fa-cogs mr-2"></i>Pengaturan</h1>
-            <p>Kelola profil dan pengaturan sistem Anda</p>
+
+
+        <!-- Photo Upload Messages -->
+        <?php if (!empty($photo_success)): ?>
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i>
+            <?= $photo_success ?>
         </div>
-
-        <!-- Settings Navigation Tabs -->
-        <div class="settings-tabs">
-            <button class="tab-btn active" onclick="showTab('profile-tab')">
-                <i class="fas fa-user"></i>
-                Profil
-            </button>
-            <button class="tab-btn" onclick="showTab('system-tab')">
-                <i class="fas fa-cogs"></i>
-                Sistem
-            </button>
-            <button class="tab-btn" onclick="showTab('security-tab')">
-                <i class="fas fa-shield-alt"></i>
-                Keamanan
-            </button>
-            <button class="tab-btn" onclick="showTab('appearance-tab')">
-                <i class="fas fa-palette"></i>
-                Tampilan
-            </button>
+        <?php endif; ?>
+        
+        <?php if (!empty($photo_error)): ?>
+        <div class="alert alert-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <?= $photo_error ?>
         </div>
+        <?php endif; ?>
 
-        <!-- Profile Tab -->
-        <div id="profile-tab" class="tab-content active">
-            
-            <!-- Photo Upload Messages -->
-            <?php if (!empty($photo_success)): ?>
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i>
-                <?= $photo_success ?>
+        <!-- Profile Photo Section -->
+        <div class="profile-card">
+            <div class="card-header">
+                <h3>Foto Profil</h3>
+                <p>Ubah foto profil Anda</p>
             </div>
-            <?php endif; ?>
-            
-            <?php if (!empty($photo_error)): ?>
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-triangle"></i>
-                <?= $photo_error ?>
-            </div>
-            <?php endif; ?>
-
-            <!-- Profile Header -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>Foto Profil</h3>
-                    <p>Ubah foto profil Anda</p>
-                </div>
-                <div class="card-content text-center">
-                    <div class="profile-photo-section">
-                        <div class="profile-avatar-large">
-                            <img id="profileImage" src="<?= getProfilePhotoUrlLocal($user_data) ?>" 
-                                 alt="<?= htmlspecialchars($user_data['name']) ?>"
-                                 onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($user_data['name']) ?>&background=0066ff&color=fff&size=150'">
-                            <div class="avatar-edit-btn" onclick="triggerPhotoUpload()">
-                                <i class="fas fa-camera"></i>
-                            </div>
-                        </div>
-                        <div class="photo-info">
-                            <h4><?= htmlspecialchars($user_data['name']) ?></h4>
-                            <p class="text-muted"><?= htmlspecialchars($user_data['email']) ?></p>
-                            <div class="role-badge role-<?= $user_data['role'] ?>">
-                                <?= getRoleIcon($user_data['role']) ?>
-                                <?= ucfirst($user_data['role']) ?>
-                            </div>
+            <div class="card-content text-center">
+                <div class="profile-photo-section">
+                    <div class="profile-avatar-large">
+                        <img id="profileImage" src="<?= getProfilePhotoUrlLocal($user_data) ?>" 
+                             alt="<?= htmlspecialchars($user_data['name']) ?>"
+                             onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($user_data['name']) ?>&background=0066ff&color=fff&size=150'">
+                        <div class="avatar-edit-btn" onclick="triggerPhotoUpload()">
+                            <i class="fas fa-camera"></i>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Profile Form -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>Informasi Profil</h3>
-                    <p>Perbarui informasi pribadi Anda</p>
-                </div>
-                <div class="card-content">
-                    <?php if (!empty($profile_success)): ?>
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i>
-                        <?= $profile_success ?>
+                    <div class="photo-info">
+                        <h4><?= htmlspecialchars($user_data['name']) ?></h4>
+                        <p class="text-muted"><?= htmlspecialchars($user_data['email']) ?></p>
+                        <div class="role-badge role-<?= $user_data['role'] ?>">
+                            <?= getRoleIcon($user_data['role']) ?>
+                            <?= ucfirst($user_data['role']) ?>
+                        </div>
                     </div>
-                    <?php endif; ?>
-                    
-                    <?php if (!empty($errors)): ?>
-                    <div class="alert alert-error">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <ul style="margin: 0; padding-left: 20px;">
-                            <?php foreach($errors as $error): ?>
-                            <li><?= $error ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <form method="POST" class="settings-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="name">Nama Lengkap</label>
-                                <input type="text" id="name" name="name" 
-                                       value="<?= htmlspecialchars($user_data['name']) ?>" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="email">Email</label>
-                                <input type="email" id="email" name="email" 
-                                       value="<?= htmlspecialchars($user_data['email']) ?>" required>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="gender">Jenis Kelamin</label>
-                                <select id="gender" name="gender">
-                                    <option value="male" <?= ($user_data['gender'] ?? 'male') == 'male' ? 'selected' : '' ?>>Laki-laki</option>
-                                    <option value="female" <?= ($user_data['gender'] ?? 'male') == 'female' ? 'selected' : '' ?>>Perempuan</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="role">Role</label>
-                                <input type="text" value="<?= ucfirst($user_data['role']) ?>" disabled class="form-disabled">
-                                <small class="form-help">Role tidak dapat diubah</small>
-                            </div>
-                        </div>
-                        
-                        <hr class="form-divider">
-                        
-                        <h4 class="form-section-title">Ubah Password (Opsional)</h4>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="current_password">Password Lama</label>
-                                <input type="password" id="current_password" name="current_password" 
-                                       placeholder="Masukkan password lama jika ingin mengubah">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="new_password">Password Baru</label>
-                                <input type="password" id="new_password" name="new_password" 
-                                       placeholder="Masukkan password baru">
-                            </div>
-                        </div>
-                        
-                        <div class="form-actions">
-                            <button type="submit" name="update_profile" class="btn btn-primary">
-                                <i class="fas fa-save mr-2"></i>
-                                Simpan Perubahan
-                            </button>
-                            <button type="reset" class="btn btn-secondary">
-                                <i class="fas fa-undo mr-2"></i>
-                                Reset
-                            </button>
-                        </div>
-                    </form>
                 </div>
             </div>
         </div>
 
-        <!-- System Settings Tab -->
-        <div id="system-tab" class="tab-content">
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>Pengaturan Sistem</h3>
-                    <p>Konfigurasi pengaturan aplikasi</p>
+        <!-- Profile Form -->
+        <div class="profile-card">
+            <div class="card-header">
+                <h3>Informasi Profil</h3>
+                <p>Perbarui informasi pribadi Anda</p>
+            </div>
+            <div class="card-content">
+                <?php if (!empty($profile_success)): ?>
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    <?= $profile_success ?>
                 </div>
-                <div class="card-content">
-                    <?php if (!empty($system_success)): ?>
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i>
-                        <?= $system_success ?>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <form method="POST" class="settings-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="app_name">Nama Aplikasi</label>
-                                <input type="text" id="app_name" name="app_name" value="IT Core Dashboard">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="timezone">Zona Waktu</label>
-                                <select id="timezone" name="timezone">
-                                    <option value="Asia/Jakarta" selected>Asia/Jakarta (WIB)</option>
-                                    <option value="Asia/Makassar">Asia/Makassar (WITA)</option>
-                                    <option value="Asia/Jayapura">Asia/Jayapura (WIT)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="language">Bahasa</label>
-                                <select id="language" name="language">
-                                    <option value="id" selected>Bahasa Indonesia</option>
-                                    <option value="en">English</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="items_per_page">Item Per Halaman</label>
-                                <select id="items_per_page" name="items_per_page">
-                                    <option value="10" selected>10</option>
-                                    <option value="25">25</option>
-                                    <option value="50">50</option>
-                                    <option value="100">100</option>
-                                </select>
-                            </div>
+                <?php endif; ?>
+                
+                <?php if (!empty($errors)): ?>
+                <div class="alert alert-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <?php foreach($errors as $error): ?>
+                        <li><?= $error ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
+                
+                <form method="POST" class="profile-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Username</label>
+                            <input type="text" id="name" name="name" 
+                                   value="<?= htmlspecialchars($user_data['name']) ?>" 
+                                   required pattern="[^\s]+"
+                                   title="Username tidak boleh mengandung spasi">
                         </div>
                         
-                        <div class="form-actions">
-                            <button type="submit" name="update_system" class="btn btn-primary">
-                                <i class="fas fa-save mr-2"></i>
-                                Simpan Pengaturan
-                            </button>
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" name="email" 
+                                   value="<?= htmlspecialchars($user_data['email']) ?>" 
+                                   required pattern="[^\s]+"
+                                   title="Email tidak boleh mengandung spasi">
                         </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+                    </div>
 
-        <!-- Security Tab -->
-        <div id="security-tab" class="tab-content">
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>Keamanan</h3>
-                    <p>Pengaturan keamanan dan privasi</p>
-                </div>
-                <div class="card-content">
-                    <div class="security-option">
-                        <div class="option-info">
-                            <h4>Login Dua Faktor</h4>
-                            <p>Tambahkan lapisan keamanan extra untuk akun Anda</p>
-                        </div>
-                        <div class="option-control">
-                            <label class="toggle-switch">
-                                <input type="checkbox">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="security-option">
-                        <div class="option-info">
-                            <h4>Notifikasi Login</h4>
-                            <p>Dapatkan notifikasi saat ada login ke akun Anda</p>
-                        </div>
-                        <div class="option-control">
-                            <label class="toggle-switch">
-                                <input type="checkbox" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="security-option">
-                        <div class="option-info">
-                            <h4>Session Timeout</h4>
-                            <p>Logout otomatis setelah tidak aktif</p>
-                        </div>
-                        <div class="option-control">
-                            <select class="form-control">
-                                <option value="30">30 menit</option>
-                                <option value="60" selected>1 jam</option>
-                                <option value="120">2 jam</option>
-                                <option value="0">Tidak pernah</option>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gender">Jenis Kelamin</label>
+                            <select id="gender" name="gender">
+                                <option value="male" <?= ($user_data['gender'] ?? 'male') == 'male' ? 'selected' : '' ?>>Laki-laki</option>
+                                <option value="female" <?= ($user_data['gender'] ?? 'male') == 'female' ? 'selected' : '' ?>>Perempuan</option>
                             </select>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Appearance Tab -->
-        <div id="appearance-tab" class="tab-content">
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>Tampilan</h3>
-                    <p>Sesuaikan tampilan aplikasi</p>
-                </div>
-                <div class="card-content">
-                    <div class="appearance-option">
-                        <div class="option-info">
-                            <h4>Theme</h4>
-                            <p>Pilih tema yang Anda sukai</p>
-                        </div>
-                        <div class="theme-selector">
-                            <div class="theme-option active" data-theme="light">
-                                <div class="theme-preview light"></div>
-                                <span>Light</span>
-                            </div>
-                            <div class="theme-option" data-theme="dark">
-                                <div class="theme-preview dark"></div>
-                                <span>Dark</span>
-                            </div>
-                            <div class="theme-option" data-theme="auto">
-                                <div class="theme-preview auto"></div>
-                                <span>Auto</span>
-                            </div>
+                        
+                        <div class="form-group">
+                            <label for="role">Role</label>
+                            <input type="text" value="<?= ucfirst($user_data['role']) ?>" disabled class="form-disabled">
+                            <small class="form-help">Role tidak dapat diubah</small>
                         </div>
                     </div>
                     
-                    <div class="appearance-option">
-                        <div class="option-info">
-                            <h4>Sidebar Collapsed</h4>
-                            <p>Tampilkan sidebar dalam mode collapsed</p>
+                    <hr class="form-divider">
+                    
+                    <h4 class="form-section-title">Ubah Password (Opsional)</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="current_password">Password Lama</label>
+                            <input type="password" id="current_password" name="current_password" 
+                                   placeholder="Masukkan password lama jika ingin mengubah">
                         </div>
-                        <div class="option-control">
-                            <label class="toggle-switch">
-                                <input type="checkbox">
-                                <span class="toggle-slider"></span>
-                            </label>
+                        
+                        <div class="form-group">
+                            <label for="new_password">Password Baru</label>
+                            <input type="password" id="new_password" name="new_password" 
+                                   pattern="[^\s]+"
+                                   title="Password tidak boleh mengandung spasi"
+                                   placeholder="Masukkan password baru">
                         </div>
                     </div>
-                </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" name="update_profile" class="btn btn-primary">
+                            <i class="fas fa-save mr-2"></i>
+                            Simpan Perubahan
+                        </button>
+                        <button type="reset" class="btn btn-secondary">
+                            <i class="fas fa-undo mr-2"></i>
+                            Reset
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -540,98 +351,15 @@ function getProfilePhotoUrlLocal($user_data) {
 </div>
 
 <style>
-/* Settings Page Styles */
-.settings-container {
-    max-width: 1200px;
+/* Profile Page Styles */
+.profile-container {
+    max-width: 800px;
     margin: 0 auto;
     padding: 20px;
 }
 
-/* Settings Header */
-.settings-header {
-    margin-bottom: 32px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 30px;
-    border-radius: 16px;
-    text-align: center;
-    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
-}
-
-.settings-header h1 {
-    font-size: 2rem;
-    font-weight: 600;
-    margin-bottom: 8px;
-}
-
-.settings-header p {
-    font-size: 1.1rem;
-    opacity: 0.9;
-    margin: 0;
-}
-
-/* Settings Tabs */
-.settings-tabs {
-    display: flex;
-    background: white;
-    border-radius: 12px;
-    padding: 6px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 15px rgba(0,0,0,0.08);
-    overflow-x: auto;
-    gap: 4px;
-}
-
-.tab-btn {
-    flex: 1;
-    min-width: 140px;
-    padding: 12px 16px;
-    border: none;
-    background: transparent;
-    color: #64748b;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    white-space: nowrap;
-}
-
-.tab-btn:hover {
-    background: #f8fafc;
-    color: #475569;
-}
-
-.tab-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-}
-
-.tab-btn i {
-    font-size: 1rem;
-}
-
-/* Tab Content */
-.tab-content {
-    display: none;
-    animation: fadeIn 0.3s ease;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Settings Cards */
-.settings-card {
+/* Profile Cards */
+.profile-card {
     background: white;
     border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
@@ -640,7 +368,7 @@ function getProfilePhotoUrlLocal($user_data) {
     transition: all 0.3s ease;
 }
 
-.settings-card:hover {
+.profile-card:hover {
     box-shadow: 0 8px 30px rgba(0,0,0,0.12);
 }
 
@@ -791,7 +519,7 @@ function getProfilePhotoUrlLocal($user_data) {
 }
 
 /* Form Styles */
-.settings-form {
+.profile-form {
     max-width: 100%;
 }
 
@@ -831,6 +559,12 @@ function getProfilePhotoUrlLocal($user_data) {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Email validation styling */
+.form-group input[type="email"]:invalid {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
 .form-disabled {
@@ -914,175 +648,6 @@ function getProfilePhotoUrlLocal($user_data) {
 
 .text-center {
     text-align: center;
-}
-
-/* Security Options */
-.security-option {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 0;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.security-option:last-child {
-    border-bottom: none;
-}
-
-.option-info h4 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0 0 4px 0;
-}
-
-.option-info p {
-    color: #64748b;
-    margin: 0;
-    font-size: 0.9rem;
-}
-
-.option-control {
-    flex-shrink: 0;
-}
-
-/* Form Control */
-.form-control {
-    width: 120px;
-    padding: 8px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    background: white;
-    transition: all 0.3s ease;
-}
-
-.form-control:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
-}
-
-/* Toggle Switch */
-.toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: 50px;
-    height: 24px;
-    cursor: pointer;
-}
-
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.toggle-slider {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #cbd5e1;
-    border-radius: 24px;
-    transition: all 0.3s ease;
-}
-
-.toggle-slider:before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-input:checked + .toggle-slider {
-    background: linear-gradient(90deg, #667eea, #764ba2);
-}
-
-input:checked + .toggle-slider:before {
-    transform: translateX(26px);
-}
-
-/* Appearance Options */
-.appearance-option {
-    padding: 24px 0;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.appearance-option:last-child {
-    border-bottom: none;
-}
-
-.appearance-option .option-info {
-    margin-bottom: 16px;
-}
-
-/* Theme Selector */
-.theme-selector {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.theme-option {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 16px;
-    border: 2px solid #e5e7eb;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    min-width: 80px;
-}
-
-.theme-option:hover {
-    border-color: #cbd5e1;
-    background: #f8fafc;
-}
-
-.theme-option.active {
-    border-color: #667eea;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-}
-
-.theme-preview {
-    width: 40px;
-    height: 30px;
-    border-radius: 6px;
-    border: 1px solid #e5e7eb;
-    position: relative;
-    overflow: hidden;
-}
-
-.theme-preview.light {
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-}
-
-.theme-preview.dark {
-    background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-}
-
-.theme-preview.auto {
-    background: linear-gradient(90deg, #ffffff 0%, #ffffff 50%, #1f2937 50%, #1f2937 100%);
-}
-
-.theme-option span {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #374151;
-}
-
-.theme-option.active span {
-    color: #667eea;
 }
 
 /* Modal Styles */
@@ -1228,38 +793,17 @@ input:checked + .toggle-slider:before {
 }
 
 /* Responsive Design */
-@media (max-width: 1024px) {
-    .settings-container {
-        padding: 16px;
-    }
-    
-    .settings-tabs {
-        overflow-x: auto;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
-    
-    .settings-tabs::-webkit-scrollbar {
-        display: none;
-    }
-    
-    .tab-btn {
-        min-width: 120px;
-        font-size: 0.9rem;
-    }
-}
-
 @media (max-width: 768px) {
-    .settings-container {
+    .profile-container {
         padding: 12px;
     }
     
-    .settings-header {
+    .profile-header {
         padding: 20px;
         text-align: left;
     }
     
-    .settings-header h1 {
+    .profile-header h1 {
         font-size: 1.6rem;
     }
     
@@ -1290,24 +834,10 @@ input:checked + .toggle-slider:before {
         height: 35px;
         font-size: 0.9rem;
     }
-    
-    .security-option {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-    }
-    
-    .option-control {
-        align-self: flex-end;
-    }
-    
-    .theme-selector {
-        justify-content: center;
-    }
 }
 
 @media (max-width: 480px) {
-    .settings-container {
+    .profile-container {
         padding: 10px;
     }
     
@@ -1319,60 +849,20 @@ input:checked + .toggle-slider:before {
         padding: 16px;
     }
     
-    .settings-header {
+    .profile-header {
         padding: 16px;
         margin-bottom: 20px;
     }
     
-    .settings-header h1 {
+    .profile-header h1 {
         font-size: 1.4rem;
-    }
-    
-    .tab-btn {
-        min-width: 100px;
-        padding: 10px 12px;
-        font-size: 0.85rem;
-    }
-    
-    .tab-btn i {
-        display: none;
     }
 }
 </style>
 
 <script>
-// Settings Page JavaScript
+// Profile Page JavaScript
 let selectedFile = null;
-
-// Tab switching functionality
-function showTab(tabId) {
-    // Hide all tab contents
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabContents.forEach(content => {
-        content.classList.remove('active');
-    });
-    
-    // Remove active class from all tab buttons
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    tabBtns.forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Show selected tab content
-    const selectedTab = document.getElementById(tabId);
-    if (selectedTab) {
-        selectedTab.classList.add('active');
-    }
-    
-    // Add active class to clicked tab button
-    const clickedBtn = document.querySelector(`[onclick="showTab('${tabId}')"]`);
-    if (clickedBtn) {
-        clickedBtn.classList.add('active');
-    }
-    
-    // Save active tab to localStorage
-    localStorage.setItem('activeSettingsTab', tabId);
-}
 
 // Photo upload functions
 function triggerPhotoUpload() {
@@ -1451,6 +941,67 @@ function hideLoading() {
     document.getElementById('loadingOverlay').style.display = 'none';
 }
 
+// Email validation - prevent spaces
+function validateInputs() {
+    const emailInput = document.getElementById('email');
+    const nameInput = document.getElementById('name');
+    const passwordInput = document.getElementById('new_password');
+    
+    // Email validation
+    emailInput.addEventListener('input', function() {
+        // Remove any spaces from email
+        this.value = this.value.replace(/\s/g, '');
+        
+        if (this.value !== this.value.replace(/\s/g, '')) {
+            this.setCustomValidity('Email tidak boleh mengandung spasi');
+        } else {
+            this.setCustomValidity('');
+        }
+    });
+    
+    emailInput.addEventListener('paste', function(e) {
+        setTimeout(() => {
+            this.value = this.value.replace(/\s/g, '');
+        }, 10);
+    });
+    
+    // Username validation
+    nameInput.addEventListener('input', function() {
+        // Remove any spaces from username
+        this.value = this.value.replace(/\s/g, '');
+        
+        if (this.value !== this.value.replace(/\s/g, '')) {
+            this.setCustomValidity('Username tidak boleh mengandung spasi');
+        } else {
+            this.setCustomValidity('');
+        }
+    });
+    
+    nameInput.addEventListener('paste', function(e) {
+        setTimeout(() => {
+            this.value = this.value.replace(/\s/g, '');
+        }, 10);
+    });
+    
+    // Password validation
+    passwordInput.addEventListener('input', function() {
+        // Remove any spaces from password
+        this.value = this.value.replace(/\s/g, '');
+        
+        if (this.value !== this.value.replace(/\s/g, '')) {
+            this.setCustomValidity('Password tidak boleh mengandung spasi');
+        } else {
+            this.setCustomValidity('');
+        }
+    });
+    
+    passwordInput.addEventListener('paste', function(e) {
+        setTimeout(() => {
+            this.value = this.value.replace(/\s/g, '');
+        }, 10);
+    });
+}
+
 // Auto-hide alerts
 function autoHideAlerts() {
     const alerts = document.querySelectorAll('.alert');
@@ -1472,9 +1023,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Auto-hide alerts
     autoHideAlerts();
     
-    // Restore active tab from localStorage
-    const activeTab = localStorage.getItem('activeSettingsTab') || 'profile-tab';
-    showTab(activeTab);
+    // Initialize input validation
+    validateInputs();
     
     // Add success animation if photo was uploaded
     <?php if (!empty($photo_success)): ?>
@@ -1492,21 +1042,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.classList.contains('modal')) {
             closePhotoModal();
         }
-    });
-    
-    // Theme selector event listeners
-    document.querySelectorAll('.theme-option').forEach(option => {
-        option.addEventListener('click', function() {
-            // Remove active from all
-            document.querySelectorAll('.theme-option').forEach(opt => {
-                opt.classList.remove('active');
-            });
-            // Add active to clicked
-            this.classList.add('active');
-            
-            const theme = this.getAttribute('data-theme');
-            localStorage.setItem('selectedTheme', theme);
-        });
     });
     
     // Hide loading on page load

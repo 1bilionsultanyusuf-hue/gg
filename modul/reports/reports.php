@@ -94,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_report'])) {
     $activity = $_POST['activity'];
     $problem = $_POST['problem'] ?? '';
     $status = $_POST['status'];
+    $responsible_person = $_POST['responsible_person'] ?? '';
     
     // Check permissions
     $report_check = $koneksi->prepare("SELECT user_id FROM reports WHERE id = ?");
@@ -112,8 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_report'])) {
         if (empty($activity) || empty($status)) {
             $error = 'Semua field wajib harus diisi!';
         } else {
-            $update_stmt = $koneksi->prepare("UPDATE reports SET activity = ?, problem = ?, status = ? WHERE id = ?");
-            $update_stmt->bind_param('sssi', $activity, $problem, $status, $report_id);
+            $update_stmt = $koneksi->prepare("UPDATE reports SET activity = ?, problem = ?, status = ?, responsible_person = ? WHERE id = ?");
+            $update_stmt->bind_param('ssssi', $activity, $problem, $status, $responsible_person, $report_id);
             if ($update_stmt->execute()) {
                 $message = 'Laporan berhasil diperbarui!';
             } else {
@@ -133,6 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_report'])) {
         $activity = $_POST['activity'];
         $problem = $_POST['problem'] ?? '';
         $status = $_POST['status'];
+        $responsible_person = $_POST['responsible_person'] ?? '';
         $report_date = $_POST['report_date'] ?? date('Y-m-d');
         
         // Validate required fields
@@ -141,10 +143,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_report'])) {
         } else {
             // Insert new report
             $insert_report = $koneksi->prepare("
-                INSERT INTO reports (date, user_id, activity, problem, status) 
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO reports (date, user_id, activity, problem, status, responsible_person) 
+                VALUES (?, ?, ?, ?, ?, ?)
             ");
-            $insert_report->bind_param('sisss', $report_date, $current_user_id, $activity, $problem, $status);
+            $insert_report->bind_param('sissss', $report_date, $current_user_id, $activity, $problem, $status, $responsible_person);
             
             if ($insert_report->execute()) {
                 $message = 'Laporan berhasil ditambahkan!';
@@ -427,7 +429,7 @@ function canDeleteReport($report_user_id) {
         <div class="header-content">
             <h1 class="page-title">
                 <i class="fas fa-chart-line mr-3"></i>
-                <?= $current_permissions['can_view_all'] ? 'Semua Laporan Aktivitas' : 'Laporan Aktivitas Saya' ?>
+                Laporan Aktivitas
             </h1>
             <p class="page-subtitle">
                 <?= $current_permissions['can_view_all'] ? 'Monitor dan analisis aktivitas semua pengguna dalam sistem' : 'Monitor dan kelola laporan aktivitas Anda' ?>
@@ -588,6 +590,12 @@ function canDeleteReport($report_user_id) {
                             <span><strong>Problem:</strong> <?= htmlspecialchars($report['problem']) ?></span>
                         </div>
                         <?php endif; ?>
+                        <?php if (!empty($report['responsible_person'])): ?>
+                        <div class="responsible-info">
+                            <i class="fas fa-user-shield"></i>
+                            <span><strong>Penanggung Jawab:</strong> <?= htmlspecialchars($report['responsible_person']) ?></span>
+                        </div>
+                        <?php endif; ?>
                         <div class="activity-meta">
                             <span class="status-badge" style="background: <?= getStatusColor($report['status']) ?>">
                                 <i class="<?= getStatusIcon($report['status']) ?>"></i>
@@ -625,7 +633,7 @@ function canDeleteReport($report_user_id) {
                         <i class="fas fa-eye"></i>
                     </button>
                     <?php if (canEditReport($report['user_id'])): ?>
-                    <button class="btn-action btn-edit" onclick="editReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>', '<?= htmlspecialchars(addslashes($report['problem'])) ?>', '<?= $report['status'] ?>')" title="Edit">
+                    <button class="btn-action btn-edit" onclick="editReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>', '<?= htmlspecialchars(addslashes($report['problem'])) ?>', '<?= $report['status'] ?>', '<?= htmlspecialchars(addslashes($report['responsible_person'] ?? '')) ?>')" title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
                     <?php endif; ?>
@@ -647,10 +655,10 @@ function canDeleteReport($report_user_id) {
             </div>
             <div class="pagination">
                 <?php if ($page > 1): ?>
-                <a href="?page=1<?= buildFilterQuery() ?>" class="page-btn">
+                <a href="?module=reports&page=1<?= buildFilterQuery() ?>" class="page-btn">
                     <i class="fas fa-angle-double-left"></i>
                 </a>
-                <a href="?page=<?= $page - 1 ?><?= buildFilterQuery() ?>" class="page-btn">
+                <a href="?module=reports&page=<?= $page - 1 ?><?= buildFilterQuery() ?>" class="page-btn">
                     <i class="fas fa-angle-left"></i>
                 </a>
                 <?php endif; ?>
@@ -661,17 +669,17 @@ function canDeleteReport($report_user_id) {
                 
                 for ($i = $start; $i <= $end; $i++):
                 ?>
-                <a href="?page=<?= $i ?><?= buildFilterQuery() ?>" 
+                <a href="?module=reports&page=<?= $i ?><?= buildFilterQuery() ?>" 
                    class="page-btn <?= $i == $page ? 'active' : '' ?>">
                     <?= $i ?>
                 </a>
                 <?php endfor; ?>
 
                 <?php if ($page < $total_pages): ?>
-                <a href="?page=<?= $page + 1 ?><?= buildFilterQuery() ?>" class="page-btn">
+                <a href="?module=reports&page=<?= $page + 1 ?><?= buildFilterQuery() ?>" class="page-btn">
                     <i class="fas fa-angle-right"></i>
                 </a>
-                <a href="?page=<?= $total_pages ?><?= buildFilterQuery() ?>" class="page-btn">
+                <a href="?module=reports&page=<?= $total_pages ?><?= buildFilterQuery() ?>" class="page-btn">
                     <i class="fas fa-angle-double-right"></i>
                 </a>
                 <?php endif; ?>
@@ -694,7 +702,7 @@ function canDeleteReport($report_user_id) {
 <!-- Add Report Modal -->
 <?php if ($current_permissions['can_create']): ?>
 <div id="addReportModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-content" style="max-width: 700px;">
         <div class="modal-header">
             <h3>
                 <i class="fas fa-plus mr-2"></i>
@@ -724,6 +732,12 @@ function canDeleteReport($report_user_id) {
                         <label for="report_date">Tanggal</label>
                         <input type="date" id="report_date" name="report_date" 
                                value="<?= date('Y-m-d') ?>" required>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="responsible_person">Penanggung Jawab</label>
+                        <input type="text" id="responsible_person" name="responsible_person" 
+                               placeholder="Nama penanggung jawab (opsional)...">
                     </div>
 
                     <div class="form-group full-width">
@@ -762,7 +776,7 @@ function canDeleteReport($report_user_id) {
 
 <!-- Edit Report Modal -->
 <div id="editReportModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-content" style="max-width: 700px;">
         <div class="modal-header">
             <h3>
                 <i class="fas fa-edit mr-2"></i>
@@ -787,6 +801,12 @@ function canDeleteReport($report_user_id) {
                             <option value="in_progress">In Progress</option>
                             <option value="done">Selesai</option>
                         </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_responsible_person">Penanggung Jawab</label>
+                        <input type="text" id="edit_responsible_person" name="responsible_person" 
+                               placeholder="Nama penanggung jawab (opsional)...">
                     </div>
 
                     <div class="form-group full-width">
@@ -931,6 +951,24 @@ function canDeleteReport($report_user_id) {
     display: flex;
     align-items: center;
     gap: 4px;
+}
+
+/* Responsible Person Info */
+.responsible-info {
+    background: #e0f2fe;
+    border: 1px solid #b3e5fc;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 0.85rem;
+    color: #0277bd;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.responsible-info i {
+    color: #0288d1;
 }
 
 /* Page Layout */
@@ -1743,14 +1781,16 @@ function canDeleteReport($report_user_id) {
 // Global variables for delete confirmation
 let deleteReportId = null;
 
-// Filter functions
+// Filter functions - Fixed to properly handle URL construction
 function applyFilters() {
     const roleFilter = document.getElementById('roleFilter')?.value || '';
     const dateFilter = document.getElementById('dateFilter')?.value || '';
     const userFilter = document.getElementById('userFilter')?.value || '';
     const statusFilter = document.getElementById('statusFilter')?.value || '';
     
+    // Use module parameter to maintain current module
     let url = new URL(window.location);
+    url.searchParams.set('module', 'reports'); // Ensure we stay in reports module
     url.searchParams.delete('role');
     url.searchParams.delete('date');
     url.searchParams.delete('user');
@@ -1767,6 +1807,7 @@ function applyFilters() {
 
 function clearAllFilters() {
     let url = new URL(window.location);
+    url.searchParams.set('module', 'reports'); // Keep the module parameter
     url.searchParams.delete('role');
     url.searchParams.delete('date');
     url.searchParams.delete('user');
@@ -1822,14 +1863,15 @@ function validateAddReportForm() {
     return confirm('Apakah Anda yakin ingin menyimpan laporan ini?');
 }
 
-// Edit Report Modal Functions
-function editReport(reportId, activity, problem, status) {
+// Edit Report Modal Functions - Updated to include responsible person parameter
+function editReport(reportId, activity, problem, status, responsiblePerson = '') {
     const modal = document.getElementById('editReportModal');
     if (modal) {
         document.getElementById('edit_report_id').value = reportId;
         document.getElementById('edit_activity').value = activity;
         document.getElementById('edit_problem').value = problem;
         document.getElementById('edit_status').value = status;
+        document.getElementById('edit_responsible_person').value = responsiblePerson;
         
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -1904,15 +1946,16 @@ function confirmDeleteReport() {
     closeDeleteConfirmModal();
 }
 
-// Update summary when form changes
+// Update summary when form changes - Updated to include responsible person
 function updateSummary() {
     const activityField = document.getElementById('activity');
     const statusSelect = document.getElementById('status');
     const problemField = document.getElementById('problem');
+    const responsibleField = document.getElementById('responsible_person');
     const selectedInfo = document.getElementById('selectedInfo');
     const summaryContent = document.getElementById('summaryContent');
     
-    if (!activityField || !statusSelect || !problemField || !selectedInfo || !summaryContent) {
+    if (!activityField || !statusSelect || !problemField || !selectedInfo || !summaryContent || !responsibleField) {
         return;
     }
     
@@ -1920,6 +1963,7 @@ function updateSummary() {
         const activity = activityField.value;
         const status = statusSelect.value;
         const problem = problemField.value;
+        const responsible = responsibleField.value;
         
         if (activity && status) {
             const statusText = status === 'done' ? 'Selesai' : (status === 'in_progress' ? 'In Progress' : 'Pending');
@@ -1934,6 +1978,15 @@ function updateSummary() {
                     <span class="summary-value">${statusText}</span>
                 </div>
             `;
+            
+            if (responsible) {
+                summary += `
+                    <div class="summary-item">
+                        <span class="summary-label">Penanggung Jawab:</span>
+                        <span class="summary-value">${responsible.substring(0, 30)}${responsible.length > 30 ? '...' : ''}</span>
+                    </div>
+                `;
+            }
             
             if (problem) {
                 summary += `
@@ -1955,6 +2008,7 @@ function updateSummary() {
     activityField.addEventListener('input', generateSummary);
     statusSelect.addEventListener('change', generateSummary);
     problemField.addEventListener('input', generateSummary);
+    responsibleField.addEventListener('input', generateSummary);
 }
 
 // View functions
