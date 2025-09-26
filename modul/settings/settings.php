@@ -172,26 +172,12 @@ function getProfilePhotoUrlLocal($user_data) {
             <i class="fas fa-check-circle"></i>
             <?= $photo_success ?>
         </div>
-<<<<<<< HEAD
         <?php endif; ?>
         
         <?php if (!empty($photo_error)): ?>
         <div class="alert alert-error">
             <i class="fas fa-exclamation-triangle"></i>
             <?= $photo_error ?>
-=======
-
-        <!-- Settings Navigation Tabs -->
-        <div class="settings-tabs">
-            <button class="tab-btn active" onclick="showTab('profile-tab')">
-                <i class="fas fa-user"></i>
-                Profil
-            </button>
-            <button class="tab-btn" onclick="showTab('appearance-tab')">
-                <i class="fas fa-palette"></i>
-                Tampilan
-            </button>
->>>>>>> ff86778fcd13a2ee14df21b7406545dc5c1e3960
         </div>
         <?php endif; ?>
 
@@ -223,7 +209,6 @@ function getProfilePhotoUrlLocal($user_data) {
             </div>
         </div>
 
-<<<<<<< HEAD
         <!-- Profile Form -->
         <div class="profile-card">
             <div class="card-header">
@@ -281,34 +266,6 @@ function getProfilePhotoUrlLocal($user_data) {
                             <label for="role">Role</label>
                             <input type="text" value="<?= ucfirst($user_data['role']) ?>" disabled class="form-disabled">
                             <small class="form-help">Role tidak dapat diubah</small>
-=======
-        <!-- Appearance Tab -->
-        <div id="appearance-tab" class="tab-content">
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>Tampilan</h3>
-                    <p>Sesuaikan tampilan aplikasi</p>
-                </div>
-                <div class="card-content">
-                    <div class="appearance-option">
-                        <div class="option-info">
-                            <h4>Theme</h4>
-                            <p>Pilih tema yang Anda sukai</p>
-                        </div>
-                        <div class="theme-selector">
-                            <div class="theme-option active" data-theme="light">
-                                <div class="theme-preview light"></div>
-                                <span>Light</span>
-                            </div>
-                            <div class="theme-option" data-theme="dark">
-                                <div class="theme-preview dark"></div>
-                                <span>Dark</span>
-                            </div>
-                            <div class="theme-option" data-theme="auto">
-                                <div class="theme-preview auto"></div>
-                                <span>Auto</span>
-                            </div>
->>>>>>> ff86778fcd13a2ee14df21b7406545dc5c1e3960
                         </div>
                     </div>
                     
