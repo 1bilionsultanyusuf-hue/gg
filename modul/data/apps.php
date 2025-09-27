@@ -1,7 +1,35 @@
 <?php
-// Handle CRUD Operations
+// Handle CRUD Operations for Apps
 $message = '';
 $error = '';
+
+// Handle Todo creation for specific app
+if (isset($_POST['add_todo_to_app'])) {
+    $app_id = trim($_POST['app_id']);
+    $title = trim($_POST['title']);
+    $description = trim($_POST['description']);
+    $priority = trim($_POST['priority']);
+    $user_id = $_SESSION['user_id'];
+    
+    if (!empty($title) && !empty($app_id)) {
+        $stmt = $koneksi->prepare("INSERT INTO todos (app_id, title, description, priority, user_id) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("isssi", $app_id, $title, $description, $priority, $user_id);
+        
+        if ($stmt->execute()) {
+            // Get app name for message
+            $app_stmt = $koneksi->prepare("SELECT name FROM apps WHERE id = ?");
+            $app_stmt->bind_param("i", $app_id);
+            $app_stmt->execute();
+            $app_name = $app_stmt->get_result()->fetch_assoc()['name'];
+            
+            $message = "Todo '$title' berhasil ditambahkan ke aplikasi '$app_name'!";
+        } else {
+            $error = "Gagal menambahkan todo!";
+        }
+    } else {
+        $error = "Judul todo harus diisi!";
+    }
+}
 
 // CREATE - Add new app
 if (isset($_POST['add_app'])) {
@@ -216,6 +244,14 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
                         </div>
                     </div>
                 </div>
+
+                <!-- App-specific actions -->
+                <div class="app-actions">
+                    <button class="btn btn-todo-small" onclick="openAddTodoForAppModal(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Tambah Todo">
+                        <i class="fas fa-plus"></i>
+                        <span>Todo</span>
+                    </button>
+                </div>
                 
                 <div class="app-list-actions">
                     <button class="action-btn-small edit" onclick="editApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($app['description'], ENT_QUOTES) ?>')" title="Edit">
@@ -281,6 +317,73 @@ function getAppIcon($appName) {
             </button>
             <button type="submit" id="submitBtn" form="appForm" name="add_app" class="btn btn-primary">
                 <i class="fas fa-save mr-2"></i>Simpan
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Todo to App Modal -->
+<div id="todoToAppModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="todoModalTitle">Tambah Todo ke Aplikasi</h3>
+            <button class="modal-close" onclick="closeTodoToAppModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="selected-app-info">
+                <div class="app-info-badge">
+                    <i class="fas fa-cube"></i>
+                    <span id="selectedAppName">Aplikasi</span>
+                </div>
+            </div>
+            <form id="todoToAppForm" method="POST">
+                <input type="hidden" id="todoAppId" name="app_id">
+                <div class="form-group">
+                    <label for="todoTitle">Judul Todo *</label>
+                    <input type="text" id="todoTitle" name="title" required 
+                           placeholder="Masukkan judul todo">
+                </div>
+                <div class="form-group">
+                    <label for="todoDescription">Deskripsi</label>
+                    <textarea id="todoDescription" name="description" rows="4"
+                              placeholder="Deskripsi detail tentang todo"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="todoPriority">Prioritas</label>
+                    <div class="priority-selector">
+                        <label class="priority-option">
+                            <input type="radio" name="priority" value="low" checked>
+                            <span class="priority-badge priority-low">
+                                <i class="fas fa-arrow-down"></i>
+                                Low
+                            </span>
+                        </label>
+                        <label class="priority-option">
+                            <input type="radio" name="priority" value="medium">
+                            <span class="priority-badge priority-medium">
+                                <i class="fas fa-minus"></i>
+                                Medium
+                            </span>
+                        </label>
+                        <label class="priority-option">
+                            <input type="radio" name="priority" value="high">
+                            <span class="priority-badge priority-high">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                High
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeTodoToAppModal()">
+                Batal
+            </button>
+            <button type="submit" form="todoToAppForm" name="add_todo_to_app" class="btn btn-primary">
+                <i class="fas fa-plus mr-2"></i>Tambah Todo
             </button>
         </div>
     </div>
@@ -399,6 +502,33 @@ function getAppIcon($appName) {
 .btn-danger:hover {
     background: linear-gradient(90deg, #dc2626, #b91c1c);
     transform: translateY(-2px);
+}
+
+/* New Todo Button Styles */
+.btn-todo-small {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(16,185,129,0.2);
+}
+
+.btn-todo-small:hover {
+    background: linear-gradient(135deg, #059669, #10b981);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+}
+
+.btn-todo-small i {
+    font-size: 0.75rem;
 }
 
 .mr-2 {
@@ -670,6 +800,18 @@ function getAppIcon($appName) {
     transition: width 0.3s ease;
 }
 
+/* App Actions Container */
+.app-actions {
+    margin-right: 16px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.app-list-item:hover .app-actions {
+    opacity: 1;
+}
+
 .app-list-actions {
     display: flex;
     gap: 8px;
@@ -709,6 +851,78 @@ function getAppIcon($appName) {
 .action-btn-small.delete:hover {
     background: #fee2e2;
     color: #dc2626;
+}
+
+/* Selected App Info in Modal */
+.selected-app-info {
+    margin-bottom: 20px;
+    padding: 12px;
+    background: #f0f9ff;
+    border: 1px solid #0ea5e9;
+    border-radius: 8px;
+}
+
+.app-info-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #0ea5e9;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Priority Selector in Modal */
+.priority-selector {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.priority-option {
+    cursor: pointer;
+}
+
+.priority-option input[type="radio"] {
+    display: none;
+}
+
+.priority-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: white;
+}
+
+.priority-badge.priority-low {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.priority-badge.priority-medium {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.priority-badge.priority-high {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.priority-option input[type="radio"]:checked + .priority-badge {
+    border-color: #1f2937;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
+}
+
+.priority-option:hover .priority-badge {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 /* Modal Styles */
@@ -813,6 +1027,7 @@ function getAppIcon($appName) {
 }
 
 .form-group input,
+.form-group select,
 .form-group textarea {
     width: 100%;
     padding: 12px;
@@ -824,6 +1039,7 @@ function getAppIcon($appName) {
 }
 
 .form-group input:focus,
+.form-group select:focus,
 .form-group textarea:focus {
     outline: none;
     border-color: #0066ff;
@@ -878,6 +1094,34 @@ function getAppIcon($appName) {
     .apps-list {
         max-height: none;
     }
+
+    .app-actions {
+        margin-right: 0;
+        margin-bottom: 8px;
+        order: 3;
+        opacity: 1;
+    }
+
+    .app-list-actions {
+        opacity: 1;
+        order: 4;
+        margin-top: 8px;
+        justify-content: center;
+    }
+
+    .app-list-item {
+        flex-wrap: wrap;
+    }
+    
+    .priority-selector {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .priority-badge {
+        justify-content: center;
+        padding: 12px 20px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -892,11 +1136,17 @@ function getAppIcon($appName) {
     .add-new-item {
         margin: 12px 16px;
     }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 
 <script>
 let currentEditId = null;
+let currentTodoAppId = null;
+let currentTodoAppName = '';
 
 function openAddAppModal() {
     document.getElementById('modalTitle').textContent = 'Tambah Aplikasi Baru';
@@ -928,9 +1178,31 @@ function deleteApp(id, name) {
     document.body.style.overflow = 'hidden';
 }
 
+function openAddTodoForAppModal(appId, appName) {
+    document.getElementById('todoModalTitle').textContent = `Tambah Todo ke "${appName}"`;
+    document.getElementById('selectedAppName').textContent = appName;
+    document.getElementById('todoAppId').value = appId;
+    document.getElementById('todoToAppForm').reset();
+    
+    // Reset priority to low (default)
+    document.querySelector('input[name="priority"][value="low"]').checked = true;
+    
+    currentTodoAppId = appId;
+    currentTodoAppName = appName;
+    document.getElementById('todoToAppModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
 function closeAppModal() {
     document.getElementById('appModal').classList.remove('show');
     document.body.style.overflow = '';
+}
+
+function closeTodoToAppModal() {
+    document.getElementById('todoToAppModal').classList.remove('show');
+    document.body.style.overflow = '';
+    currentTodoAppId = null;
+    currentTodoAppName = '';
 }
 
 function closeDeleteModal() {
@@ -942,6 +1214,7 @@ function closeDeleteModal() {
 document.addEventListener('click', function(e) {
     if(e.target.classList.contains('modal')) {
         closeAppModal();
+        closeTodoToAppModal();
         closeDeleteModal();
     }
 });
@@ -956,5 +1229,55 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
+});
+
+// Handle escape key to close modals
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeAppModal();
+        closeTodoToAppModal();
+        closeDeleteModal();
+    }
+});
+
+// Form validation for todo modal
+document.getElementById('todoToAppForm').addEventListener('submit', function(e) {
+    const title = document.getElementById('todoTitle').value.trim();
+    if (!title) {
+        e.preventDefault();
+        alert('Judul todo harus diisi!');
+        document.getElementById('todoTitle').focus();
+        return false;
+    }
+});
+
+// Form validation for app modal
+document.getElementById('appForm').addEventListener('submit', function(e) {
+    const name = document.getElementById('appName').value.trim();
+    if (!name) {
+        e.preventDefault();
+        alert('Nama aplikasi harus diisi!');
+        document.getElementById('appName').focus();
+        return false;
+    }
+});
+
+// Auto-focus on modal inputs when opened
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.target.classList.contains('modal') && mutation.target.classList.contains('show')) {
+            setTimeout(() => {
+                const firstInput = mutation.target.querySelector('input[type="text"], textarea');
+                if (firstInput) {
+                    firstInput.focus();
+                }
+            }, 300);
+        }
+    });
+});
+
+// Observe modal state changes
+document.querySelectorAll('.modal').forEach(modal => {
+    observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
 });
 </script>

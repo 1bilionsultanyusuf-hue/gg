@@ -39,9 +39,9 @@ $menu_items = [
         'roles' => ['admin', 'programmer', 'support', 'client'],
         'tooltip' => 'Laporan Sistem'
     ],
-    'settings' => [
-        'icon' => 'fas fa-cog',
-        'text' => 'Settings',
+    'profile' => [
+        'icon' => 'fas fa-user',
+        'text' => 'Profile',
         'roles' => ['admin', 'programmer', 'support', 'client'],
         'tooltip' => 'Pengaturan Sistem'
     ]

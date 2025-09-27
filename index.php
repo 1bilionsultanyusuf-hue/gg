@@ -41,7 +41,7 @@ $role_access = [
     'taken' => ['admin', 'programmer', 'support'],
     'reports' => ['admin', 'client', 'programmer', 'support'],
     'logout' => ['admin', 'client', 'programmer', 'support'],
-    'settings' => ['admin', 'client', 'programmer', 'support'],            // Settings hanya untuk admin
+    'profile' => ['admin', 'client', 'programmer', 'support'],            // Settings hanya untuk admin
 ];
 
 // Get user role and determine default dashboard
@@ -165,8 +165,8 @@ include 'modul/layouts/header.php';
             case 'reports':
                 include "modul/reports/reports.php";
                 break;
-            case 'settings':
-                include "modul/settings/settings.php"; // Settings page untuk admin
+            case 'profile':
+                include "modul/profile/profile.php"; 
                 break;
             case 'logout':
                 include "modul/auth/logout.php";
