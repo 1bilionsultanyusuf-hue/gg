@@ -246,12 +246,6 @@ function getRoleDisplayName($role) {
             </h1>
             <p class="page-subtitle">Kelola data pengguna dan hak akses sistem</p>
         </div>
-        <div class="header-actions">
-            <button class="btn btn-primary" onclick="openAddUserModal()">
-                <i class="fas fa-user-plus mr-2"></i> 
-                Tambah Pengguna
-            </button>
-        </div>
     </div>
 
     <!-- Statistics Cards - Without Total Users Card -->
