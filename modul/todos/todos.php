@@ -209,12 +209,6 @@ function getPriorityColor($priority) {
                 Kelola dan monitor semua tugas dalam sistem
             </p>
         </div>
-        <div class="header-actions">
-            <button class="btn btn-primary" onclick="openAddTodoModal()">
-                <i class="fas fa-plus mr-2"></i>
-                Tambah Todo
-            </button>
-        </div>
     </div>
 
     <!-- Statistics Cards -->

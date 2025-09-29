@@ -376,38 +376,6 @@ function canDeleteReport($report_user_id) {
 ?>
 
 <div class="main-content" style="margin-top: 80px;">
-    <!-- Permission Info Banner -->
-    <div class="permission-info">
-        <div class="permission-content">
-            <div class="permission-user">
-                <div class="user-avatar" style="background: <?= getRoleColor($current_user_role) ?>">
-                    <i class="<?= getRoleIcon($current_user_role) ?>"></i>
-                </div>
-                <div>
-                    <h4><?= htmlspecialchars($current_user['name']) ?></h4>
-                    <span style="color: <?= getRoleColor($current_user_role) ?>"><?= ucfirst($current_user_role) ?></span>
-                </div>
-            </div>
-            <div class="permission-badges">
-                <?php if ($current_permissions['can_view_all']): ?>
-                <span class="perm-badge view-all"><i class="fas fa-eye"></i> Lihat Semua</span>
-                <?php endif; ?>
-                <?php if ($current_permissions['can_create']): ?>
-                <span class="perm-badge create"><i class="fas fa-plus"></i> Buat Laporan</span>
-                <?php endif; ?>
-                <?php if ($current_permissions['can_edit_all']): ?>
-                <span class="perm-badge edit-all"><i class="fas fa-edit"></i> Edit Semua</span>
-                <?php elseif ($current_permissions['can_edit_own']): ?>
-                <span class="perm-badge edit-own"><i class="fas fa-edit"></i> Edit Milik Sendiri</span>
-                <?php endif; ?>
-                <?php if ($current_permissions['can_delete_all']): ?>
-                <span class="perm-badge delete-all"><i class="fas fa-trash"></i> Hapus Semua</span>
-                <?php elseif ($current_permissions['can_delete_own']): ?>
-                <span class="perm-badge delete-own"><i class="fas fa-trash"></i> Hapus Milik Sendiri</span>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
 
     <!-- Success/Error Messages -->
     <?php if ($message): ?>

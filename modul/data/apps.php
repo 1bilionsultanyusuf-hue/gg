@@ -139,12 +139,6 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
                 Kelola dan monitor semua aplikasi dalam sistem
             </p>
         </div>
-        <div class="header-actions">
-            <button class="btn btn-primary" onclick="openAddAppModal()">
-                <i class="fas fa-plus mr-2"></i>
-                Tambah Aplikasi
-            </button>
-        </div>
     </div>
 
     <!-- Statistics Cards -->
