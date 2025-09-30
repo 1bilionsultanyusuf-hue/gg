@@ -63,7 +63,7 @@ if (isset($_POST['delete_todo'])) {
 
 // Pagination setup
 $limit = 10; // Items per page
-$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$page = isset($_GET['page_num']) ? max(1, (int)$_GET['page_num']) : 1;
 $offset = ($page - 1) * $limit;
 
 // Search functionality
@@ -209,12 +209,6 @@ function getPriorityColor($priority) {
                 Kelola dan monitor semua tugas dalam sistem
             </p>
         </div>
-        <div class="header-actions">
-            <button class="btn btn-primary" onclick="openAddTodoModal()">
-                <i class="fas fa-plus mr-2"></i>
-                Tambah Todo
-            </button>
-        </div>
     </div>
 
     <!-- Statistics Cards -->
@@ -229,7 +223,7 @@ function getPriorityColor($priority) {
             </div>
         </div>
 
-        <div class="stat-card bg-gradient-red">
+        <div class="stat-card bg-gradient-red <?= $filter_priority == 'high' ? 'active' : '' ?>" onclick="filterByPriority('high')">
             <div class="stat-icon">
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
@@ -239,7 +233,7 @@ function getPriorityColor($priority) {
             </div>
         </div>
 
-        <div class="stat-card bg-gradient-orange">
+        <div class="stat-card bg-gradient-orange <?= $filter_priority == 'medium' ? 'active' : '' ?>" onclick="filterByPriority('medium')">
             <div class="stat-icon">
                 <i class="fas fa-minus-circle"></i>
             </div>
@@ -249,7 +243,7 @@ function getPriorityColor($priority) {
             </div>
         </div>
 
-        <div class="stat-card bg-gradient-green">
+        <div class="stat-card bg-gradient-green <?= $filter_priority == 'low' ? 'active' : '' ?>" onclick="filterByPriority('low')">
             <div class="stat-icon">
                 <i class="fas fa-arrow-down"></i>
             </div>
@@ -403,19 +397,19 @@ function getPriorityColor($priority) {
             <div class="pagination">
                 <?php
                 // Build query string for pagination
-                $query_params = [];
+                $query_params = ['page' => 'todos'];
                 if (!empty($search)) $query_params['search'] = $search;
                 if (!empty($filter_priority)) $query_params['priority'] = $filter_priority;
                 if (!empty($filter_app)) $query_params['app'] = $filter_app;
                 
-                $query_string = !empty($query_params) ? '&' . http_build_query($query_params) : '';
+                $query_string = '&' . http_build_query($query_params);
                 ?>
                 
                 <?php if ($page > 1): ?>
-                <a href="?page=1<?= $query_string ?>" class="pagination-btn">
+                <a href="?page_num=1<?= $query_string ?>" class="pagination-btn">
                     <i class="fas fa-angle-double-left"></i>
                 </a>
-                <a href="?page=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
+                <a href="?page_num=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
                     <i class="fas fa-angle-left"></i>
                 </a>
                 <?php endif; ?>
@@ -430,7 +424,7 @@ function getPriorityColor($priority) {
                 
                 for ($i = $start; $i <= $end; $i++):
                 ?>
-                <a href="?page=<?= $i ?><?= $query_string ?>" 
+                <a href="?page_num=<?= $i ?><?= $query_string ?>" 
                    class="pagination-btn <?= $i == $page ? 'active' : '' ?>">
                     <?= $i ?>
                 </a>
@@ -441,10 +435,10 @@ function getPriorityColor($priority) {
                 } ?>
 
                 <?php if ($page < $total_pages): ?>
-                <a href="?page=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
+                <a href="?page_num=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
                     <i class="fas fa-angle-right"></i>
                 </a>
-                <a href="?page=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
+                <a href="?page_num=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
                     <i class="fas fa-angle-double-right"></i>
                 </a>
                 <?php endif; ?>
@@ -468,7 +462,7 @@ function getPriorityColor($priority) {
             </button>
         </div>
         <div class="modal-body">
-            <form id="todoForm" method="POST">
+            <form id="todoForm" method="POST" action="?page=todos">
                 <input type="hidden" id="todoId" name="todo_id">
                 <div class="form-group">
                     <label for="todoApp">Aplikasi *</label>
@@ -527,7 +521,7 @@ function getPriorityColor($priority) {
             <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
                 Batal
             </button>
-            <form id="deleteForm" method="POST" style="display: inline;">
+            <form id="deleteForm" method="POST" action="?page=todos" style="display: inline;">
                 <input type="hidden" id="deleteTodoId" name="todo_id">
                 <button type="submit" name="delete_todo" class="btn btn-danger">
                     <i class="fas fa-trash mr-2"></i>Hapus
@@ -646,7 +640,7 @@ function getPriorityColor($priority) {
 /* Statistics Grid */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 20px;
     margin-bottom: 32px;
 }
@@ -659,11 +653,31 @@ function getPriorityColor($priority) {
     display: flex;
     align-items: center;
     gap: 20px;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    border: 2px solid transparent;
 }
 
 .stat-card:hover {
     transform: translateY(-4px);
+    box-shadow: 0 6px 25px rgba(0,0,0,0.15);
+}
+
+.stat-card.active {
+    border-color: rgba(255,255,255,0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+}
+
+.stat-card.active::after {
+    content: '✓';
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: bold;
 }
 
 .bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
@@ -1447,6 +1461,25 @@ function closeDeleteModal() {
     document.body.style.overflow = '';
 }
 
+// Filter by priority from stat cards
+function filterByPriority(priority) {
+    let url = new URL(window.location);
+    const currentPriority = url.searchParams.get('priority');
+    
+    // Toggle filter: if already filtering by this priority, clear the filter
+    if (currentPriority === priority) {
+        url.searchParams.delete('priority');
+    } else {
+        url.searchParams.set('priority', priority);
+    }
+    
+    // Keep page parameter but reset to page 1
+    url.searchParams.set('page', 'todos');
+    url.searchParams.delete('page_num');
+    
+    window.location.href = url.toString();
+}
+
 // Filter functions
 function applyFilters() {
     const priorityFilter = document.getElementById('priorityFilter').value;
@@ -1457,7 +1490,8 @@ function applyFilters() {
     url.searchParams.delete('priority');
     url.searchParams.delete('app');
     url.searchParams.delete('search');
-    url.searchParams.delete('page'); // Reset to first page when filtering
+    url.searchParams.delete('page_num'); // Reset to first page when filtering
+    url.searchParams.set('page', 'todos'); // Keep the page parameter
     
     if (priorityFilter) {
         url.searchParams.set('priority', priorityFilter);
@@ -1483,7 +1517,8 @@ function clearFilters() {
     url.searchParams.delete('priority');
     url.searchParams.delete('app');
     url.searchParams.delete('search');
-    url.searchParams.delete('page');
+    url.searchParams.delete('page_num');
+    url.searchParams.set('page', 'todos');
     window.location.href = url.toString();
 }
 
@@ -1505,12 +1540,5 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
-});
-
-// Auto-submit form when Enter is pressed in search input
-document.querySelector('input[name="search"]') && document.querySelector('input[name="search"]').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        applyFilters();
-    }
 });
 </script>

@@ -161,8 +161,7 @@ if (!empty($params)) {
     $users_result = $koneksi->query($users_query);
 }
 
-// Get user statistics - Updated with client role
-$total_users = $koneksi->query("SELECT COUNT(*) as count FROM users")->fetch_assoc()['count'];
+// Get user statistics - Updated with client role (removed total_users)
 $admin_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'admin'")->fetch_assoc()['count'];
 $client_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'client'")->fetch_assoc()['count'];
 $programmer_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'programmer'")->fetch_assoc()['count'];
@@ -247,27 +246,11 @@ function getRoleDisplayName($role) {
             </h1>
             <p class="page-subtitle">Kelola data pengguna dan hak akses sistem</p>
         </div>
-        <div class="header-actions">
-            <button class="btn btn-primary" onclick="openAddUserModal()">
-                <i class="fas fa-user-plus mr-2"></i> 
-                Tambah Pengguna
-            </button>
-        </div>
     </div>
 
-    <!-- Statistics Cards - Updated with Client -->
+    <!-- Statistics Cards - Without Total Users Card -->
     <div class="stats-grid">
-        <div class="stat-card bg-gradient-blue">
-            <div class="stat-icon">
-                <i class="fas fa-users"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $total_users ?></h3>
-                <p class="stat-label">Total Pengguna</p>
-            </div>
-        </div>
-
-        <div class="stat-card bg-gradient-red">
+        <div class="stat-card bg-gradient-red <?= $role_filter == 'admin' ? 'active' : '' ?>" onclick="filterByRole('admin')">
             <div class="stat-icon">
                 <i class="fas fa-user-shield"></i>
             </div>
@@ -277,7 +260,7 @@ function getRoleDisplayName($role) {
             </div>
         </div>
 
-        <div class="stat-card bg-gradient-purple">
+        <div class="stat-card bg-gradient-purple <?= $role_filter == 'client' ? 'active' : '' ?>" onclick="filterByRole('client')">
             <div class="stat-icon">
                 <i class="fas fa-briefcase"></i>
             </div>
@@ -287,7 +270,7 @@ function getRoleDisplayName($role) {
             </div>
         </div>
 
-        <div class="stat-card bg-gradient-green">
+        <div class="stat-card bg-gradient-green <?= $role_filter == 'programmer' ? 'active' : '' ?>" onclick="filterByRole('programmer')">
             <div class="stat-icon">
                 <i class="fas fa-code"></i>
             </div>
@@ -297,7 +280,7 @@ function getRoleDisplayName($role) {
             </div>
         </div>
 
-        <div class="stat-card bg-gradient-orange">
+        <div class="stat-card bg-gradient-orange <?= $role_filter == 'support' ? 'active' : '' ?>" onclick="filterByRole('support')">
             <div class="stat-icon">
                 <i class="fas fa-headset"></i>
             </div>
@@ -631,6 +614,20 @@ function closeDeleteModal() {
 }
 
 // Filter functions
+function filterByRole(role) {
+    let url = new URL(window.location);
+    url.searchParams.delete('search'); // Clear search when filtering by role
+    
+    // Toggle filter: if already filtering by this role, clear the filter
+    if (url.searchParams.get('role') === role) {
+        url.searchParams.delete('role');
+    } else {
+        url.searchParams.set('role', role);
+    }
+    
+    window.location.href = url.toString();
+}
+
 function applyFilters() {
     const roleFilter = document.getElementById('roleFilter').value;
     const searchValue = document.getElementById('searchInput').value;
@@ -799,7 +796,7 @@ document.addEventListener('DOMContentLoaded', function() {
 /* Statistics Grid */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 20px;
     margin-bottom: 32px;
 }
@@ -813,10 +810,30 @@ document.addEventListener('DOMContentLoaded', function() {
     align-items: center;
     gap: 20px;
     transition: transform 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    border: 2px solid transparent;
 }
 
 .stat-card:hover {
     transform: translateY(-4px);
+    box-shadow: 0 6px 25px rgba(0,0,0,0.15);
+}
+
+.stat-card.active {
+    border-color: rgba(255,255,255,0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+}
+
+.stat-card.active::after {
+    content: '✓';
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: bold;
 }
 
 .bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
