@@ -1,1048 +1,1498 @@
 <?php
-// Handle CRUD Operations for Taken (Todo Assignments)
+// modul/data/taken.php
+// Handle CRUD Operations for Taken
+
 $message = '';
 $error = '';
-$current_user_id = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
 
-// TAKE - Assign todo to user
-if (isset($_POST['take_todo'])) {
-    $todo_id = (int)$_POST['todo_id'];
-    
-    if (!$current_user_id) {
-        $error = "Session expired! Silakan login kembali.";
-    } else {
-        $date = date('Y-m-d');
-        
-        $check_stmt = $koneksi->prepare("SELECT id, status FROM taken WHERE id_todos = ? AND status IN ('in_progress', 'done')");
-        $check_stmt->bind_param("i", $todo_id);
-        $check_stmt->execute();
-        $exists = $check_stmt->get_result()->fetch_assoc();
-        
-        if (!$exists) {
-            $check_released = $koneksi->prepare("SELECT id FROM taken WHERE id_todos = ? AND status = 'released'");
-            $check_released->bind_param("i", $todo_id);
-            $check_released->execute();
-            $released = $check_released->get_result()->fetch_assoc();
-            
-            if ($released) {
-                $stmt = $koneksi->prepare("UPDATE taken SET status = 'in_progress', taken_by = ?, date = ? WHERE id = ?");
-                $stmt->bind_param("isi", $current_user_id, $date, $released['id']);
-            } else {
-                $stmt = $koneksi->prepare("INSERT INTO taken (id_todos, date, status, taken_by) VALUES (?, ?, 'in_progress', ?)");
-                $stmt->bind_param("isi", $todo_id, $date, $current_user_id);
-            }
-            
-            if ($stmt->execute()) {
-                $message = "Todo berhasil diambil dan masuk ke In Progress!";
-            } else {
-                $error = "Gagal mengambil todo: " . $stmt->error;
-            }
-        } else {
-            $error = "Todo sudah diambil oleh user lain!";
-        }
-    }
+// Get current user info
+$current_user_id = $_SESSION['user_id'];
+$current_user_query = $koneksi->prepare("SELECT role, name FROM users WHERE id = ?");
+$current_user_query->bind_param('i', $current_user_id);
+$current_user_query->execute();
+$current_user_result = $current_user_query->get_result();
+
+if ($current_user_result->num_rows === 0) {
+    die('User tidak ditemukan dalam sistem!');
 }
 
-// UPDATE STATUS
-if (isset($_POST['update_status'])) {
-    $taken_id = (int)$_POST['taken_id'];
+$current_user = $current_user_result->fetch_assoc();
+$current_user_role = $current_user['role'];
+
+// CREATE - Add new taken
+if (isset($_POST['add_taken'])) {
+    $id_todos = (int)$_POST['id_todos'];
     $status = trim($_POST['status']);
+    $date = trim($_POST['date']);
+    $user_id = $_SESSION['user_id'];
     
-    if (!$current_user_id) {
-        $error = "Session expired! Silakan login kembali.";
-    } else {
-        if (in_array($status, ['in_progress', 'done'])) {
-            $verify_stmt = $koneksi->prepare("SELECT taken_by FROM taken WHERE id = ?");
-            $verify_stmt->bind_param("i", $taken_id);
-            $verify_stmt->execute();
-            $taken = $verify_stmt->get_result()->fetch_assoc();
-            
-            if ($taken && (int)$taken['taken_by'] == $current_user_id) {
-                $stmt = $koneksi->prepare("UPDATE taken SET status = ? WHERE id = ?");
-                $stmt->bind_param("si", $status, $taken_id);
-                
-                if ($stmt->execute()) {
-                    $message = $status == 'done' ? "Todo selesai! Great job! 🎉" : "Status berhasil diubah!";
-                } else {
-                    $error = "Gagal memperbarui status: " . $stmt->error;
-                }
-            } else {
-                $error = "Anda tidak memiliki akses!";
-            }
-        }
-    }
-}
-
-// RELEASE
-if (isset($_POST['release_todo'])) {
-    $taken_id = (int)$_POST['taken_id'];
-    
-    if (!$current_user_id) {
-        $error = "Session expired! Silakan login kembali.";
-    } else {
-        $verify_stmt = $koneksi->prepare("SELECT taken_by FROM taken WHERE id = ?");
-        $verify_stmt->bind_param("i", $taken_id);
-        $verify_stmt->execute();
-        $taken = $verify_stmt->get_result()->fetch_assoc();
+    if (!empty($id_todos) && !empty($status)) {
+        // Check if todo already taken
+        $check_stmt = $koneksi->prepare("SELECT id FROM taken WHERE id_todos = ?");
+        $check_stmt->bind_param("i", $id_todos);
+        $check_stmt->execute();
         
-        if ($taken && (int)$taken['taken_by'] == $current_user_id) {
-            $stmt = $koneksi->prepare("UPDATE taken SET status = 'released' WHERE id = ?");
-            $stmt->bind_param("i", $taken_id);
+        if ($check_stmt->get_result()->num_rows > 0) {
+            $error = "Todo ini sudah diambil!";
+        } else {
+            $stmt = $koneksi->prepare("INSERT INTO taken (id_todos, status, date, user_id) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("issi", $id_todos, $status, $date, $user_id);
             
             if ($stmt->execute()) {
-                $message = "Todo berhasil dilepas kembali ke pool!";
+                $message = "Todo berhasil diambil!";
             } else {
-                $error = "Gagal melepas todo: " . $stmt->error;
+                $error = "Gagal mengambil todo!";
             }
-        } else {
-            $error = "Anda tidak memiliki akses!";
         }
+    } else {
+        $error = "Semua field harus diisi!";
     }
 }
 
-// Get Available Todos
-$available_query = "
-    SELECT t.*, 
-           a.name as app_name,
-           u.name as creator_name
-    FROM todos t
-    LEFT JOIN apps a ON t.app_id = a.id
-    LEFT JOIN users u ON t.user_id = u.id
-    LEFT JOIN taken tk ON t.id = tk.id_todos AND tk.status IN ('in_progress', 'done')
+// UPDATE - Edit taken
+if (isset($_POST['edit_taken'])) {
+    $id = (int)$_POST['taken_id'];
+    $status = trim($_POST['status']);
+    $date = trim($_POST['date']);
+    
+    if (!empty($status)) {
+        $stmt = $koneksi->prepare("UPDATE taken SET status = ?, date = ? WHERE id = ?");
+        $stmt->bind_param("ssi", $status, $date, $id);
+        
+        if ($stmt->execute()) {
+            $message = "Status berhasil diperbarui!";
+        } else {
+            $error = "Gagal memperbarui status!";
+        }
+    } else {
+        $error = "Status harus diisi!";
+    }
+}
+
+// DELETE - Remove taken
+if (isset($_POST['delete_taken'])) {
+    $id = (int)$_POST['taken_id'];
+    
+    $stmt = $koneksi->prepare("DELETE FROM taken WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    
+    if ($stmt->execute()) {
+        $message = "Taken berhasil dihapus!";
+    } else {
+        $error = "Gagal menghapus taken!";
+    }
+}
+
+// Pagination setup
+$limit = 10;
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$offset = ($page - 1) * $limit;
+
+// Search functionality
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$filter_status = isset($_GET['status']) ? trim($_GET['status']) : '';
+$filter_user = isset($_GET['user']) ? (int)$_GET['user'] : 0;
+
+// Build WHERE clause
+$where_conditions = [];
+$params = [];
+$param_types = '';
+
+if (!empty($search)) {
+    $where_conditions[] = "(td.title LIKE ? OR td.description LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $param_types .= 'ss';
+}
+
+if (!empty($filter_status) && in_array($filter_status, ['in_progress', 'done'])) {
+    $where_conditions[] = "tk.status = ?";
+    $params[] = $filter_status;
+    $param_types .= 's';
+}
+
+if (!empty($filter_user) && $filter_user > 0) {
+    $where_conditions[] = "tk.user_id = ?";
+    $params[] = $filter_user;
+    $param_types .= 'i';
+}
+
+$where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+
+// Get total count
+$count_query = "
+    SELECT COUNT(*) as total 
+    FROM taken tk
+    LEFT JOIN todos td ON tk.id_todos = td.id
+    LEFT JOIN users u ON tk.user_id = u.id
+    LEFT JOIN apps a ON td.app_id = a.id
+    $where_clause
+";
+
+if (!empty($params)) {
+    $count_stmt = $koneksi->prepare($count_query);
+    if ($param_types && !empty($params)) {
+        $count_stmt->bind_param($param_types, ...$params);
+    }
+    $count_stmt->execute();
+    $total_records = $count_stmt->get_result()->fetch_assoc()['total'];
+    $count_stmt->close();
+} else {
+    $total_records = $koneksi->query($count_query)->fetch_assoc()['total'];
+}
+
+$total_pages = ceil($total_records / $limit);
+
+// Get taken data
+$taken_query = "
+    SELECT tk.*, 
+           td.title as todo_title,
+           td.description as todo_description,
+           td.priority as todo_priority,
+           u.name as user_name,
+           a.name as app_name
+    FROM taken tk
+    LEFT JOIN todos td ON tk.id_todos = td.id
+    LEFT JOIN users u ON tk.user_id = u.id
+    LEFT JOIN apps a ON td.app_id = a.id
+    $where_clause
+    ORDER BY tk.date DESC, tk.created_at DESC
+    LIMIT ? OFFSET ?
+";
+
+$pagination_params = $params;
+$pagination_param_types = $param_types;
+$pagination_params[] = $limit;
+$pagination_params[] = $offset;
+$pagination_param_types .= 'ii';
+
+$taken_stmt = $koneksi->prepare($taken_query);
+if (!empty($pagination_params) && $pagination_param_types) {
+    $taken_stmt->bind_param($pagination_param_types, ...$pagination_params);
+}
+$taken_stmt->execute();
+$taken_result = $taken_stmt->get_result();
+
+// Get available todos (not taken yet)
+$available_todos_query = "
+    SELECT td.id, td.title, td.priority, a.name as app_name
+    FROM todos td
+    LEFT JOIN apps a ON td.app_id = a.id
+    LEFT JOIN taken tk ON td.id = tk.id_todos
     WHERE tk.id IS NULL
-    ORDER BY 
-        t.priority = 'high' DESC,
-        t.priority = 'medium' DESC,
-        t.created_at DESC
-    LIMIT 20
+    ORDER BY td.priority DESC, td.created_at DESC
 ";
-$available_result = $koneksi->query($available_query);
+$available_todos_result = $koneksi->query($available_todos_query);
 
-// Get My In Progress Todos
-$my_progress_query = "
-    SELECT t.*, 
-           a.name as app_name,
-           u.name as creator_name,
-           tk.id as taken_id,
-           tk.date as taken_date
-    FROM todos t
-    INNER JOIN taken tk ON t.id = tk.id_todos
-    LEFT JOIN apps a ON t.app_id = a.id
-    LEFT JOIN users u ON t.user_id = u.id
-    WHERE tk.taken_by = ? AND tk.status = 'in_progress'
-    ORDER BY tk.date DESC
-";
-$progress_stmt = $koneksi->prepare($my_progress_query);
-$progress_stmt->bind_param("i", $current_user_id);
-$progress_stmt->execute();
-$progress_result = $progress_stmt->get_result();
+// Get users for filter
+$users_query = "SELECT id, name FROM users ORDER BY name";
+$users_result = $koneksi->query($users_query);
 
-// Get My Completed Todos
-$my_completed_query = "
-    SELECT t.*, 
-           a.name as app_name,
-           u.name as creator_name,
-           tk.id as taken_id,
-           tk.date as taken_date
-    FROM todos t
-    INNER JOIN taken tk ON t.id = tk.id_todos
-    LEFT JOIN apps a ON t.app_id = a.id
-    LEFT JOIN users u ON t.user_id = u.id
-    WHERE tk.taken_by = ? AND tk.status = 'done'
-    ORDER BY tk.date DESC
-    LIMIT 10
-";
-$completed_stmt = $koneksi->prepare($my_completed_query);
-$completed_stmt->bind_param("i", $current_user_id);
-$completed_stmt->execute();
-$completed_result = $completed_stmt->get_result();
+// Get statistics
+$total_taken = $koneksi->query("SELECT COUNT(*) as count FROM taken")->fetch_assoc()['count'];
+$in_progress = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE status = 'in_progress'")->fetch_assoc()['count'];
+$done = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE status = 'done'")->fetch_assoc()['count'];
+$available = $koneksi->query("SELECT COUNT(*) as count FROM todos td LEFT JOIN taken tk ON td.id = tk.id_todos WHERE tk.id IS NULL")->fetch_assoc()['count'];
 
-// Statistics
-$stats = [
-    'available' => $koneksi->query("
-        SELECT COUNT(DISTINCT t.id) as count FROM todos t 
-        LEFT JOIN taken tk ON t.id = tk.id_todos AND tk.status IN ('in_progress', 'done')
-        WHERE tk.id IS NULL
-    ")->fetch_assoc()['count'],
-    
-    'my_progress' => $koneksi->query("
-        SELECT COUNT(*) as count FROM taken 
-        WHERE taken_by = $current_user_id AND status = 'in_progress'
-    ")->fetch_assoc()['count'],
-    
-    'my_completed' => $koneksi->query("
-        SELECT COUNT(*) as count FROM taken 
-        WHERE taken_by = $current_user_id AND status = 'done'
-    ")->fetch_assoc()['count'],
-];
-
-function getPriorityBadge($priority) {
-    $badges = [
-        'high' => '<span class="priority-badge high"><i class="fas fa-flag"></i> High</span>',
-        'medium' => '<span class="priority-badge medium"><i class="fas fa-flag"></i> Medium</span>',
-        'low' => '<span class="priority-badge low"><i class="fas fa-flag"></i> Low</span>'
+function getPriorityIcon($priority) {
+    $icons = [
+        'high' => 'fas fa-exclamation-triangle',
+        'medium' => 'fas fa-minus',
+        'low' => 'fas fa-arrow-down'
     ];
-    return $badges[$priority] ?? '';
+    return $icons[$priority] ?? 'fas fa-circle';
+}
+
+function getPriorityColor($priority) {
+    $colors = [
+        'high' => '#ef4444',
+        'medium' => '#f59e0b',
+        'low' => '#10b981'
+    ];
+    return $colors[$priority] ?? '#6b7280';
 }
 ?>
 
-<div class="kanban-container" style="margin-top: 80px;">
-    <!-- Messages -->
+<div class="main-content" style="margin-top: 80px;">
+    <!-- Success/Error Messages -->
     <?php if ($message): ?>
-    <div class="toast toast-success">
+    <div class="alert alert-success">
         <i class="fas fa-check-circle"></i>
-        <span><?= $message ?></span>
+        <?= htmlspecialchars($message) ?>
     </div>
     <?php endif; ?>
     
     <?php if ($error): ?>
-    <div class="toast toast-error">
-        <i class="fas fa-exclamation-circle"></i>
-        <span><?= $error ?></span>
+    <div class="alert alert-error">
+        <i class="fas fa-exclamation-triangle"></i>
+        <?= htmlspecialchars($error) ?>
     </div>
     <?php endif; ?>
 
-    <!-- Header -->
-    <div class="kanban-header">
-        <div>
-            <h1 class="kanban-title">
-                <i class="fas fa-clipboard-check"></i>
-                Task Board
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">
+                <i class="fas fa-hand-paper mr-3"></i>
+                Todo yang Diambil
             </h1>
-            <p class="kanban-subtitle">Kelola tugas Anda dengan sistem Kanban</p>
+            <p class="page-subtitle">
+                Kelola dan monitor todo yang sudah diambil
+            </p>
         </div>
-        <div class="header-stats">
-            <div class="stat-chip">
-                <i class="fas fa-circle"></i>
-                <span><?= $stats['available'] ?> Available</span>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="openAddTakenModal()">
+                <i class="fas fa-plus mr-2"></i>
+                Ambil Todo
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <div class="stat-card bg-gradient-blue">
+            <div class="stat-icon">
+                <i class="fas fa-hand-paper"></i>
             </div>
-            <div class="stat-chip active">
-                <i class="fas fa-spinner"></i>
-                <span><?= $stats['my_progress'] ?> In Progress</span>
+            <div class="stat-content">
+                <h3 class="stat-number"><?= $total_taken ?></h3>
+                <p class="stat-label">Total Diambil</p>
             </div>
-            <div class="stat-chip done">
-                <i class="fas fa-check"></i>
-                <span><?= $stats['my_completed'] ?> Done</span>
+        </div>
+
+        <div class="stat-card bg-gradient-orange">
+            <div class="stat-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number"><?= $in_progress ?></h3>
+                <p class="stat-label">In Progress</p>
+            </div>
+        </div>
+
+        <div class="stat-card bg-gradient-green">
+            <div class="stat-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number"><?= $done ?></h3>
+                <p class="stat-label">Selesai</p>
+            </div>
+        </div>
+
+        <div class="stat-card bg-gradient-purple">
+            <div class="stat-icon">
+                <i class="fas fa-clipboard-list"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-number"><?= $available ?></h3>
+                <p class="stat-label">Tersedia</p>
             </div>
         </div>
     </div>
 
-    <!-- Kanban Board -->
-    <div class="kanban-board">
-        <!-- Column 1: Available -->
-        <div class="kanban-column">
-            <div class="column-header available">
-                <div class="column-title">
-                    <i class="fas fa-inbox"></i>
-                    <h3>Available Tasks</h3>
-                </div>
-                <span class="column-count"><?= $available_result->num_rows ?></span>
+    <!-- Taken Container -->
+    <div class="taken-container">
+        <div class="section-header">
+            <div class="section-title-container">
+                <h2 class="section-title">Daftar Todo Diambil</h2>
+                <span class="section-count"><?= $total_records ?> taken</span>
             </div>
-            <div class="column-content">
-                <?php if ($available_result->num_rows > 0): ?>
-                    <?php while($todo = $available_result->fetch_assoc()): ?>
-                    <div class="task-card">
-                        <div class="card-header">
-                            <?= getPriorityBadge($todo['priority']) ?>
-                            <span class="app-badge">
-                                <i class="fas fa-cube"></i>
-                                <?= htmlspecialchars($todo['app_name']) ?>
-                            </span>
-                        </div>
-                        <h4 class="card-title"><?= htmlspecialchars($todo['title']) ?></h4>
-                        <p class="card-description"><?= htmlspecialchars($todo['description']) ?></p>
-                        <div class="card-meta">
-                            <span class="meta-item">
-                                <i class="fas fa-user"></i>
-                                <?= htmlspecialchars($todo['creator_name']) ?>
-                            </span>
-                            <span class="meta-item">
-                                <i class="fas fa-calendar"></i>
-                                <?= date('d M Y', strtotime($todo['created_at'])) ?>
-                            </span>
-                        </div>
-                        <form method="POST" class="card-action">
-                            <input type="hidden" name="todo_id" value="<?= $todo['id'] ?>">
-                            <button type="submit" name="take_todo" class="btn-take-card">
-                                <i class="fas fa-hand-paper"></i>
-                                Ambil Task
-                            </button>
-                        </form>
-                    </div>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <div class="empty-state">
-                        <i class="fas fa-inbox"></i>
-                        <p>Tidak ada task tersedia</p>
-                    </div>
+            
+            <!-- Filters -->
+            <div class="filters-container">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Cari judul todo..." 
+                           value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
+                </div>
+                
+                <div class="filter-dropdown">
+                    <select id="statusFilter" onchange="applyFilters()">
+                        <option value="">Semua Status</option>
+                        <option value="in_progress" <?= $filter_status == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
+                        <option value="done" <?= $filter_status == 'done' ? 'selected' : '' ?>>Done</option>
+                    </select>
+                </div>
+
+                <div class="filter-dropdown">
+                    <select id="userFilter" onchange="applyFilters()">
+                        <option value="">Semua User</option>
+                        <?php 
+                        $users_result->data_seek(0);
+                        while($user = $users_result->fetch_assoc()): 
+                        ?>
+                        <option value="<?= $user['id'] ?>" <?= $filter_user == $user['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($user['name']) ?>
+                        </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                
+                <?php if ($filter_status || $search || $filter_user): ?>
+                <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
+                    <i class="fas fa-times"></i>
+                </button>
                 <?php endif; ?>
             </div>
         </div>
-
-        <!-- Column 2: In Progress -->
-        <div class="kanban-column">
-            <div class="column-header progress">
-                <div class="column-title">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <h3>In Progress</h3>
+        
+        <!-- Add New Taken Button -->
+        <div class="taken-list-item add-new-item" onclick="openAddTakenModal()">
+            <div class="add-new-content">
+                <div class="add-new-icon">
+                    <i class="fas fa-plus"></i>
                 </div>
-                <span class="column-count"><?= $progress_result->num_rows ?></span>
-            </div>
-            <div class="column-content">
-                <?php if ($progress_result->num_rows > 0): ?>
-                    <?php while($todo = $progress_result->fetch_assoc()): ?>
-                    <div class="task-card my-card">
-                        <div class="card-header">
-                            <?= getPriorityBadge($todo['priority']) ?>
-                            <span class="app-badge">
-                                <i class="fas fa-cube"></i>
-                                <?= htmlspecialchars($todo['app_name']) ?>
-                            </span>
-                        </div>
-                        <h4 class="card-title"><?= htmlspecialchars($todo['title']) ?></h4>
-                        <p class="card-description"><?= htmlspecialchars($todo['description']) ?></p>
-                        <div class="card-meta">
-                            <span class="meta-item">
-                                <i class="fas fa-user"></i>
-                                <?= htmlspecialchars($todo['creator_name']) ?>
-                            </span>
-                            <span class="meta-item">
-                                <i class="fas fa-clock"></i>
-                                Diambil: <?= date('d M Y', strtotime($todo['taken_date'])) ?>
-                            </span>
-                        </div>
-                        <div class="card-actions">
-                            <form method="POST" style="display: inline;">
-                                <input type="hidden" name="taken_id" value="<?= $todo['taken_id'] ?>">
-                                <input type="hidden" name="status" value="done">
-                                <button type="submit" name="update_status" class="btn-complete-card">
-                                    <i class="fas fa-check"></i>
-                                    Selesai
-                                </button>
-                            </form>
-                            <button class="btn-release-card" onclick="confirmRelease(<?= $todo['taken_id'] ?>, '<?= htmlspecialchars($todo['title'], ENT_QUOTES) ?>')">
-                                <i class="fas fa-times"></i>
-                                Lepas
-                            </button>
-                        </div>
-                    </div>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <div class="empty-state">
-                        <i class="fas fa-hourglass-half"></i>
-                        <p>Belum ada task dikerjakan</p>
-                        <small>Ambil task dari kolom Available</small>
-                    </div>
-                <?php endif; ?>
+                <div class="add-new-text">
+                    <h3>Ambil Todo Baru</h3>
+                    <p>Klik untuk mengambil todo yang tersedia</p>
+                </div>
             </div>
         </div>
-
-        <!-- Column 3: Completed -->
-        <div class="kanban-column">
-            <div class="column-header done">
-                <div class="column-title">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>Completed</h3>
+        
+        <!-- Taken List -->
+        <div class="taken-list">
+            <?php if ($taken_result->num_rows > 0): ?>
+                <?php $no = $offset + 1; while($taken = $taken_result->fetch_assoc()): ?>
+                <div class="taken-list-item" data-taken-id="<?= $taken['id'] ?>">
+                    <div class="taken-priority-container">
+                        <div class="taken-priority-badge priority-<?= $taken['todo_priority'] ?>">
+                            <i class="<?= getPriorityIcon($taken['todo_priority']) ?>"></i>
+                        </div>
+                        <div class="taken-number"><?= $no++ ?></div>
+                    </div>
+                    
+                    <div class="taken-list-content">
+                        <div class="taken-list-main">
+                            <div class="taken-title-section">
+                                <h3 class="taken-list-title"><?= htmlspecialchars($taken['todo_title']) ?></h3>
+                                <span class="taken-priority-text priority-<?= $taken['todo_priority'] ?>"><?= ucfirst($taken['todo_priority']) ?></span>
+                            </div>
+                            <div class="taken-description">
+                                <?= htmlspecialchars($taken['todo_description']) ?>
+                            </div>
+                            <div class="taken-details">
+                                <span class="taken-app">
+                                    <i class="fas fa-cube"></i>
+                                    <?= htmlspecialchars($taken['app_name']) ?>
+                                </span>
+                                <span class="taken-user">
+                                    <i class="fas fa-user"></i>
+                                    <?= htmlspecialchars($taken['user_name']) ?>
+                                </span>
+                                <span class="taken-date">
+                                    <i class="fas fa-calendar"></i>
+                                    <?= date('d/m/Y', strtotime($taken['date'])) ?>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="taken-status-container">
+                        <div class="status-badge status-<?= $taken['status'] ?>">
+                            <i class="fas fa-<?= $taken['status'] == 'done' ? 'check-circle' : 'clock' ?>"></i>
+                            <?= $taken['status'] == 'done' ? 'Completed' : 'In Progress' ?>
+                        </div>
+                    </div>
+                    
+                    <div class="taken-list-actions">
+                        <button class="action-btn-small edit" 
+                                onclick="editTaken(<?= $taken['id'] ?>, '<?= $taken['status'] ?>', '<?= $taken['date'] ?>')" 
+                                title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="action-btn-small delete" 
+                                onclick="deleteTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')" 
+                                title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
-                <span class="column-count"><?= $completed_result->num_rows ?></span>
-            </div>
-            <div class="column-content">
-                <?php if ($completed_result->num_rows > 0): ?>
-                    <?php while($todo = $completed_result->fetch_assoc()): ?>
-                    <div class="task-card completed-card">
-                        <div class="card-header">
-                            <?= getPriorityBadge($todo['priority']) ?>
-                            <span class="app-badge">
-                                <i class="fas fa-cube"></i>
-                                <?= htmlspecialchars($todo['app_name']) ?>
-                            </span>
-                        </div>
-                        <h4 class="card-title"><?= htmlspecialchars($todo['title']) ?></h4>
-                        <p class="card-description"><?= htmlspecialchars($todo['description']) ?></p>
-                        <div class="card-meta">
-                            <span class="meta-item">
-                                <i class="fas fa-check-double"></i>
-                                Selesai: <?= date('d M Y', strtotime($todo['taken_date'])) ?>
-                            </span>
-                        </div>
-                        <div class="completed-badge">
-                            <i class="fas fa-trophy"></i>
-                            Completed
-                        </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <div class="no-data">
+                    <div class="no-data-icon">
+                        <i class="fas fa-hand-paper"></i>
                     </div>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <div class="empty-state">
-                        <i class="fas fa-trophy"></i>
-                        <p>Belum ada task selesai</p>
-                        <small>Selesaikan task untuk melihatnya di sini</small>
-                    </div>
+                    <h3>Tidak ada taken ditemukan</h3>
+                    <p>Belum ada todo yang diambil atau sesuai dengan filter.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Pagination -->
+        <?php if ($total_pages > 1): ?>
+        <div class="pagination-container">
+            <div class="pagination">
+                <?php
+                $query_params = [];
+                if (!empty($search)) $query_params['search'] = $search;
+                if (!empty($filter_status)) $query_params['status'] = $filter_status;
+                if (!empty($filter_user)) $query_params['user'] = $filter_user;
+                $query_params['module'] = 'taken';
+                
+                $query_string = '&' . http_build_query($query_params);
+                ?>
+                
+                <?php if ($page > 1): ?>
+                <a href="?page=1<?= $query_string ?>" class="pagination-btn">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+                <a href="?page=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+                <?php endif; ?>
+
+                <?php
+                $start = max(1, $page - 2);
+                $end = min($total_pages, $page + 2);
+                
+                if ($start > 1) echo '<span class="pagination-dots">...</span>';
+                
+                for ($i = $start; $i <= $end; $i++):
+                ?>
+                <a href="?page=<?= $i ?><?= $query_string ?>" 
+                   class="pagination-btn <?= $i == $page ? 'active' : '' ?>">
+                    <?= $i ?>
+                </a>
+                <?php endfor; ?>
+                
+                <?php if ($end < $total_pages) echo '<span class="pagination-dots">...</span>'; ?>
+
+                <?php if ($page < $total_pages): ?>
+                <a href="?page=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+                <a href="?page=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
                 <?php endif; ?>
             </div>
+            
+            <div class="pagination-info">
+                Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_records) ?> dari <?= $total_records ?> data
+            </div>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- Add Taken Modal -->
+<div id="takenModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Ambil Todo</h3>
+            <button class="modal-close" onclick="closeTakenModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="takenForm" method="POST">
+                <input type="hidden" id="takenId" name="taken_id">
+                <div class="form-group" id="todoSelectGroup">
+                    <label for="takenTodo">Pilih Todo *</label>
+                    <select id="takenTodo" name="id_todos" required>
+                        <option value="">Pilih Todo yang Tersedia</option>
+                        <?php 
+                        $available_todos_result->data_seek(0);
+                        while($todo = $available_todos_result->fetch_assoc()): 
+                        ?>
+                        <option value="<?= $todo['id'] ?>">
+                            [<?= ucfirst($todo['priority']) ?>] <?= htmlspecialchars($todo['title']) ?> - <?= htmlspecialchars($todo['app_name']) ?>
+                        </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="takenStatus">Status *</label>
+                    <select id="takenStatus" name="status" required>
+                        <option value="in_progress">In Progress</option>
+                        <option value="done">Done</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="takenDate">Tanggal *</label>
+                    <input type="date" id="takenDate" name="date" required 
+                           value="<?= date('Y-m-d') ?>">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeTakenModal()">
+                Batal
+            </button>
+            <button type="submit" id="submitBtn" form="takenForm" name="add_taken" class="btn btn-primary">
+                <i class="fas fa-save mr-2"></i>Simpan
+            </button>
         </div>
     </div>
 </div>
 
-<!-- Release Modal -->
-<div id="releaseModal" class="modal-overlay">
-    <div class="modal-box">
-        <div class="modal-icon warning">
-            <i class="fas fa-exclamation-triangle"></i>
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content delete-modal">
+        <div class="modal-header">
+            <div class="delete-icon">
+                <i class="fas fa-trash-alt"></i>
+            </div>
+            <h3>Konfirmasi Hapus</h3>
+            <p id="deleteMessage">Apakah Anda yakin ingin menghapus taken ini?</p>
         </div>
-        <h3 class="modal-title">Lepas Task?</h3>
-        <p class="modal-text" id="releaseText">Task akan kembali ke Available dan bisa diambil orang lain</p>
-        <form id="releaseForm" method="POST" class="modal-actions">
-            <input type="hidden" id="releaseId" name="taken_id">
-            <button type="button" class="btn-modal-cancel" onclick="closeModal()">Batal</button>
-            <button type="submit" name="release_todo" class="btn-modal-confirm">Ya, Lepas</button>
-        </form>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
+                Batal
+            </button>
+            <form id="deleteForm" method="POST" style="display: inline;">
+                <input type="hidden" id="deleteTakenId" name="taken_id">
+                <button type="submit" name="delete_taken" class="btn btn-danger">
+                    <i class="fas fa-trash mr-2"></i>Hapus
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 
 <style>
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-.kanban-container {
-    padding: 20px;
-    background: linear-gradient(135deg, #3b82f6 0%, #ffffff 100%);
-    min-height: 100vh;
-}
-
-/* Toast Messages */
-.toast {
-    position: fixed;
-    top: 100px;
-    right: 20px;
-    padding: 16px 20px;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+/* Reuse the same styles from todos page */
+.alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    z-index: 1000;
-    animation: slideInRight 0.3s ease;
-    max-width: 400px;
+    gap: 10px;
+    animation: slideDown 0.3s ease;
 }
 
-.toast-success {
-    background: white;
-    color: #10b981;
-    border-left: 4px solid #10b981;
+.alert-success {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
 }
 
-.toast-error {
-    background: white;
-    color: #ef4444;
-    border-left: 4px solid #ef4444;
+.alert-error {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
 }
 
-@keyframes slideInRight {
-    from {
-        transform: translateX(400px);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-/* Header */
-.kanban-header {
+.page-header {
     background: white;
     border-radius: 16px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.page-subtitle {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.mr-2 { margin-right: 8px; }
+.mr-3 { margin-right: 12px; }
+
+.btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.btn-primary {
+    background: linear-gradient(90deg, #0066ff, #33ccff);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(90deg, #0044cc, #00aaff);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,102,255,0.3);
+}
+
+.btn-secondary {
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+    background: #f1f5f9;
+}
+
+.btn-danger {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(90deg, #dc2626, #b91c1c);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239,68,68,0.3);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+}
+
+.bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
+.bg-gradient-orange { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
+.bg-gradient-green { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
+.bg-gradient-purple { background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; }
+
+.stat-icon {
+    font-size: 2.5rem;
+    opacity: 0.8;
+}
+
+.stat-content h3 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.stat-content p {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
+.taken-container {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.section-header {
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid #f3f4f6;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 16px;
 }
 
-.kanban-title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #1f2937;
+.section-title-container {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 4px;
 }
 
-.kanban-subtitle {
+.section-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.section-count {
     color: #6b7280;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+    background: #f3f4f6;
+    padding: 4px 12px;
+    border-radius: 20px;
 }
 
-.header-stats {
+.filters-container {
     display: flex;
+    align-items: center;
     gap: 12px;
     flex-wrap: wrap;
 }
 
-.stat-chip {
-    padding: 8px 16px;
-    border-radius: 20px;
-    background: #f3f4f6;
-    color: #6b7280;
-    font-size: 0.9rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.search-box {
+    position: relative;
+    min-width: 250px;
 }
 
-.stat-chip.active {
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.filter-dropdown select {
+    padding: 10px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+    min-width: 150px;
+    transition: all 0.3s ease;
+}
+
+.filter-dropdown select:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.btn-clear-filter {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #dc2626;
+    background: #fee2e2;
+    color: #dc2626;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-clear-filter:hover {
+    background: #fecaca;
+    transform: scale(1.1);
+}
+
+.taken-list {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.taken-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.taken-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.taken-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.taken-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.taken-list-item {
+    display: flex;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.taken-list-item:hover {
+    background: #f8fafc;
+}
+
+.taken-list-item:last-child {
+    border-bottom: none;
+}
+
+.add-new-item {
+    border: 2px dashed #d1d5db !important;
+    background: #f9fafb !important;
+    margin: 16px 24px;
+    border-radius: 12px;
+    justify-content: center;
+}
+
+.add-new-item:hover {
+    border-color: #0066ff !important;
+    background: #eff6ff !important;
+}
+
+.add-new-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #6b7280;
+}
+
+.add-new-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #0066ff, #33ccff);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.add-new-text h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    color: #374151;
+}
+
+.add-new-text p {
+    font-size: 0.85rem;
+    margin: 0;
+    color: #9ca3af;
+}
+
+.taken-priority-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 16px;
+    flex-shrink: 0;
+}
+
+.taken-priority-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: white;
+    margin-bottom: 8px;
+}
+
+.taken-priority-badge.priority-high {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.taken-priority-badge.priority-medium {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.taken-priority-badge.priority-low {
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.taken-number {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.taken-list-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.taken-list-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.taken-title-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.taken-list-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+    flex: 1;
+}
+
+.taken-priority-text {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+}
+
+.taken-priority-text.priority-high {
+    background: #ef4444;
+}
+
+.taken-priority-text.priority-medium {
+    background: #f59e0b;
+}
+
+.taken-priority-text.priority-low {
+    background: #10b981;
+}
+
+.taken-description {
+    color: #6b7280;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+.taken-details {
+    display: flex;
+    gap: 20px;
+    font-size: 0.85rem;
+    color: #6b7280;
+    flex-wrap: wrap;
+}
+
+.taken-app,
+.taken-user,
+.taken-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.taken-app i,
+.taken-user i,
+.taken-date i {
+    width: 16px;
+    font-size: 0.8rem;
+}
+
+.taken-status-container {
+    margin: 0 20px;
+    flex-shrink: 0;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: white;
+}
+
+.status-badge.status-done {
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.status-badge.status-in_progress {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.taken-list-actions {
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    flex-shrink: 0;
+}
+
+.taken-list-item:hover .taken-list-actions {
+    opacity: 1;
+}
+
+.action-btn-small {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: none;
+    background: #f8fafc;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+}
+
+.action-btn-small:hover {
+    transform: scale(1.1);
+}
+
+.action-btn-small.edit:hover {
     background: #dbeafe;
     color: #2563eb;
 }
 
-.stat-chip.done {
-    background: #d1fae5;
-    color: #059669;
-}
-
-/* Kanban Board */
-.kanban-board {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 20px;
-}
-
-.kanban-column {
-    background: rgba(255,255,255,0.1);
-    border-radius: 16px;
-    padding: 16px;
-    backdrop-filter: blur(10px);
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - 240px);
-}
-
-.column-header {
-    padding: 16px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.column-header.available {
-    background: linear-gradient(135deg, #64748b, #475569);
-}
-
-.column-header.progress {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-}
-
-.column-header.done {
-    background: linear-gradient(135deg, #10b981, #059669);
-}
-
-.column-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: white;
-}
-
-.column-title h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
-}
-
-.column-count {
-    background: rgba(255,255,255,0.3);
-    color: white;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-.column-content {
-    flex: 1;
-    overflow-y: auto;
-    padding-right: 4px;
-}
-
-.column-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.column-content::-webkit-scrollbar-track {
-    background: rgba(255,255,255,0.1);
-    border-radius: 3px;
-}
-
-.column-content::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.3);
-    border-radius: 3px;
-}
-
-/* Task Cards */
-.task-card {
-    background: white;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.task-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-}
-
-.task-card.my-card {
-    border-left: 4px solid #3b82f6;
-}
-
-.task-card.completed-card {
-    opacity: 0.8;
-    border-left: 4px solid #10b981;
-}
-
-.card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.priority-badge {
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.priority-badge.high {
+.action-btn-small.delete:hover {
     background: #fee2e2;
     color: #dc2626;
 }
 
-.priority-badge.medium {
-    background: #fef3c7;
-    color: #d97706;
+.no-data {
+    text-align: center;
+    padding: 60px 24px;
+    color: #6b7280;
 }
 
-.priority-badge.low {
-    background: #d1fae5;
-    color: #059669;
-}
-
-.app-badge {
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.75rem;
+.no-data-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
     background: #f3f4f6;
-    color: #6b7280;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.card-title {
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin-bottom: 8px;
-    line-height: 1.4;
-}
-
-.card-description {
-    font-size: 0.9rem;
-    color: #6b7280;
-    line-height: 1.5;
-    margin-bottom: 12px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.card-meta {
+    margin: 0 auto 20px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.meta-item {
-    font-size: 0.8rem;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
     color: #9ca3af;
-    display: flex;
-    align-items: center;
-    gap: 6px;
 }
 
-.card-action {
-    margin-top: 12px;
-}
-
-.btn-take-card {
-    width: 100%;
-    padding: 10px;
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    color: white;
-    border: none;
-    border-radius: 8px;
+.no-data h3 {
+    font-size: 1.2rem;
     font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+    color: #374151;
+    margin-bottom: 8px;
 }
 
-.btn-take-card:hover {
-    transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(59,130,246,0.4);
-}
-
-.card-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-}
-
-.btn-complete-card {
-    flex: 1;
-    padding: 10px;
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
+.no-data p {
     font-size: 0.9rem;
+    margin: 0;
 }
 
-.btn-complete-card:hover {
-    transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(16,185,129,0.4);
+.pagination-container {
+    padding: 24px;
+    border-top: 1px solid #f1f5f9;
+    background: #f8fafc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
 }
 
-.btn-release-card {
-    flex: 1;
-    padding: 10px;
-    background: #f3f4f6;
-    color: #6b7280;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
+.pagination {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
-    font-size: 0.9rem;
-}
-
-.btn-release-card:hover {
-    background: #fee2e2;
-    color: #dc2626;
-}
-
-.completed-badge {
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: white;
-    padding: 8px;
-    border-radius: 8px;
-    text-align: center;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     gap: 8px;
-    margin-top: 12px;
 }
 
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: rgba(255,255,255,0.7);
-}
-
-.empty-state i {
-    font-size: 3rem;
-    margin-bottom: 12px;
-    opacity: 0.5;
-}
-
-.empty-state p {
-    font-size: 1rem;
+.pagination-btn {
+    min-width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-weight: 500;
-    margin-bottom: 4px;
+    transition: all 0.3s ease;
 }
 
-.empty-state small {
-    font-size: 0.85rem;
-    opacity: 0.7;
+.pagination-btn:hover {
+    background: #f8fafc;
+    border-color: #0066ff;
+    color: #0066ff;
+    transform: translateY(-2px);
 }
 
-/* Modal */
-.modal-overlay {
+.pagination-btn.active {
+    background: linear-gradient(135deg, #0066ff, #33ccff);
+    color: white;
+    border-color: #0066ff;
+}
+
+.pagination-dots {
+    color: #9ca3af;
+    padding: 0 8px;
+    font-weight: 500;
+}
+
+.pagination-info {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.modal {
     display: none;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.6);
-    z-index: 2000;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
     padding: 20px;
+    overflow-y: auto;
+}
+
+.modal.show {
+    display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.modal-overlay.show {
-    display: flex;
-}
-
-.modal-box {
+.modal-content {
     background: white;
     border-radius: 16px;
-    padding: 32px;
-    max-width: 400px;
     width: 100%;
+    max-width: 500px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    animation: slideUp 0.3s ease;
+}
+
+.delete-modal {
+    max-width: 400px;
     text-align: center;
-    animation: scaleIn 0.3s ease;
 }
 
-@keyframes scaleIn {
-    from {
-        transform: scale(0.9);
-        opacity: 0;
-    }
-    to {
-        transform: scale(1);
-        opacity: 1;
-    }
-}
-
-.modal-icon {
+.delete-icon {
     width: 60px;
     height: 60px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
     border-radius: 50%;
     margin: 0 auto 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.8rem;
+    color: white;
+    font-size: 1.5rem;
 }
 
-.modal-icon.warning {
-    background: #fef3c7;
-    color: #d97706;
-}
-
-.modal-title {
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin-bottom: 12px;
-}
-
-.modal-text {
-    color: #6b7280;
-    margin-bottom: 24px;
-    line-height: 1.5;
-}
-
-.modal-actions {
+.modal-header {
+    padding: 24px 24px 0;
     display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.delete-modal .modal-header {
+    flex-direction: column;
+    text-align: center;
+}
+
+.delete-modal .modal-header p {
+    margin: 8px 0 0 0;
+    color: #6b7280;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.modal-footer {
+    padding: 0 24px 24px;
+    display: flex;
+    justify-content: flex-end;
     gap: 12px;
 }
 
-.btn-modal-cancel {
-    flex: 1;
-    padding: 12px;
-    background: #f3f4f6;
-    color: #6b7280;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.btn-modal-cancel:hover {
-    background: #e5e7eb;
-}
-
-.btn-modal-confirm {
-    flex: 1;
-    padding: 12px;
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.btn-modal-confirm:hover {
-    transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(245,158,11,0.4);
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-    .kanban-board {
-        grid-template-columns: 1fr;
-    }
-    
-    .kanban-column {
-        max-height: 500px;
-    }
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 768px) {
-    .kanban-container {
-        padding: 12px;
-    }
-    
-    .kanban-header {
+    .page-header {
         flex-direction: column;
-        align-items: flex-start;
+        gap: 16px;
+        text-align: center;
     }
     
-    .kanban-title {
-        font-size: 1.5rem;
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
     
-    .header-stats {
-        width: 100%;
-        justify-content: space-between;
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
     }
     
-    .stat-chip {
+    .filters-container {
+        justify-content: stretch;
+    }
+    
+    .search-box {
+        min-width: auto;
         flex: 1;
-        justify-content: center;
     }
     
-    .toast {
-        right: 12px;
-        left: 12px;
-        max-width: none;
+    .filter-dropdown select {
+        min-width: auto;
+        flex: 1;
+    }
+    
+    .taken-list-item {
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 16px;
+    }
+    
+    .taken-priority-container {
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        margin-right: 0;
+        margin-bottom: 8px;
+    }
+    
+    .taken-number {
+        margin-bottom: 0;
+    }
+    
+    .taken-details {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .taken-status-container {
+        margin: 8px 0 0 0;
+        order: 3;
+    }
+    
+    .taken-list-actions {
+        opacity: 1;
+        margin-top: 8px;
+        justify-content: center;
+        order: 4;
+    }
+    
+    .pagination-container {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .pagination {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .taken-list {
+        max-height: none;
     }
 }
 
 @media (max-width: 480px) {
-    .card-actions {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .pagination-btn {
+        min-width: 35px;
+        height: 35px;
+        font-size: 0.85rem;
+    }
+    
+    .add-new-content {
         flex-direction: column;
-    }
-    
-    .btn-complete-card,
-    .btn-release-card {
-        width: 100%;
-    }
-    
-    .header-stats {
-        flex-direction: column;
-    }
-    
-    .stat-chip {
-        width: 100%;
+        text-align: center;
+        gap: 12px;
     }
 }
 </style>
 
 <script>
-function confirmRelease(takenId, title) {
-    const modal = document.getElementById('releaseModal');
-    const text = document.getElementById('releaseText');
-    const input = document.getElementById('releaseId');
+let currentEditId = null;
+
+function openAddTakenModal() {
+    document.getElementById('modalTitle').textContent = 'Ambil Todo';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Simpan';
+    document.getElementById('submitBtn').name = 'add_taken';
+    document.getElementById('takenForm').reset();
+    document.getElementById('takenId').value = '';
+    document.getElementById('todoSelectGroup').style.display = 'block';
+    document.getElementById('takenDate').value = new Date().toISOString().split('T')[0];
+    currentEditId = null;
+    document.getElementById('takenModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function editTaken(id, status, date) {
+    document.getElementById('modalTitle').textContent = 'Edit Status';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Update';
+    document.getElementById('submitBtn').name = 'edit_taken';
+    document.getElementById('takenId').value = id;
+    document.getElementById('takenStatus').value = status;
+    document.getElementById('takenDate').value = date;
+    document.getElementById('todoSelectGroup').style.display = 'none';
+    currentEditId = id;
+    document.getElementById('takenModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function deleteTaken(id, title) {
+    document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus taken "${title}"?`;
+    document.getElementById('deleteTakenId').value = id;
+    document.getElementById('deleteModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeTakenModal() {
+    document.getElementById('takenModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function applyFilters() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const userFilter = document.getElementById('userFilter').value;
+    const searchValue = document.getElementById('searchInput').value;
     
-    if (modal && text && input) {
-        text.innerHTML = `Task "<strong>${title}</strong>" akan kembali ke Available dan bisa diambil orang lain`;
-        input.value = takenId;
-        modal.classList.add('show');
-        document.body.style.overflow = 'hidden';
+    let url = new URL(window.location);
+    url.searchParams.set('module', 'taken');
+    url.searchParams.delete('status');
+    url.searchParams.delete('user');
+    url.searchParams.delete('search');
+    url.searchParams.delete('page');
+    
+    if (statusFilter) url.searchParams.set('status', statusFilter);
+    if (userFilter) url.searchParams.set('user', userFilter);
+    if (searchValue) url.searchParams.set('search', searchValue);
+    
+    window.location.href = url.toString();
+}
+
+function handleSearch(event) {
+    if (event.key === 'Enter') {
+        applyFilters();
     }
 }
 
-function closeModal() {
-    const modal = document.getElementById('releaseModal');
-    if (modal) {
-        modal.classList.remove('show');
-        document.body.style.overflow = '';
-    }
+function clearFilters() {
+    let url = new URL(window.location);
+    url.searchParams.set('module', 'taken');
+    url.searchParams.delete('status');
+    url.searchParams.delete('user');
+    url.searchParams.delete('search');
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
 }
 
-// Close modal when clicking overlay
-window.addEventListener('click', function(e) {
-    const modal = document.getElementById('releaseModal');
-    if (e.target === modal) {
-        closeModal();
+document.addEventListener('click', function(e) {
+    if(e.target.classList.contains('modal')) {
+        closeTakenModal();
+        closeDeleteModal();
     }
 });
 
-// Close modal with ESC key
-window.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeModal();
-    }
-});
-
-// Auto-hide toasts
 document.addEventListener('DOMContentLoaded', function() {
-    const toasts = document.querySelectorAll('.toast');
-    toasts.forEach(function(toast) {
-        setTimeout(function() {
-            toast.style.animation = 'slideOutRight 0.3s ease';
-            setTimeout(function() {
-                if (toast.parentNode) {
-                    toast.parentNode.removeChild(toast);
-                }
-            }, 300);
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-20px)';
+            setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
 });
-
-// Prevent form resubmission
-if (window.history.replaceState) {
-    window.history.replaceState(null, null, window.location.href);
-}
-
-// Add slide out animation
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideOutRight {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-    }
-`;
-document.head.appendChild(style);
 </script>
