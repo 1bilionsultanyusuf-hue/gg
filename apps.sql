@@ -28,6 +28,8 @@ CREATE TABLE `taken` (
   `date` date,
   `status` ENUM ('in_progress', 'done') DEFAULT 'in_progress',
   `user_id` INT
+  `taken_by` INT
+
 );
 
 CREATE TABLE `reports` (
