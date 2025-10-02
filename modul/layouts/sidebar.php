@@ -12,7 +12,7 @@ $menu_items = [
     'apps' => [
         'icon' => 'fas fa-th-large',
         'text' => 'Apps',
-        'roles' => ['admin', 'programmer', 'support'],
+        'roles' => ['admin', 'programmer', 'support', 'client'],
         'tooltip' => 'Kelola Aplikasi'
     ],
     'users' => [

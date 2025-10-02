@@ -24,12 +24,12 @@ CREATE TABLE `todos` (
 
 CREATE TABLE `taken` (
   `id` INT PRIMARY KEY AUTO_INCREMENT,
-  `id_todos` int,
-  `date` date,
-  `status` ENUM ('in_progress', 'done') DEFAULT 'in_progress',
-  `user_id` INT
-  `taken_by` INT
-
+  `id_todos` INT,
+  `date` DATE,
+  `status` ENUM('in_progress', 'done') DEFAULT 'in_progress',
+  `user_id` INT,
+  `taken_by` INT,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE `reports` (
@@ -53,3 +53,13 @@ ALTER TABLE `taken` ADD FOREIGN KEY (`id_todos`) REFERENCES `todos` (`id`);
 ALTER TABLE `todos` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
 
 ALTER TABLE `taken` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+
+
+/*update foreign key*/
+ALTER TABLE taken DROP FOREIGN KEY taken_ibfk_1;
+
+ALTER TABLE taken
+ADD CONSTRAINT taken_ibfk_1
+FOREIGN KEY (id_todos) REFERENCES todos(id)
+ON DELETE CASCADE;
+
