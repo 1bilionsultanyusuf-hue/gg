@@ -16,7 +16,6 @@ if (isset($_POST['add_todo_to_app'])) {
         $stmt->bind_param("isssi", $app_id, $title, $description, $priority, $user_id);
         
         if ($stmt->execute()) {
-            // Get app name for message
             $app_stmt = $koneksi->prepare("SELECT name FROM apps WHERE id = ?");
             $app_stmt->bind_param("i", $app_id);
             $app_stmt->execute();
@@ -98,21 +97,10 @@ $apps_query = "
 ";
 $apps_result = $koneksi->query($apps_query);
 
-// Get app for editing if requested
-$edit_app = null;
-if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
-    $edit_id = $_GET['edit'];
-    $edit_query = $koneksi->prepare("SELECT * FROM apps WHERE id = ?");
-    $edit_query->bind_param("i", $edit_id);
-    $edit_query->execute();
-    $edit_app = $edit_query->get_result()->fetch_assoc();
-}
-
 // Get statistics
 $total_apps = $koneksi->query("SELECT COUNT(*) as count FROM apps")->fetch_assoc()['count'];
 $total_todos = $koneksi->query("SELECT COUNT(*) as count FROM todos")->fetch_assoc()['count'];
 $high_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'high'")->fetch_assoc()['count'];
-$avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
 
 function getAppIcon($appName) {
     $icons = [
@@ -133,149 +121,146 @@ function getAppIcon($appName) {
 }
 ?>
 
-<div class="apps-page-wrapper">
-    <!-- Success/Error Messages -->
-    <?php if ($message): ?>
-    <div class="alert alert-success">
-        <i class="fas fa-check-circle"></i>
-        <?= $message ?>
+<!-- Success/Error Messages -->
+<?php if ($message): ?>
+<div class="alert alert-success">
+    <i class="fas fa-check-circle"></i>
+    <?= $message ?>
+</div>
+<?php endif; ?>
+
+<?php if ($error): ?>
+<div class="alert alert-error">
+    <i class="fas fa-exclamation-triangle"></i>
+    <?= $error ?>
+</div>
+<?php endif; ?>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="header-content">
+        <h1 class="page-title">Manajemen Aplikasi</h1>
+        <p class="page-subtitle">
+            Kelola dan monitor semua aplikasi dalam sistem
+        </p>
     </div>
-    <?php endif; ?>
+</div>
+
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card bg-gradient-blue">
+        <div class="stat-icon">
+            <i class="fas fa-cubes"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $total_apps ?></h3>
+            <p class="stat-label">Total Aplikasi</p>
+        </div>
+    </div>
+
+    <div class="stat-card bg-gradient-green">
+        <div class="stat-icon">
+            <i class="fas fa-tasks"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $total_todos ?></h3>
+            <p class="stat-label">Total Tugas</p>
+        </div>
+    </div>
+
+    <div class="stat-card bg-gradient-orange">
+        <div class="stat-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $high_priority ?></h3>
+            <p class="stat-label">High Priority</p>
+        </div>
+    </div>
+</div>
+
+<!-- Applications List -->
+<div class="apps-container">
+    <div class="section-header">
+        <h2 class="section-title">Daftar Aplikasi</h2>
+        <span class="section-count"><?= $total_apps ?> aplikasi</span>
+    </div>
     
-    <?php if ($error): ?>
-    <div class="alert alert-error">
-        <i class="fas fa-exclamation-triangle"></i>
-        <?= $error ?>
-    </div>
-    <?php endif; ?>
-
-    <!-- Page Header -->
-    <div class="page-header">
-        <div class="header-content">
-            <h1 class="page-title">Manajemen Aplikasi</h1>
-            <p class="page-subtitle">
-                Kelola dan monitor semua aplikasi dalam sistem
-            </p>
-        </div>
-    </div>
-
-    <!-- Statistics Cards -->
-    <div class="stats-grid">
-        <div class="stat-card bg-gradient-blue">
-            <div class="stat-icon">
-                <i class="fas fa-cubes"></i>
+    <!-- Add New App Button -->
+    <div class="app-list-item add-new-item" onclick="openAddAppModal()">
+        <div class="add-new-content">
+            <div class="add-new-icon">
+                <i class="fas fa-plus"></i>
             </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $total_apps ?></h3>
-                <p class="stat-label">Total Aplikasi</p>
-            </div>
-        </div>
-
-        <div class="stat-card bg-gradient-green">
-            <div class="stat-icon">
-                <i class="fas fa-tasks"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $total_todos ?></h3>
-                <p class="stat-label">Total Tugas</p>
-            </div>
-        </div>
-
-        <div class="stat-card bg-gradient-orange">
-            <div class="stat-icon">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $high_priority ?></h3>
-                <p class="stat-label">High Priority</p>
+            <div class="add-new-text">
+                <h3>Tambah Aplikasi Baru</h3>
+                <p>Klik untuk menambahkan aplikasi</p>
             </div>
         </div>
     </div>
     
-    <!-- Applications List -->
-    <div class="apps-container">
-        <div class="section-header">
-            <h2 class="section-title">Daftar Aplikasi</h2>
-            <span class="section-count"><?= $total_apps ?> aplikasi</span>
-        </div>
-        
-        <!-- Add New App Button -->
-        <div class="app-list-item add-new-item" onclick="openAddAppModal()">
-            <div class="add-new-content">
-                <div class="add-new-icon">
+    <div class="apps-list">
+        <?php while($app = $apps_result->fetch_assoc()): ?>
+        <div class="app-list-item" data-app-id="<?= $app['id'] ?>">
+            <div class="app-list-icon">
+                <i class="fas fa-<?= getAppIcon($app['name']) ?>"></i>
+            </div>
+            
+            <div class="app-list-content">
+                <div class="app-list-main">
+                    <h3 class="app-list-title"><?= htmlspecialchars($app['name']) ?></h3>
+                    <p class="app-list-description">
+                        <?= htmlspecialchars(substr($app['description'], 0, 80)) ?>
+                        <?= strlen($app['description']) > 80 ? '...' : '' ?>
+                    </p>
+                </div>
+                
+                <div class="app-list-stats">
+                    <div class="stat-badge total">
+                        <span class="stat-number"><?= $app['total_todos'] ?></span>
+                        <span class="stat-label">Total</span>
+                    </div>
+                    <div class="stat-badge active">
+                        <span class="stat-number"><?= $app['active_todos'] ?></span>
+                        <span class="stat-label">Aktif</span>
+                    </div>
+                    <div class="stat-badge completed">
+                        <span class="stat-number"><?= $app['completed_todos'] ?></span>
+                        <span class="stat-label">Selesai</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="app-list-progress">
+                <div class="progress-info">
+                    <span class="progress-percentage">
+                        <?= $app['total_todos'] > 0 ? round(($app['completed_todos'] / $app['total_todos']) * 100) : 0 ?>%
+                    </span>
+                </div>
+                <div class="progress-bar-small">
+                    <div class="progress-fill-small" 
+                         style="width: <?= $app['total_todos'] > 0 ? ($app['completed_todos'] / $app['total_todos']) * 100 : 0 ?>%">
+                    </div>
+                </div>
+            </div>
+
+            <div class="app-actions">
+                <button class="btn btn-todo-small" onclick="openAddTodoForAppModal(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Tambah Todo">
                     <i class="fas fa-plus"></i>
-                </div>
-                <div class="add-new-text">
-                    <h3>Tambah Aplikasi Baru</h3>
-                    <p>Klik untuk menambahkan aplikasi</p>
-                </div>
+                    <span>Todo</span>
+                </button>
+            </div>
+            
+            <div class="app-list-actions">
+                <button class="action-btn-small edit" onclick="editApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($app['description'], ENT_QUOTES) ?>')" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="action-btn-small delete" onclick="deleteApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
             </div>
         </div>
-        
-        <div class="apps-list">
-            <?php while($app = $apps_result->fetch_assoc()): ?>
-            <div class="app-list-item" data-app-id="<?= $app['id'] ?>">
-                <div class="app-list-icon">
-                    <i class="fas fa-<?= getAppIcon($app['name']) ?>"></i>
-                </div>
-                
-                <div class="app-list-content">
-                    <div class="app-list-main">
-                        <h3 class="app-list-title"><?= htmlspecialchars($app['name']) ?></h3>
-                        <p class="app-list-description">
-                            <?= htmlspecialchars(substr($app['description'], 0, 80)) ?>
-                            <?= strlen($app['description']) > 80 ? '...' : '' ?>
-                        </p>
-                    </div>
-                    
-                    <div class="app-list-stats">
-                        <div class="stat-badge total">
-                            <span class="stat-number"><?= $app['total_todos'] ?></span>
-                            <span class="stat-label">Total</span>
-                        </div>
-                        <div class="stat-badge active">
-                            <span class="stat-number"><?= $app['active_todos'] ?></span>
-                            <span class="stat-label">Aktif</span>
-                        </div>
-                        <div class="stat-badge completed">
-                            <span class="stat-number"><?= $app['completed_todos'] ?></span>
-                            <span class="stat-label">Selesai</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="app-list-progress">
-                    <div class="progress-info">
-                        <span class="progress-percentage">
-                            <?= $app['total_todos'] > 0 ? round(($app['completed_todos'] / $app['total_todos']) * 100) : 0 ?>%
-                        </span>
-                    </div>
-                    <div class="progress-bar-small">
-                        <div class="progress-fill-small" 
-                             style="width: <?= $app['total_todos'] > 0 ? ($app['completed_todos'] / $app['total_todos']) * 100 : 0 ?>%">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- App-specific actions -->
-                <div class="app-actions">
-                    <button class="btn btn-todo-small" onclick="openAddTodoForAppModal(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Tambah Todo">
-                        <i class="fas fa-plus"></i>
-                        <span>Todo</span>
-                    </button>
-                </div>
-                
-                <div class="app-list-actions">
-                    <button class="action-btn-small edit" onclick="editApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($app['description'], ENT_QUOTES) ?>')" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="action-btn-small delete" onclick="deleteApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            <?php endwhile; ?>
-        </div>
+        <?php endwhile; ?>
     </div>
 </div>
 
@@ -406,27 +391,14 @@ function getAppIcon($appName) {
 </div>
 
 <style>
-/* Full Width Apps Page Layout */
-.apps-page-wrapper {
-    margin-left: 256px;
-    margin-top: 80px;
-    padding: 24px;
-    min-height: calc(100vh - 80px);
-    transition: margin-left 0.3s ease;
-    background: #f8fafc;
-}
-
-.apps-page-wrapper.sidebar-hidden {
-    margin-left: 0;
-}
-
 /* Alert Messages */
 .alert {
     padding: 12px 16px;
     border-radius: 8px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     animation: slideDown 0.3s ease;
 }
@@ -448,16 +420,18 @@ function getAppIcon($appName) {
     to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* Page Header */
 .page-header {
     background: white;
     border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 24px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
 }
 
 .page-title {
@@ -473,6 +447,7 @@ function getAppIcon($appName) {
     margin: 0;
 }
 
+/* Buttons */
 .btn {
     padding: 12px 24px;
     border-radius: 8px;
@@ -500,6 +475,10 @@ function getAppIcon($appName) {
     border: 1px solid #e2e8f0;
 }
 
+.btn-secondary:hover {
+    background: #e2e8f0;
+}
+
 .btn-danger {
     background: linear-gradient(90deg, #ef4444, #dc2626);
     color: white;
@@ -510,7 +489,6 @@ function getAppIcon($appName) {
     transform: translateY(-2px);
 }
 
-/* New Todo Button Styles */
 .btn-todo-small {
     background: linear-gradient(135deg, #10b981, #34d399);
     color: white;
@@ -533,10 +511,6 @@ function getAppIcon($appName) {
     box-shadow: 0 4px 12px rgba(16,185,129,0.3);
 }
 
-.btn-todo-small i {
-    font-size: 0.75rem;
-}
-
 .mr-2 {
     margin-right: 8px;
 }
@@ -545,18 +519,18 @@ function getAppIcon($appName) {
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-    margin-bottom: 32px;
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
 .stat-card {
     background: white;
     border-radius: 16px;
-    padding: 24px;
+    padding: 20px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
     transition: transform 0.3s ease;
 }
 
@@ -564,24 +538,34 @@ function getAppIcon($appName) {
     transform: translateY(-4px);
 }
 
-.bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
-.bg-gradient-green { background: linear-gradient(135deg, #56ab2f, #a8e6cf); color: white; }
-.bg-gradient-orange { background: linear-gradient(135deg, #ff7b7b, #ff9999); color: white; }
-.bg-gradient-purple { background: linear-gradient(135deg, #a18cd1, #fbc2eb); color: white; }
+.bg-gradient-blue { 
+    background: linear-gradient(135deg, #0066ff, #33ccff); 
+    color: white; 
+}
+
+.bg-gradient-green { 
+    background: linear-gradient(135deg, #56ab2f, #a8e6cf); 
+    color: white; 
+}
+
+.bg-gradient-orange { 
+    background: linear-gradient(135deg, #ff7b7b, #ff9999); 
+    color: white; 
+}
 
 .stat-icon {
-    font-size: 2.5rem;
+    font-size: 2rem;
     opacity: 0.8;
 }
 
-.stat-number {
-    font-size: 2.2rem;
+.stat-content .stat-number {
+    font-size: 2rem;
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
-.stat-label {
-    font-size: 0.9rem;
+.stat-content .stat-label {
+    font-size: 0.85rem;
     opacity: 0.9;
 }
 
@@ -594,7 +578,7 @@ function getAppIcon($appName) {
 }
 
 .section-header {
-    padding: 24px 24px 16px;
+    padding: 20px 24px 16px;
     border-bottom: 1px solid #f3f4f6;
     display: flex;
     justify-content: space-between;
@@ -602,7 +586,7 @@ function getAppIcon($appName) {
 }
 
 .section-title {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: 600;
     color: #1f2937;
     margin: 0;
@@ -610,13 +594,12 @@ function getAppIcon($appName) {
 
 .section-count {
     color: #6b7280;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     background: #f3f4f6;
     padding: 4px 12px;
     border-radius: 20px;
 }
 
-/* Apps List */
 .apps-list {
     max-height: 500px;
     overflow-y: auto;
@@ -635,14 +618,11 @@ function getAppIcon($appName) {
     border-radius: 3px;
 }
 
-.apps-list::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-
+/* App List Items */
 .app-list-item {
     display: flex;
     align-items: center;
-    padding: 16px 24px;
+    padding: 14px 24px;
     border-bottom: 1px solid #f3f4f6;
     transition: all 0.3s ease;
     cursor: pointer;
@@ -656,7 +636,6 @@ function getAppIcon($appName) {
     border-bottom: none;
 }
 
-/* Add New Item */
 .add-new-item {
     border: 2px dashed #d1d5db !important;
     background: #f9fafb !important;
@@ -690,19 +669,18 @@ function getAppIcon($appName) {
 }
 
 .add-new-text h3 {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     margin: 0 0 4px 0;
     color: #374151;
 }
 
 .add-new-text p {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     margin: 0;
     color: #9ca3af;
 }
 
-/* App List Item Components */
 .app-list-icon {
     width: 40px;
     height: 40px;
@@ -712,7 +690,7 @@ function getAppIcon($appName) {
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     margin-right: 16px;
     flex-shrink: 0;
 }
@@ -731,17 +709,16 @@ function getAppIcon($appName) {
 }
 
 .app-list-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     color: #1f2937;
     margin: 0 0 4px 0;
 }
 
 .app-list-description {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: #6b7280;
     margin: 0;
-    line-height: 1.4;
 }
 
 .app-list-stats {
@@ -754,11 +731,11 @@ function getAppIcon($appName) {
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-width: 50px;
+    min-width: 45px;
 }
 
 .stat-badge .stat-number {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     color: #1f2937;
 }
@@ -768,26 +745,26 @@ function getAppIcon($appName) {
 .stat-badge.completed .stat-number { color: #10b981; }
 
 .stat-badge .stat-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: #9ca3af;
     text-transform: uppercase;
     font-weight: 500;
-    margin-top: 2px;
 }
 
+/* Progress Bar */
 .app-list-progress {
-    width: 80px;
-    margin-right: 20px;
+    width: 70px;
+    margin-right: 16px;
     flex-shrink: 0;
 }
 
 .progress-info {
     text-align: center;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 .progress-percentage {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: #374151;
 }
@@ -806,9 +783,9 @@ function getAppIcon($appName) {
     transition: width 0.3s ease;
 }
 
-/* App Actions Container */
+/* Action Buttons */
 .app-actions {
-    margin-right: 16px;
+    margin-right: 12px;
     flex-shrink: 0;
     opacity: 0;
     transition: opacity 0.3s ease;
@@ -820,7 +797,7 @@ function getAppIcon($appName) {
 
 .app-list-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     opacity: 0;
     transition: opacity 0.3s ease;
     flex-shrink: 0;
@@ -831,8 +808,8 @@ function getAppIcon($appName) {
 }
 
 .action-btn-small {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border-radius: 6px;
     border: none;
     background: #f8fafc;
@@ -842,7 +819,7 @@ function getAppIcon($appName) {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
 }
 
 .action-btn-small:hover {
@@ -857,78 +834,6 @@ function getAppIcon($appName) {
 .action-btn-small.delete:hover {
     background: #fee2e2;
     color: #dc2626;
-}
-
-/* Selected App Info in Modal */
-.selected-app-info {
-    margin-bottom: 20px;
-    padding: 12px;
-    background: #f0f9ff;
-    border: 1px solid #0ea5e9;
-    border-radius: 8px;
-}
-
-.app-info-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: #0ea5e9;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-/* Priority Selector in Modal */
-.priority-selector {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.priority-option {
-    cursor: pointer;
-}
-
-.priority-option input[type="radio"] {
-    display: none;
-}
-
-.priority-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    border-radius: 20px;
-    border: 2px solid transparent;
-    transition: all 0.3s ease;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: white;
-}
-
-.priority-badge.priority-low {
-    background: linear-gradient(135deg, #10b981, #059669);
-}
-
-.priority-badge.priority-medium {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-}
-
-.priority-badge.priority-high {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-}
-
-.priority-option input[type="radio"]:checked + .priority-badge {
-    border-color: #1f2937;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    transform: translateY(-2px);
-}
-
-.priority-option:hover .priority-badge {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 /* Modal Styles */
@@ -982,18 +887,20 @@ function getAppIcon($appName) {
     padding: 24px 24px 0;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .modal-header h3 {
     font-size: 1.3rem;
     font-weight: 600;
     color: #1f2937;
+    margin: 0;
 }
 
 .delete-modal .modal-header {
     flex-direction: column;
     text-align: center;
+    align-items: center;
 }
 
 .delete-modal .modal-header p {
@@ -1059,36 +966,88 @@ function getAppIcon($appName) {
     gap: 12px;
 }
 
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
+/* Selected App Info */
+.selected-app-info {
+    margin-bottom: 20px;
+    padding: 12px;
+    background: #f0f9ff;
+    border: 1px solid #0ea5e9;
+    border-radius: 8px;
+}
+
+.app-info-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #0ea5e9;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Priority Selector */
+.priority-selector {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.priority-option {
+    cursor: pointer;
+}
+
+.priority-option input[type="radio"] {
+    display: none;
+}
+
+.priority-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: white;
+}
+
+.priority-badge.priority-low {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.priority-badge.priority-medium {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.priority-badge.priority-high {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.priority-option input[type="radio"]:checked + .priority-badge {
+    border-color: #1f2937;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
 }
 
 /* Responsive */
 @media (max-width: 1024px) {
-    .apps-page-wrapper {
-        margin-left: 0;
-    }
-    
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
 
 @media (max-width: 768px) {
-    .apps-page-wrapper {
-        padding: 16px;
-        margin-top: 70px;
-    }
-    
     .page-header {
-        flex-direction: column;
-        gap: 16px;
-        text-align: center;
+        padding: 16px 20px;
     }
     
     .stats-grid {
         grid-template-columns: 1fr;
+        gap: 12px;
     }
     
     .app-list-content {
@@ -1099,7 +1058,6 @@ function getAppIcon($appName) {
     
     .app-list-stats {
         margin-right: 0;
-        gap: 8px;
     }
     
     .app-list-progress {
@@ -1107,59 +1065,35 @@ function getAppIcon($appName) {
         margin-right: 0;
     }
     
-    .add-new-content {
-        flex-direction: column;
-        text-align: center;
+    .app-actions,
+    .app-list-actions {
+        opacity: 1;
+    }
+    
+    .app-list-item {
+        flex-wrap: wrap;
     }
     
     .apps-list {
         max-height: none;
     }
-
-    .app-actions {
-        margin-right: 0;
-        margin-bottom: 8px;
-        order: 3;
-        opacity: 1;
-    }
-
-    .app-list-actions {
-        opacity: 1;
-        order: 4;
-        margin-top: 8px;
-        justify-content: center;
-    }
-
-    .app-list-item {
-        flex-wrap: wrap;
-    }
-    
-    .priority-selector {
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .priority-badge {
-        justify-content: center;
-        padding: 12px 20px;
-    }
 }
 
 @media (max-width: 480px) {
-    .apps-page-wrapper {
-        padding: 12px;
-    }
-    
     .app-list-item {
         padding: 12px 16px;
     }
     
     .section-header {
-        padding: 20px 16px 12px;
+        padding: 16px 20px 12px;
     }
     
     .add-new-item {
         margin: 12px 16px;
+    }
+    
+    .priority-selector {
+        flex-direction: column;
     }
 }
 </style>
@@ -1204,10 +1138,7 @@ function openAddTodoForAppModal(appId, appName) {
     document.getElementById('selectedAppName').textContent = appName;
     document.getElementById('todoAppId').value = appId;
     document.getElementById('todoToAppForm').reset();
-    
-    // Reset priority to low (default)
     document.querySelector('input[name="priority"][value="low"]').checked = true;
-    
     currentTodoAppId = appId;
     currentTodoAppName = appName;
     document.getElementById('todoToAppModal').classList.add('show');
@@ -1231,21 +1162,7 @@ function closeDeleteModal() {
     document.body.style.overflow = '';
 }
 
-// Handle sidebar toggle untuk full width layout
-function updateWrapperClass() {
-    const sidebar = document.querySelector('.sidebar');
-    const wrapper = document.querySelector('.apps-page-wrapper');
-    
-    if (sidebar && wrapper) {
-        if (sidebar.classList.contains('hidden')) {
-            wrapper.classList.add('sidebar-hidden');
-        } else {
-            wrapper.classList.remove('sidebar-hidden');
-        }
-    }
-}
-
-// Close modals when clicking outside
+// Close modal when clicking outside
 document.addEventListener('click', function(e) {
     if(e.target.classList.contains('modal')) {
         closeAppModal();
@@ -1264,19 +1181,9 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
-    
-    // Initial check untuk sidebar state
-    updateWrapperClass();
-    
-    // Listen for sidebar toggle
-    const observer = new MutationObserver(updateWrapperClass);
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar) {
-        observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
-    }
 });
 
-// Handle escape key to close modals
+// Close modal with Escape key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeAppModal();
@@ -1285,29 +1192,33 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Form validation for todo modal
-document.getElementById('todoToAppForm').addEventListener('submit', function(e) {
-    const title = document.getElementById('todoTitle').value.trim();
-    if (!title) {
-        e.preventDefault();
-        alert('Judul todo harus diisi!');
-        document.getElementById('todoTitle').focus();
-        return false;
-    }
-});
+// Form validation for Todo
+if (document.getElementById('todoToAppForm')) {
+    document.getElementById('todoToAppForm').addEventListener('submit', function(e) {
+        const title = document.getElementById('todoTitle').value.trim();
+        if (!title) {
+            e.preventDefault();
+            alert('Judul todo harus diisi!');
+            document.getElementById('todoTitle').focus();
+            return false;
+        }
+    });
+}
 
-// Form validation for app modal
-document.getElementById('appForm').addEventListener('submit', function(e) {
-    const name = document.getElementById('appName').value.trim();
-    if (!name) {
-        e.preventDefault();
-        alert('Nama aplikasi harus diisi!');
-        document.getElementById('appName').focus();
-        return false;
-    }
-});
+// Form validation for App
+if (document.getElementById('appForm')) {
+    document.getElementById('appForm').addEventListener('submit', function(e) {
+        const name = document.getElementById('appName').value.trim();
+        if (!name) {
+            e.preventDefault();
+            alert('Nama aplikasi harus diisi!');
+            document.getElementById('appName').focus();
+            return false;
+        }
+    });
+}
 
-// Auto-focus on modal inputs when opened
+// Auto-focus first input when modal opens
 const observer = new MutationObserver(function(mutations) {
     mutations.forEach(function(mutation) {
         if (mutation.target.classList.contains('modal') && mutation.target.classList.contains('show')) {
@@ -1321,7 +1232,6 @@ const observer = new MutationObserver(function(mutations) {
     });
 });
 
-// Observe modal state changes
 document.querySelectorAll('.modal').forEach(modal => {
     observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
 });
