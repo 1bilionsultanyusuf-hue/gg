@@ -113,9 +113,27 @@ $total_apps = $koneksi->query("SELECT COUNT(*) as count FROM apps")->fetch_assoc
 $total_todos = $koneksi->query("SELECT COUNT(*) as count FROM todos")->fetch_assoc()['count'];
 $high_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'high'")->fetch_assoc()['count'];
 $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
+
+function getAppIcon($appName) {
+    $icons = [
+        'keuangan' => 'money-bill-wave',
+        'inventaris' => 'boxes',
+        'crm' => 'users',
+        'hris' => 'user-tie',
+        'default' => 'cube'
+    ];
+    
+    $name = strtolower($appName);
+    foreach($icons as $key => $icon) {
+        if(strpos($name, $key) !== false) {
+            return $icon;
+        }
+    }
+    return $icons['default'];
+}
 ?>
 
-<div class="main-content" style="margin-top: 80px;">
+<div class="apps-page-wrapper">
     <!-- Success/Error Messages -->
     <?php if ($message): ?>
     <div class="alert alert-success">
@@ -261,26 +279,6 @@ $avg_todos = $total_apps > 0 ? round($total_todos / $total_apps, 1) : 0;
     </div>
 </div>
 
-<?php
-function getAppIcon($appName) {
-    $icons = [
-        'keuangan' => 'money-bill-wave',
-        'inventaris' => 'boxes',
-        'crm' => 'users',
-        'hris' => 'user-tie',
-        'default' => 'cube'
-    ];
-    
-    $name = strtolower($appName);
-    foreach($icons as $key => $icon) {
-        if(strpos($name, $key) !== false) {
-            return $icon;
-        }
-    }
-    return $icons['default'];
-}
-?>
-
 <!-- Add/Edit App Modal -->
 <div id="appModal" class="modal">
     <div class="modal-content">
@@ -408,6 +406,20 @@ function getAppIcon($appName) {
 </div>
 
 <style>
+/* Full Width Apps Page Layout */
+.apps-page-wrapper {
+    margin-left: 256px;
+    margin-top: 80px;
+    padding: 24px;
+    min-height: calc(100vh - 80px);
+    transition: margin-left 0.3s ease;
+    background: #f8fafc;
+}
+
+.apps-page-wrapper.sidebar-hidden {
+    margin-left: 0;
+}
+
 /* Alert Messages */
 .alert {
     padding: 12px 16px;
@@ -532,7 +544,7 @@ function getAppIcon($appName) {
 /* Statistics Grid */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 20px;
     margin-bottom: 32px;
 }
@@ -1053,11 +1065,30 @@ function getAppIcon($appName) {
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+    .apps-page-wrapper {
+        margin-left: 0;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
+    .apps-page-wrapper {
+        padding: 16px;
+        margin-top: 70px;
+    }
+    
     .page-header {
         flex-direction: column;
         gap: 16px;
         text-align: center;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
     }
     
     .app-list-content {
@@ -1074,10 +1105,6 @@ function getAppIcon($appName) {
     .app-list-progress {
         width: 100%;
         margin-right: 0;
-    }
-    
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
     }
     
     .add-new-content {
@@ -1119,6 +1146,10 @@ function getAppIcon($appName) {
 }
 
 @media (max-width: 480px) {
+    .apps-page-wrapper {
+        padding: 12px;
+    }
+    
     .app-list-item {
         padding: 12px 16px;
     }
@@ -1129,10 +1160,6 @@ function getAppIcon($appName) {
     
     .add-new-item {
         margin: 12px 16px;
-    }
-    
-    .stats-grid {
-        grid-template-columns: 1fr;
     }
 }
 </style>
@@ -1204,6 +1231,20 @@ function closeDeleteModal() {
     document.body.style.overflow = '';
 }
 
+// Handle sidebar toggle untuk full width layout
+function updateWrapperClass() {
+    const sidebar = document.querySelector('.sidebar');
+    const wrapper = document.querySelector('.apps-page-wrapper');
+    
+    if (sidebar && wrapper) {
+        if (sidebar.classList.contains('hidden')) {
+            wrapper.classList.add('sidebar-hidden');
+        } else {
+            wrapper.classList.remove('sidebar-hidden');
+        }
+    }
+}
+
 // Close modals when clicking outside
 document.addEventListener('click', function(e) {
     if(e.target.classList.contains('modal')) {
@@ -1223,6 +1264,16 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
+    
+    // Initial check untuk sidebar state
+    updateWrapperClass();
+    
+    // Listen for sidebar toggle
+    const observer = new MutationObserver(updateWrapperClass);
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) {
+        observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+    }
 });
 
 // Handle escape key to close modals

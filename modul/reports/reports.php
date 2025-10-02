@@ -1,6 +1,6 @@
 <?php
 // modul/data/reports.php
-// Enhanced Reports Module with Role-Based Access Control
+// Enhanced Reports Module with Consistent Design
 
 // Get current logged in user info
 $current_user_id = $_SESSION['user_id'];
@@ -62,7 +62,6 @@ $current_permissions = $role_permissions[$current_user_role] ?? [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_report'])) {
     $report_id = (int)$_POST['report_id'];
     
-    // Check permissions
     $report_check = $koneksi->prepare("SELECT user_id FROM reports WHERE id = ?");
     $report_check->bind_param('i', $report_id);
     $report_check->execute();
@@ -96,7 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_report'])) {
     $status = $_POST['status'];
     $responsible_person = $_POST['responsible_person'] ?? '';
     
-    // Check permissions
     $report_check = $koneksi->prepare("SELECT user_id FROM reports WHERE id = ?");
     $report_check->bind_param('i', $report_id);
     $report_check->execute();
@@ -137,11 +135,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_report'])) {
         $responsible_person = $_POST['responsible_person'] ?? '';
         $report_date = $_POST['report_date'] ?? date('Y-m-d');
         
-        // Validate required fields
         if (empty($activity) || empty($status)) {
             $error = 'Semua field wajib harus diisi!';
         } else {
-            // Insert new report
             $insert_report = $koneksi->prepare("
                 INSERT INTO reports (date, user_id, activity, problem, status, responsible_person) 
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -157,32 +153,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_report'])) {
     }
 }
 
-// Handle filters and pagination
+// Filter parameters
 $message = $message ?? '';
 $error = $error ?? '';
-
-// Filter parameters
 $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
 $date_filter = isset($_GET['date']) ? $_GET['date'] : '';
 $user_filter = isset($_GET['user']) ? $_GET['user'] : '';
 $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // Pagination
-$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$records_per_page = 15;
-$offset = ($page - 1) * $records_per_page;
-$offset = max(0, $offset);
+$limit = 10;
+$page = isset($_GET['page_num']) ? max(1, (int)$_GET['page_num']) : 1;
+$offset = ($page - 1) * $limit;
 
-// Build WHERE conditions based on permissions
+// Build WHERE conditions
 $where_conditions = [];
 $params = [];
 $param_types = '';
 
-// Apply view permissions
 if (!$current_permissions['can_view_all']) {
     $where_conditions[] = "r.user_id = ?";
     $params[] = $current_user_id;
     $param_types .= 'i';
+}
+
+if (!empty($search)) {
+    $where_conditions[] = "(r.activity LIKE ? OR r.problem LIKE ? OR r.responsible_person LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $param_types .= 'sss';
 }
 
 if (!empty($role_filter)) {
@@ -211,7 +212,7 @@ if (!empty($status_filter)) {
 
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
-// Get total count for pagination
+// Get total count
 $count_query = "
     SELECT COUNT(*) as total
     FROM reports r
@@ -228,7 +229,7 @@ if (!empty($params)) {
     $total_records = $koneksi->query($count_query)->fetch_assoc()['total'];
 }
 
-$total_pages = ceil($total_records / $records_per_page);
+$total_pages = ceil($total_records / $limit);
 
 // Get report data
 $reports_query = "
@@ -243,22 +244,20 @@ $reports_query = "
     LIMIT ? OFFSET ?
 ";
 
-if (!empty($params)) {
-    $reports_stmt = $koneksi->prepare($reports_query);
-    $params[] = $records_per_page;
-    $params[] = $offset;
-    $param_types .= 'ii';
-    $reports_stmt->bind_param($param_types, ...$params);
-    $reports_stmt->execute();
-    $reports_result = $reports_stmt->get_result();
-} else {
-    $reports_stmt = $koneksi->prepare($reports_query);
-    $reports_stmt->bind_param('ii', $records_per_page, $offset);
-    $reports_stmt->execute();
-    $reports_result = $reports_stmt->get_result();
-}
+$pagination_params = $params;
+$pagination_param_types = $param_types;
+$pagination_params[] = $limit;
+$pagination_params[] = $offset;
+$pagination_param_types .= 'ii';
 
-// Get filter options (only show users current user can see)
+$reports_stmt = $koneksi->prepare($reports_query);
+if (!empty($pagination_params) && $pagination_param_types) {
+    $reports_stmt->bind_param($pagination_param_types, ...$pagination_params);
+}
+$reports_stmt->execute();
+$reports_result = $reports_stmt->get_result();
+
+// Get filter options
 if ($current_permissions['can_view_all']) {
     $users_options = $koneksi->query("SELECT id, name, role FROM users ORDER BY name");
 } else {
@@ -268,126 +267,74 @@ if ($current_permissions['can_view_all']) {
     $users_options = $users_options->get_result();
 }
 
-// Get statistics for dashboard (based on permission)
+// Get statistics
 $today = date('Y-m-d');
-$yesterday = date('Y-m-d', strtotime('-1 day'));
-$this_week = date('Y-m-d', strtotime('-7 days'));
 
 if ($current_permissions['can_view_all']) {
     $stats_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today'")->fetch_assoc()['count'];
-    $stats_completed_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today' AND status = 'done'")->fetch_assoc()['count'];
+    $stats_done = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'done'")->fetch_assoc()['count'];
     $stats_in_progress = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'in_progress'")->fetch_assoc()['count'];
     $stats_pending = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'pending'")->fetch_assoc()['count'];
 } else {
     $stats_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today' AND user_id = $current_user_id")->fetch_assoc()['count'];
-    $stats_completed_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today' AND status = 'done' AND user_id = $current_user_id")->fetch_assoc()['count'];
+    $stats_done = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'done' AND user_id = $current_user_id")->fetch_assoc()['count'];
     $stats_in_progress = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'in_progress' AND user_id = $current_user_id")->fetch_assoc()['count'];
     $stats_pending = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'pending' AND user_id = $current_user_id")->fetch_assoc()['count'];
 }
 
 // Helper functions
 function getRoleColor($role) {
-    $colors = [
-        'admin' => '#dc2626',
-        'client' => '#7c3aed',
-        'programmer' => '#0066ff',
-        'support' => '#10b981'
-    ];
+    $colors = ['admin' => '#dc2626', 'client' => '#7c3aed', 'programmer' => '#0066ff', 'support' => '#10b981'];
     return $colors[$role] ?? '#6b7280';
 }
 
 function getRoleIcon($role) {
-    $icons = [
-        'admin' => 'fas fa-crown',
-        'client' => 'fas fa-briefcase',
-        'programmer' => 'fas fa-code',
-        'support' => 'fas fa-headset'
-    ];
+    $icons = ['admin' => 'fas fa-crown', 'client' => 'fas fa-briefcase', 'programmer' => 'fas fa-code', 'support' => 'fas fa-headset'];
     return $icons[$role] ?? 'fas fa-user';
 }
 
 function getStatusColor($status) {
-    $colors = [
-        'done' => '#10b981',
-        'in_progress' => '#f59e0b',
-        'pending' => '#6b7280'
-    ];
+    $colors = ['done' => '#10b981', 'in_progress' => '#f59e0b', 'pending' => '#6b7280'];
     return $colors[$status] ?? '#6b7280';
 }
 
 function getStatusIcon($status) {
-    $icons = [
-        'done' => 'fas fa-check-circle',
-        'in_progress' => 'fas fa-clock',
-        'pending' => 'fas fa-pause-circle'
-    ];
+    $icons = ['done' => 'fas fa-check-circle', 'in_progress' => 'fas fa-clock', 'pending' => 'fas fa-pause-circle'];
     return $icons[$status] ?? 'fas fa-question-circle';
 }
 
 function getStatusText($status) {
-    $texts = [
-        'done' => 'Selesai',
-        'in_progress' => 'In Progress',
-        'pending' => 'Pending'
-    ];
+    $texts = ['done' => 'Selesai', 'in_progress' => 'In Progress', 'pending' => 'Pending'];
     return $texts[$status] ?? 'Unknown';
-}
-
-function timeAgo($datetime) {
-    $time = time() - strtotime($datetime);
-    
-    if ($time < 60) return 'Baru saja';
-    if ($time < 3600) return floor($time/60) . ' menit yang lalu';
-    if ($time < 86400) return floor($time/3600) . ' jam yang lalu';
-    if ($time < 2592000) return floor($time/86400) . ' hari yang lalu';
-    
-    return date('d M Y', strtotime($datetime));
-}
-
-function buildFilterQuery() {
-    global $role_filter, $date_filter, $user_filter, $status_filter;
-    
-    $params = [];
-    if ($role_filter) $params[] = "role=$role_filter";
-    if ($date_filter) $params[] = "date=$date_filter";
-    if ($user_filter) $params[] = "user=$user_filter";
-    if ($status_filter) $params[] = "status=$status_filter";
-    
-    return !empty($params) ? '&' . implode('&', $params) : '';
 }
 
 function canEditReport($report_user_id) {
     global $current_permissions, $current_user_id;
-    
     if ($current_permissions['can_edit_all']) return true;
     if ($current_permissions['can_edit_own'] && $report_user_id == $current_user_id) return true;
-    
     return false;
 }
 
 function canDeleteReport($report_user_id) {
     global $current_permissions, $current_user_id;
-    
     if ($current_permissions['can_delete_all']) return true;
     if ($current_permissions['can_delete_own'] && $report_user_id == $current_user_id) return true;
-    
     return false;
 }
 ?>
 
 <div class="main-content" style="margin-top: 80px;">
-
     <!-- Success/Error Messages -->
     <?php if ($message): ?>
     <div class="alert alert-success">
-        <i class="fas fa-check-circle mr-2"></i>
+        <i class="fas fa-check-circle"></i>
         <?= htmlspecialchars($message) ?>
     </div>
     <?php endif; ?>
 
     <?php if ($error): ?>
     <div class="alert alert-error">
-        <i class="fas fa-exclamation-circle mr-2"></i>
+        <i class="fas fa-exclamation-triangle"></i>
         <?= htmlspecialchars($error) ?>
     </div>
     <?php endif; ?>
@@ -397,33 +344,15 @@ function canDeleteReport($report_user_id) {
         <div class="header-content">
             <h1 class="page-title">
                 <i class="fas fa-chart-line mr-3"></i>
-                Laporan Aktivitas
+                Manajemen Laporan
             </h1>
             <p class="page-subtitle">
-                <?= $current_permissions['can_view_all'] ? 'Monitor dan analisis aktivitas semua pengguna dalam sistem' : 'Monitor dan kelola laporan aktivitas Anda' ?>
+                Kelola dan monitor semua laporan aktivitas dalam sistem
             </p>
-        </div>
-        <div class="header-actions">
-            <?php if ($current_permissions['can_create']): ?>
-            <button class="btn btn-success" onclick="openAddReportModal()">
-                <i class="fas fa-plus mr-2"></i>
-                Tambah Laporan
-            </button>
-            <?php endif; ?>
-            <?php if ($current_permissions['can_view_all']): ?>
-            <button class="btn btn-secondary" onclick="exportReport()">
-                <i class="fas fa-download mr-2"></i>
-                Export PDF
-            </button>
-            <?php endif; ?>
-            <button class="btn btn-primary" onclick="refreshReport()">
-                <i class="fas fa-sync-alt mr-2"></i>
-                Refresh
-            </button>
         </div>
     </div>
 
-    <!-- Statistics Dashboard -->
+    <!-- Statistics Cards -->
     <div class="stats-grid">
         <div class="stat-card bg-gradient-blue">
             <div class="stat-icon">
@@ -431,31 +360,31 @@ function canDeleteReport($report_user_id) {
             </div>
             <div class="stat-content">
                 <h3 class="stat-number"><?= $stats_today ?></h3>
-                <p class="stat-label"><?= $current_permissions['can_view_all'] ? 'Aktivitas Hari Ini' : 'Aktivitas Saya Hari Ini' ?></p>
+                <p class="stat-label">Laporan Hari Ini</p>
             </div>
         </div>
 
-        <div class="stat-card bg-gradient-green">
+        <div class="stat-card bg-gradient-green <?= $status_filter == 'done' ? 'active' : '' ?>" onclick="filterByStatus('done')">
             <div class="stat-icon">
                 <i class="fas fa-check-circle"></i>
             </div>
             <div class="stat-content">
-                <h3 class="stat-number"><?= $stats_completed_today ?></h3>
-                <p class="stat-label">Selesai Hari Ini</p>
+                <h3 class="stat-number"><?= $stats_done ?></h3>
+                <p class="stat-label">Selesai</p>
             </div>
         </div>
 
-        <div class="stat-card bg-gradient-orange">
+        <div class="stat-card bg-gradient-orange <?= $status_filter == 'in_progress' ? 'active' : '' ?>" onclick="filterByStatus('in_progress')">
             <div class="stat-icon">
                 <i class="fas fa-clock"></i>
             </div>
             <div class="stat-content">
                 <h3 class="stat-number"><?= $stats_in_progress ?></h3>
-                <p class="stat-label">Sedang Dikerjakan</p>
+                <p class="stat-label">In Progress</p>
             </div>
         </div>
 
-        <div class="stat-card bg-gradient-purple">
+        <div class="stat-card bg-gradient-purple <?= $status_filter == 'pending' ? 'active' : '' ?>" onclick="filterByStatus('pending')">
             <div class="stat-icon">
                 <i class="fas fa-pause-circle"></i>
             </div>
@@ -466,108 +395,140 @@ function canDeleteReport($report_user_id) {
         </div>
     </div>
 
-    <!-- Filters Section -->
-    <?php if ($current_permissions['can_view_all']): ?>
-    <div class="filters-section">
-        <div class="filters-header">
-            <h3>Filter Laporan</h3>
-            <?php if($role_filter || $date_filter || $user_filter || $status_filter): ?>
-            <button class="btn-clear-filters" onclick="clearAllFilters()">
-                <i class="fas fa-times mr-2"></i>
-                Hapus Semua Filter
-            </button>
-            <?php endif; ?>
-        </div>
-        
-        <div class="filters-grid">
-            <div class="filter-group">
-                <label>Role</label>
-                <select id="roleFilter" onchange="applyFilters()">
-                    <option value="">Semua Role</option>
-                    <option value="admin" <?= $role_filter == 'admin' ? 'selected' : '' ?>>Administrator</option>
-                    <option value="client" <?= $role_filter == 'client' ? 'selected' : '' ?>>Client</option>
-                    <option value="programmer" <?= $role_filter == 'programmer' ? 'selected' : '' ?>>Programmer</option>
-                    <option value="support" <?= $role_filter == 'support' ? 'selected' : '' ?>>Support</option>
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label>Tanggal</label>
-                <input type="date" id="dateFilter" value="<?= htmlspecialchars($date_filter) ?>" onchange="applyFilters()">
-            </div>
-
-            <div class="filter-group">
-                <label>Pengguna</label>
-                <select id="userFilter" onchange="applyFilters()">
-                    <option value="">Semua Pengguna</option>
-                    <?php 
-                    $users_options->data_seek(0); // Reset pointer
-                    while($user = $users_options->fetch_assoc()): 
-                    ?>
-                    <option value="<?= $user['id'] ?>" <?= $user_filter == $user['id'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($user['name']) ?> (<?= ucfirst($user['role']) ?>)
-                    </option>
-                    <?php endwhile; ?>
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label>Status</label>
-                <select id="statusFilter" onchange="applyFilters()">
-                    <option value="">Semua Status</option>
-                    <option value="pending" <?= $status_filter == 'pending' ? 'selected' : '' ?>>Pending</option>
-                    <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
-                    <option value="done" <?= $status_filter == 'done' ? 'selected' : '' ?>>Done</option>
-                </select>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <!-- Reports Table -->
+    <!-- Reports Container -->
     <div class="reports-container">
-        <div class="reports-header">
-            <h3>Daftar Aktivitas</h3>
-            <span class="records-count">
-                Menampilkan <?= min($records_per_page, $total_records) ?> dari <?= $total_records ?> aktivitas
-            </span>
-        </div>
-
-        <?php if ($reports_result->num_rows > 0): ?>
-        <div class="reports-list">
-            <?php while($report = $reports_result->fetch_assoc()): ?>
-            <div class="report-item">
-                <div class="report-user">
-                    <div class="user-avatar" style="background: <?= getRoleColor($report['user_role']) ?>">
-                        <i class="<?= getRoleIcon($report['user_role']) ?>"></i>
-                    </div>
-                    <div class="user-info">
-                        <h4 class="user-name"><?= htmlspecialchars($report['user_name']) ?></h4>
-                        <span class="user-role" style="color: <?= getRoleColor($report['user_role']) ?>">
-                            <?= ucfirst($report['user_role']) ?>
-                        </span>
-                    </div>
+        <div class="section-header">
+            <div class="section-title-container">
+                <h2 class="section-title">Daftar Laporan</h2>
+                <span class="section-count"><?= $total_records ?> laporan</span>
+            </div>
+            
+            <!-- Filters -->
+            <div class="filters-container">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Cari aktivitas, problem, atau PJ..." 
+                           value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
+                </div>
+                
+                <?php if ($current_permissions['can_view_all']): ?>
+                <div class="filter-dropdown">
+                    <select id="roleFilter" onchange="applyFilters()">
+                        <option value="">Semua Role</option>
+                        <option value="admin" <?= $role_filter == 'admin' ? 'selected' : '' ?>>Administrator</option>
+                        <option value="client" <?= $role_filter == 'client' ? 'selected' : '' ?>>Client</option>
+                        <option value="programmer" <?= $role_filter == 'programmer' ? 'selected' : '' ?>>Programmer</option>
+                        <option value="support" <?= $role_filter == 'support' ? 'selected' : '' ?>>Support</option>
+                    </select>
                 </div>
 
-                <div class="report-content">
-                    <div class="activity-description">
-                        <p><strong>Aktivitas:</strong> <?= htmlspecialchars($report['activity']) ?></p>
+                <div class="filter-dropdown">
+                    <select id="userFilter" onchange="applyFilters()">
+                        <option value="">Semua Pengguna</option>
+                        <?php 
+                        $users_options->data_seek(0);
+                        while($user = $users_options->fetch_assoc()): 
+                        ?>
+                        <option value="<?= $user['id'] ?>" <?= $user_filter == $user['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($user['name']) ?>
+                        </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                <?php endif; ?>
+
+                <div class="filter-dropdown">
+                    <input type="date" id="dateFilter" value="<?= htmlspecialchars($date_filter) ?>" onchange="applyFilters()">
+                </div>
+
+                <div class="filter-dropdown">
+                    <select id="statusFilter" onchange="applyFilters()">
+                        <option value="">Semua Status</option>
+                        <option value="pending" <?= $status_filter == 'pending' ? 'selected' : '' ?>>Pending</option>
+                        <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
+                        <option value="done" <?= $status_filter == 'done' ? 'selected' : '' ?>>Done</option>
+                    </select>
+                </div>
+                
+                <?php if ($role_filter || $date_filter || $user_filter || $status_filter || $search): ?>
+                <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
+                    <i class="fas fa-times"></i>
+                </button>
+                <?php endif; ?>
+            </div>
+        </div>
+        
+        <!-- Add New Report Button -->
+        <?php if ($current_permissions['can_create']): ?>
+        <div class="report-list-item add-new-item" onclick="openAddReportModal()">
+            <div class="add-new-content">
+                <div class="add-new-icon">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <div class="add-new-text">
+                    <h3>Tambah Laporan Baru</h3>
+                    <p>Klik untuk menambahkan laporan aktivitas baru</p>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+        
+        <!-- Reports List -->
+        <div class="reports-list">
+            <?php if ($reports_result->num_rows > 0): ?>
+                <?php $no = $offset + 1; while($report = $reports_result->fetch_assoc()): ?>
+                <div class="report-list-item">
+                    <div class="report-status-indicator status-<?= $report['status'] ?>"></div>
+                    
+                    <div class="report-user-section">
+                        <div class="user-avatar" style="background: <?= getRoleColor($report['user_role']) ?>">
+                            <i class="<?= getRoleIcon($report['user_role']) ?>"></i>
+                        </div>
+                        <div class="report-number"><?= $no++ ?></div>
+                    </div>
+                    
+                    <div class="report-list-content">
+                        <div class="report-header-row">
+                            <div class="report-user-info">
+                                <h4 class="user-name"><?= htmlspecialchars($report['user_name']) ?></h4>
+                                <span class="user-role" style="color: <?= getRoleColor($report['user_role']) ?>">
+                                    <?= ucfirst($report['user_role']) ?>
+                                </span>
+                            </div>
+                            <div class="report-status-badge">
+                                <span class="status-badge status-<?= $report['status'] ?>">
+                                    <i class="<?= getStatusIcon($report['status']) ?>"></i>
+                                    <?= getStatusText($report['status']) ?>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="report-activity">
+                            <p><strong>Aktivitas:</strong> <?= htmlspecialchars($report['activity']) ?></p>
+                        </div>
+                        
                         <?php if (!empty($report['problem'])): ?>
-                        <div class="activity-notes">
+                        <div class="report-problem">
                             <i class="fas fa-exclamation-triangle"></i>
                             <span><strong>Problem:</strong> <?= htmlspecialchars($report['problem']) ?></span>
                         </div>
                         <?php endif; ?>
+                        
                         <?php if (!empty($report['responsible_person'])): ?>
-                        <div class="responsible-info">
+                        <div class="report-responsible">
                             <i class="fas fa-user-shield"></i>
-                            <span><strong>Penanggung Jawab:</strong> <?= htmlspecialchars($report['responsible_person']) ?></span>
+                            <span><strong>PJ:</strong> <?= htmlspecialchars($report['responsible_person']) ?></span>
                         </div>
                         <?php endif; ?>
-                        <div class="activity-meta">
-                            <span class="status-badge" style="background: <?= getStatusColor($report['status']) ?>">
-                                <i class="<?= getStatusIcon($report['status']) ?>"></i>
-                                <?= getStatusText($report['status']) ?>
+                        
+                        <div class="report-details">
+                            <span class="detail-item">
+                                <i class="fas fa-calendar"></i>
+                                <?= date('d M Y', strtotime($report['date'])) ?>
+                            </span>
+                            <span class="detail-item">
+                                <i class="fas fa-clock"></i>
+                                <?= date('H:i', strtotime($report['created_at'])) ?>
                             </span>
                             <?php if ($report['user_id'] == $current_user_id): ?>
                             <span class="owner-badge">
@@ -578,55 +539,54 @@ function canDeleteReport($report_user_id) {
                         </div>
                     </div>
                     
-                    <div class="activity-details">
-                        <div class="detail-item">
-                            <i class="fas fa-calendar"></i>
-                            <span><?= date('d M Y', strtotime($report['date'])) ?></span>
-                        </div>
-                        <div class="detail-item">
-                            <i class="fas fa-clock"></i>
-                            <span><?= timeAgo($report['created_at']) ?></span>
-                        </div>
-                        <?php if (!empty($report['user_email']) && $current_permissions['can_view_all']): ?>
-                        <div class="detail-item">
-                            <i class="fas fa-envelope"></i>
-                            <span><?= htmlspecialchars($report['user_email']) ?></span>
-                        </div>
+                    <div class="report-list-actions">
+                        <?php if (canEditReport($report['user_id'])): ?>
+                        <button class="action-btn-small edit" 
+                                onclick="editReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>', '<?= htmlspecialchars(addslashes($report['problem'])) ?>', '<?= $report['status'] ?>', '<?= htmlspecialchars(addslashes($report['responsible_person'] ?? '')) ?>')" 
+                                title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <?php endif; ?>
+                        <?php if (canDeleteReport($report['user_id'])): ?>
+                        <button class="action-btn-small delete" 
+                                onclick="deleteReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>')" 
+                                title="Hapus">
+                            <i class="fas fa-trash"></i>
+                        </button>
                         <?php endif; ?>
                     </div>
                 </div>
-
-                <div class="report-actions">
-                    <button class="btn-action" onclick="viewDetails(<?= $report['id'] ?>)" title="Detail">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <?php if (canEditReport($report['user_id'])): ?>
-                    <button class="btn-action btn-edit" onclick="editReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>', '<?= htmlspecialchars(addslashes($report['problem'])) ?>', '<?= $report['status'] ?>', '<?= htmlspecialchars(addslashes($report['responsible_person'] ?? '')) ?>')" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <?php endif; ?>
-                    <?php if (canDeleteReport($report['user_id'])): ?>
-                    <button class="btn-action btn-delete" onclick="deleteReport(<?= $report['id'] ?>)" title="Hapus">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    <?php endif; ?>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <div class="no-data">
+                    <div class="no-data-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3>Tidak ada laporan ditemukan</h3>
+                    <p>Tidak ada laporan yang sesuai dengan filter yang diterapkan.</p>
                 </div>
-            </div>
-            <?php endwhile; ?>
+            <?php endif; ?>
         </div>
 
         <!-- Pagination -->
         <?php if ($total_pages > 1): ?>
         <div class="pagination-container">
-            <div class="pagination-info">
-                <span>Halaman <?= $page ?> dari <?= $total_pages ?></span>
-            </div>
             <div class="pagination">
+                <?php
+                $query_params = ['page' => 'reports'];
+                if (!empty($search)) $query_params['search'] = $search;
+                if (!empty($role_filter)) $query_params['role'] = $role_filter;
+                if (!empty($date_filter)) $query_params['date'] = $date_filter;
+                if (!empty($user_filter)) $query_params['user'] = $user_filter;
+                if (!empty($status_filter)) $query_params['status'] = $status_filter;
+                $query_string = '&' . http_build_query($query_params);
+                ?>
+                
                 <?php if ($page > 1): ?>
-                <a href="?module=reports&page=1<?= buildFilterQuery() ?>" class="page-btn">
+                <a href="?page_num=1<?= $query_string ?>" class="pagination-btn">
                     <i class="fas fa-angle-double-left"></i>
                 </a>
-                <a href="?module=reports&page=<?= $page - 1 ?><?= buildFilterQuery() ?>" class="page-btn">
+                <a href="?page_num=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
                     <i class="fas fa-angle-left"></i>
                 </a>
                 <?php endif; ?>
@@ -635,320 +595,155 @@ function canDeleteReport($report_user_id) {
                 $start = max(1, $page - 2);
                 $end = min($total_pages, $page + 2);
                 
+                if ($start > 1) echo '<span class="pagination-dots">...</span>';
+                
                 for ($i = $start; $i <= $end; $i++):
                 ?>
-                <a href="?module=reports&page=<?= $i ?><?= buildFilterQuery() ?>" 
-                   class="page-btn <?= $i == $page ? 'active' : '' ?>">
+                <a href="?page_num=<?= $i ?><?= $query_string ?>" 
+                   class="pagination-btn <?= $i == $page ? 'active' : '' ?>">
                     <?= $i ?>
                 </a>
                 <?php endfor; ?>
+                
+                <?php if ($end < $total_pages) echo '<span class="pagination-dots">...</span>'; ?>
 
                 <?php if ($page < $total_pages): ?>
-                <a href="?module=reports&page=<?= $page + 1 ?><?= buildFilterQuery() ?>" class="page-btn">
+                <a href="?page_num=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
                     <i class="fas fa-angle-right"></i>
                 </a>
-                <a href="?module=reports&page=<?= $total_pages ?><?= buildFilterQuery() ?>" class="page-btn">
+                <a href="?page_num=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
                     <i class="fas fa-angle-double-right"></i>
                 </a>
                 <?php endif; ?>
             </div>
-        </div>
-        <?php endif; ?>
-
-        <?php else: ?>
-        <div class="no-data">
-            <div class="no-data-icon">
-                <i class="fas fa-chart-line"></i>
+            
+            <div class="pagination-info">
+                Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_records) ?> dari <?= $total_records ?> data
             </div>
-            <h3>Tidak ada aktivitas ditemukan</h3>
-            <p>Belum ada aktivitas yang sesuai dengan filter yang diterapkan.</p>
         </div>
         <?php endif; ?>
     </div>
 </div>
 
-<!-- Add Report Modal -->
-<?php if ($current_permissions['can_create']): ?>
-<div id="addReportModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 700px;">
+<!-- Add/Edit Report Modal -->
+<div id="reportModal" class="modal">
+    <div class="modal-content">
         <div class="modal-header">
-            <h3>
-                <i class="fas fa-plus mr-2"></i>
-                Tambah Laporan Aktivitas
-            </h3>
-            <button class="modal-close" onclick="closeAddReportModal()">
+            <h3 id="modalTitle">Tambah Laporan Baru</h3>
+            <button class="modal-close" onclick="closeReportModal()">
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        
-        <form method="POST" onsubmit="return validateAddReportForm()">
-            <input type="hidden" name="add_report" value="1">
-            
-            <div class="modal-body">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="status">Status <span class="required">*</span></label>
-                        <select id="status" name="status" required>
-                            <option value="">Pilih Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="done">Selesai</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="report_date">Tanggal</label>
-                        <input type="date" id="report_date" name="report_date" 
-                               value="<?= date('Y-m-d') ?>" required>
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label for="responsible_person">Penanggung Jawab</label>
-                        <input type="text" id="responsible_person" name="responsible_person" 
-                               placeholder="Nama penanggung jawab (opsional)...">
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label for="activity">Aktivitas <span class="required">*</span></label>
-                        <textarea id="activity" name="activity" rows="4" required
-                                  placeholder="Jelaskan aktivitas yang dilakukan..."></textarea>
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label for="problem">Problem/Kendala</label>
-                        <textarea id="problem" name="problem" rows="3" 
-                                  placeholder="Jelaskan problem atau kendala yang dihadapi (opsional)..."></textarea>
-                    </div>
+        <div class="modal-body">
+            <form id="reportForm" method="POST" action="?page=reports">
+                <input type="hidden" id="reportId" name="report_id">
+                
+                <div class="form-group">
+                    <label for="reportStatus">Status *</label>
+                    <select id="reportStatus" name="status" required>
+                        <option value="">Pilih Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress" selected>In Progress</option>
+                        <option value="done">Selesai</option>
+                    </select>
                 </div>
-
-                <div class="selected-info" id="selectedInfo" style="display: none;">
-                    <h4>Ringkasan Laporan:</h4>
-                    <div id="summaryContent"></div>
+                
+                <div class="form-group">
+                    <label for="reportDate">Tanggal</label>
+                    <input type="date" id="reportDate" name="report_date" 
+                           value="<?= date('Y-m-d') ?>" required>
                 </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeAddReportModal()">
-                    <i class="fas fa-times mr-2"></i>
-                    Batal
-                </button>
-                <button type="submit" class="btn btn-success">
-                    <i class="fas fa-save mr-2"></i>
-                    Simpan Laporan
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-<?php endif; ?>
-
-<!-- Edit Report Modal -->
-<div id="editReportModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 700px;">
-        <div class="modal-header">
-            <h3>
-                <i class="fas fa-edit mr-2"></i>
-                Edit Laporan Aktivitas
-            </h3>
-            <button class="modal-close" onclick="closeEditReportModal()">
-                <i class="fas fa-times"></i>
+                
+                <div class="form-group">
+                    <label for="responsiblePerson">Penanggung Jawab</label>
+                    <input type="text" id="responsiblePerson" name="responsible_person" 
+                           placeholder="Nama penanggung jawab (opsional)">
+                </div>
+                
+                <div class="form-group">
+                    <label for="reportActivity">Aktivitas *</label>
+                    <textarea id="reportActivity" name="activity" rows="4" required
+                              placeholder="Jelaskan aktivitas yang dilakukan..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reportProblem">Problem/Kendala</label>
+                    <textarea id="reportProblem" name="problem" rows="3" 
+                              placeholder="Jelaskan problem atau kendala (opsional)..."></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeReportModal()">
+                Batal
+            </button>
+            <button type="submit" id="submitBtn" form="reportForm" name="add_report" class="btn btn-primary">
+                <i class="fas fa-save mr-2"></i>Simpan
             </button>
         </div>
-        
-        <form method="POST" onsubmit="return validateEditReportForm()">
-            <input type="hidden" name="edit_report" value="1">
-            <input type="hidden" name="report_id" id="edit_report_id">
-            
-            <div class="modal-body">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="edit_status">Status <span class="required">*</span></label>
-                        <select id="edit_status" name="status" required>
-                            <option value="">Pilih Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="done">Selesai</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="edit_responsible_person">Penanggung Jawab</label>
-                        <input type="text" id="edit_responsible_person" name="responsible_person" 
-                               placeholder="Nama penanggung jawab (opsional)...">
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label for="edit_activity">Aktivitas <span class="required">*</span></label>
-                        <textarea id="edit_activity" name="activity" rows="4" required
-                                  placeholder="Jelaskan aktivitas yang dilakukan..."></textarea>
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label for="edit_problem">Problem/Kendala</label>
-                        <textarea id="edit_problem" name="problem" rows="3" 
-                                  placeholder="Jelaskan problem atau kendala yang dihadapi (opsional)..."></textarea>
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeEditReportModal()">
-                    <i class="fas fa-times mr-2"></i>
-                    Batal
-                </button>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save mr-2"></i>
-                    Perbarui Laporan
-                </button>
-            </div>
-        </form>
     </div>
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div id="deleteConfirmModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 400px;">
+<div id="deleteModal" class="modal">
+    <div class="modal-content delete-modal">
         <div class="modal-header">
-            <h3>
-                <i class="fas fa-exclamation-triangle mr-2" style="color: #ef4444;"></i>
-                Konfirmasi Hapus
-            </h3>
-            <button class="modal-close" onclick="closeDeleteConfirmModal()">
-                <i class="fas fa-times"></i>
-            </button>
+            <div class="delete-icon">
+                <i class="fas fa-trash-alt"></i>
+            </div>
+            <h3>Konfirmasi Hapus</h3>
+            <p id="deleteMessage">Apakah Anda yakin ingin menghapus laporan ini?</p>
         </div>
-        
-        <div class="modal-body">
-            <p>Apakah Anda yakin ingin menghapus laporan ini?</p>
-            <p style="color: #6b7280; font-size: 0.9rem;">Tindakan ini tidak dapat dibatalkan.</p>
-        </div>
-
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeDeleteConfirmModal()">
-                <i class="fas fa-times mr-2"></i>
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
                 Batal
             </button>
-            <button type="button" class="btn btn-danger" onclick="confirmDeleteReport()">
-                <i class="fas fa-trash mr-2"></i>
-                Hapus Laporan
-            </button>
+            <form id="deleteForm" method="POST" action="?page=reports" style="display: inline;">
+                <input type="hidden" id="deleteReportId" name="report_id">
+                <button type="submit" name="delete_report" class="btn btn-danger">
+                    <i class="fas fa-trash mr-2"></i>Hapus
+                </button>
+            </form>
         </div>
     </div>
 </div>
 
 <style>
-/* Permission Info Banner */
-.permission-info {
-    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 20px 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.permission-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 20px;
-}
-
-.permission-user {
+/* Alert Messages */
+.alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    animation: slideDown 0.3s ease;
 }
 
-.permission-user .user-avatar {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.1rem;
+.alert-success {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
 }
 
-.permission-user h4 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0 0 2px 0;
+.alert-error {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
 }
 
-.permission-user span {
-    font-size: 0.85rem;
-    font-weight: 500;
-    text-transform: uppercase;
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.permission-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.perm-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: white;
-}
-
-.perm-badge.view-all { background: #3b82f6; }
-.perm-badge.create { background: #10b981; }
-.perm-badge.edit-all { background: #f59e0b; }
-.perm-badge.edit-own { background: #fbbf24; }
-.perm-badge.delete-all { background: #ef4444; }
-.perm-badge.delete-own { background: #f87171; }
-
-.owner-badge {
-    padding: 4px 8px;
-    background: #0066ff;
-    color: white;
-    border-radius: 12px;
-    font-size: 0.7rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-/* Responsible Person Info */
-.responsible-info {
-    background: #e0f2fe;
-    border: 1px solid #b3e5fc;
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin: 8px 0;
-    font-size: 0.85rem;
-    color: #0277bd;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.responsible-info i {
-    color: #0288d1;
-}
-
-/* Page Layout */
+/* Page Header */
 .page-header {
     background: white;
     border-radius: 16px;
     padding: 24px;
     margin-bottom: 24px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
 }
 
 .page-title {
@@ -966,37 +761,12 @@ function canDeleteReport($report_user_id) {
     margin: 0;
 }
 
-.header-actions {
-    display: flex;
-    gap: 12px;
-}
+.mr-2 { margin-right: 8px; }
+.mr-3 { margin-right: 12px; }
 
-/* Alert Messages */
-.alert {
-    padding: 16px 20px;
-    border-radius: 12px;
-    margin-bottom: 24px;
-    display: flex;
-    align-items: center;
-    font-weight: 500;
-    animation: slideInDown 0.3s ease;
-}
-
-.alert-success {
-    background: #d1fae5;
-    color: #065f46;
-    border: 1px solid #a7f3d0;
-}
-
-.alert-error {
-    background: #fee2e2;
-    color: #991b1b;
-    border: 1px solid #fecaca;
-}
-
-/* Button Styles */
+/* Buttons */
 .btn {
-    padding: 12px 20px;
+    padding: 12px 24px;
     border-radius: 8px;
     border: none;
     font-weight: 500;
@@ -1004,8 +774,8 @@ function canDeleteReport($report_user_id) {
     transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
-    font-size: 0.9rem;
     text-decoration: none;
+    font-size: 0.9rem;
 }
 
 .btn-primary {
@@ -1016,6 +786,7 @@ function canDeleteReport($report_user_id) {
 .btn-primary:hover {
     background: linear-gradient(90deg, #0044cc, #00aaff);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,102,255,0.3);
 }
 
 .btn-secondary {
@@ -1028,33 +799,21 @@ function canDeleteReport($report_user_id) {
     background: #f1f5f9;
 }
 
-.btn-success {
-    background: linear-gradient(90deg, #10b981, #34d399);
-    color: white;
-}
-
-.btn-success:hover {
-    background: linear-gradient(90deg, #059669, #10b981);
-    transform: translateY(-2px);
-}
-
 .btn-danger {
-    background: linear-gradient(90deg, #ef4444, #f87171);
+    background: linear-gradient(90deg, #ef4444, #dc2626);
     color: white;
 }
 
 .btn-danger:hover {
-    background: linear-gradient(90deg, #dc2626, #ef4444);
+    background: linear-gradient(90deg, #dc2626, #b91c1c);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239,68,68,0.3);
 }
-
-.mr-2 { margin-right: 8px; }
-.mr-3 { margin-right: 12px; }
 
 /* Statistics Grid */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 20px;
     margin-bottom: 32px;
 }
@@ -1067,11 +826,31 @@ function canDeleteReport($report_user_id) {
     display: flex;
     align-items: center;
     gap: 20px;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    border: 2px solid transparent;
 }
 
 .stat-card:hover {
     transform: translateY(-4px);
+    box-shadow: 0 6px 25px rgba(0,0,0,0.15);
+}
+
+.stat-card.active {
+    border-color: rgba(255,255,255,0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+}
+
+.stat-card.active::after {
+    content: '✓';
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: bold;
 }
 
 .bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
@@ -1096,81 +875,6 @@ function canDeleteReport($report_user_id) {
     margin: 0;
 }
 
-/* Filters Section */
-.filters-section {
-    background: white;
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-}
-
-.filters-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.filters-header h3 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0;
-}
-
-.btn-clear-filters {
-    padding: 8px 16px;
-    background: #fee2e2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 0.85rem;
-    display: flex;
-    align-items: center;
-}
-
-.btn-clear-filters:hover {
-    background: #fecaca;
-}
-
-.filters-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-}
-
-.filter-group {
-    display: flex;
-    flex-direction: column;
-}
-
-.filter-group label {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 6px;
-}
-
-.filter-group select,
-.filter-group input {
-    padding: 10px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    transition: border-color 0.3s ease;
-    background: white;
-}
-
-.filter-group select:focus,
-.filter-group input:focus {
-    outline: none;
-    border-color: #0066ff;
-    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
-}
-
 /* Reports Container */
 .reports-container {
     background: white;
@@ -1179,22 +883,30 @@ function canDeleteReport($report_user_id) {
     overflow: hidden;
 }
 
-.reports-header {
-    padding: 24px;
+.section-header {
+    padding: 24px 24px 16px;
     border-bottom: 1px solid #f3f4f6;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
 }
 
-.reports-header h3 {
-    font-size: 1.3rem;
+.section-title-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.section-title {
+    font-size: 1.4rem;
     font-weight: 600;
     color: #1f2937;
     margin: 0;
 }
 
-.records-count {
+.section-count {
     color: #6b7280;
     font-size: 0.9rem;
     background: #f3f4f6;
@@ -1202,9 +914,84 @@ function canDeleteReport($report_user_id) {
     border-radius: 20px;
 }
 
+/* Filters Container */
+.filters-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.search-box {
+    position: relative;
+    min-width: 250px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.filter-dropdown select,
+.filter-dropdown input {
+    padding: 10px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+    min-width: 150px;
+    transition: all 0.3s ease;
+}
+
+.filter-dropdown select:focus,
+.filter-dropdown input:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.btn-clear-filter {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #dc2626;
+    background: #fee2e2;
+    color: #dc2626;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-clear-filter:hover {
+    background: #fecaca;
+    transform: scale(1.1);
+}
+
 /* Reports List */
 .reports-list {
-    max-height: 800px;
+    max-height: 600px;
     overflow-y: auto;
 }
 
@@ -1221,28 +1008,97 @@ function canDeleteReport($report_user_id) {
     border-radius: 3px;
 }
 
-.report-item {
+.report-list-item {
     display: flex;
     align-items: center;
-    padding: 20px 24px;
+    padding: 16px 24px;
     border-bottom: 1px solid #f3f4f6;
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
+    position: relative;
 }
 
-.report-item:hover {
+.report-list-item:hover {
     background: #f8fafc;
 }
 
-.report-item:last-child {
+.report-list-item:last-child {
     border-bottom: none;
 }
 
-/* Report User */
-.report-user {
+/* Add New Item */
+.add-new-item {
+    border: 2px dashed #d1d5db !important;
+    background: #f9fafb !important;
+    margin: 16px 24px;
+    border-radius: 12px;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.add-new-item:hover {
+    border-color: #0066ff !important;
+    background: #eff6ff !important;
+}
+
+.add-new-content {
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-width: 200px;
+    gap: 16px;
+    color: #6b7280;
+}
+
+.add-new-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #0066ff, #33ccff);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.add-new-text h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    color: #374151;
+}
+
+.add-new-text p {
+    font-size: 0.85rem;
+    margin: 0;
+    color: #9ca3af;
+}
+
+/* Report Status Indicator */
+.report-status-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+}
+
+.report-status-indicator.status-done {
+    background: linear-gradient(180deg, #10b981, #34d399);
+}
+
+.report-status-indicator.status-in_progress {
+    background: linear-gradient(180deg, #f59e0b, #fbbf24);
+}
+
+.report-status-indicator.status-pending {
+    background: linear-gradient(180deg, #6b7280, #9ca3af);
+}
+
+/* Report User Section */
+.report-user-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 16px;
     flex-shrink: 0;
 }
 
@@ -1255,13 +1111,47 @@ function canDeleteReport($report_user_id) {
     justify-content: center;
     color: white;
     font-size: 1.1rem;
+    margin-bottom: 8px;
 }
 
-.user-info h4 {
+.report-number {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Report List Content */
+.report-list-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.report-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 12px;
+}
+
+.report-user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-name {
     font-size: 1rem;
     font-weight: 600;
     color: #1f2937;
-    margin: 0 0 2px 0;
+    margin: 0;
 }
 
 .user-role {
@@ -1270,21 +1160,37 @@ function canDeleteReport($report_user_id) {
     text-transform: uppercase;
 }
 
-/* Report Content */
-.report-content {
-    flex: 1;
-    margin-left: 20px;
-    margin-right: 20px;
+.report-status-badge .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: white;
 }
 
-.activity-description p {
-    font-size: 0.95rem;
+.status-badge.status-done {
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.status-badge.status-in_progress {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.status-badge.status-pending {
+    background: linear-gradient(90deg, #6b7280, #9ca3af);
+}
+
+.report-activity {
     color: #1f2937;
-    margin: 0 0 8px 0;
-    line-height: 1.4;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 8px;
 }
 
-.activity-notes {
+.report-problem {
     background: #fef3c7;
     border: 1px solid #fde68a;
     border-radius: 6px;
@@ -1297,39 +1203,40 @@ function canDeleteReport($report_user_id) {
     gap: 8px;
 }
 
-.activity-notes i {
+.report-problem i {
     color: #f59e0b;
 }
 
-.activity-meta {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-
-.status-badge {
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: white;
+.report-responsible {
+    background: #e0f2fe;
+    border: 1px solid #b3e5fc;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 0.85rem;
+    color: #0277bd;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
 }
 
-.activity-details {
+.report-responsible i {
+    color: #0288d1;
+}
+
+.report-details {
     display: flex;
     gap: 20px;
+    font-size: 0.85rem;
+    color: #6b7280;
     flex-wrap: wrap;
+    margin-top: 8px;
 }
 
 .detail-item {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.85rem;
-    color: #6b7280;
 }
 
 .detail-item i {
@@ -1337,17 +1244,35 @@ function canDeleteReport($report_user_id) {
     font-size: 0.8rem;
 }
 
-/* Report Actions */
-.report-actions {
+.owner-badge {
+    padding: 4px 8px;
+    background: #0066ff;
+    color: white;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Report List Actions */
+.report-list-actions {
     display: flex;
     gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
     flex-shrink: 0;
 }
 
-.btn-action {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
+.report-list-item:hover .report-list-actions {
+    opacity: 1;
+}
+
+.action-btn-small {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
     border: none;
     background: #f8fafc;
     color: #64748b;
@@ -1356,24 +1281,115 @@ function canDeleteReport($report_user_id) {
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 0.8rem;
 }
 
-.btn-action:hover {
-    background: #e2e8f0;
+.action-btn-small:hover {
+    transform: scale(1.1);
+}
+
+.action-btn-small.edit:hover {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.action-btn-small.delete:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* No Data State */
+.no-data {
+    text-align: center;
+    padding: 60px 24px;
+    color: #6b7280;
+}
+
+.no-data-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #9ca3af;
+}
+
+.no-data h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.no-data p {
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Pagination */
+.pagination-container {
+    padding: 24px;
+    border-top: 1px solid #f1f5f9;
+    background: #f8fafc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pagination-btn {
+    min-width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.pagination-btn:hover {
+    background: #f8fafc;
+    border-color: #0066ff;
     color: #0066ff;
-    transform: scale(1.05);
+    transform: translateY(-2px);
 }
 
-.btn-edit:hover {
-    color: #f59e0b;
+.pagination-btn.active {
+    background: linear-gradient(135deg, #0066ff, #33ccff);
+    color: white;
+    border-color: #0066ff;
 }
 
-.btn-delete:hover {
-    color: #ef4444;
+.pagination-dots {
+    color: #9ca3af;
+    padding: 0 8px;
+    font-weight: 500;
+}
+
+.pagination-info {
+    color: #6b7280;
+    font-size: 0.9rem;
 }
 
 /* Modal Styles */
 .modal {
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -1383,6 +1399,9 @@ function canDeleteReport($report_user_id) {
     z-index: 1000;
     padding: 20px;
     overflow-y: auto;
+}
+
+.modal.show {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1397,6 +1416,24 @@ function canDeleteReport($report_user_id) {
     animation: slideUp 0.3s ease;
 }
 
+.delete-modal {
+    max-width: 400px;
+    text-align: center;
+}
+
+.delete-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+}
+
 .modal-header {
     padding: 24px 24px 0;
     display: flex;
@@ -1408,32 +1445,71 @@ function canDeleteReport($report_user_id) {
     font-size: 1.3rem;
     font-weight: 600;
     color: #1f2937;
-    margin: 0;
-    display: flex;
-    align-items: center;
+}
+
+.delete-modal .modal-header {
+    flex-direction: column;
+    text-align: center;
+}
+
+.delete-modal .modal-header p {
+    margin: 8px 0 0 0;
+    color: #6b7280;
 }
 
 .modal-close {
-    background: #f3f4f6;
+    background: none;
     border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    font-size: 1.2rem;
+    color: #9ca3af;
     cursor: pointer;
-    color: #6b7280;
+    padding: 8px;
+    border-radius: 50%;
     transition: all 0.3s ease;
 }
 
 .modal-close:hover {
-    background: #e5e7eb;
+    background: #f3f4f6;
     color: #374151;
 }
 
 .modal-body {
-    padding: 20px 24px;
+    padding: 24px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
 }
 
 .modal-footer {
@@ -1443,266 +1519,82 @@ function canDeleteReport($report_user_id) {
     gap: 12px;
 }
 
-/* Form Styles */
-.form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 20px;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-}
-
-.form-group.full-width {
-    grid-column: 1 / -1;
-}
-
-.form-group label {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 6px;
-}
-
-.required {
-    color: #ef4444;
-}
-
-.form-group select,
-.form-group input,
-.form-group textarea {
-    padding: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-    background: white;
-}
-
-.form-group select:focus,
-.form-group input:focus,
-.form-group textarea:focus {
-    outline: none;
-    border-color: #0066ff;
-    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
-}
-
-.form-group textarea {
-    resize: vertical;
-    min-height: 100px;
-}
-
-/* Selected Info */
-.selected-info {
-    background: #f0f9ff;
-    border: 1px solid #bae6fd;
-    border-radius: 8px;
-    padding: 16px;
-    margin-top: 20px;
-}
-
-.selected-info h4 {
-    color: #0c4a6e;
-    font-size: 1rem;
-    margin: 0 0 12px 0;
-}
-
-.summary-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    border-bottom: 1px solid #e0f2fe;
-    font-size: 0.85rem;
-}
-
-.summary-item:last-child {
-    border-bottom: none;
-}
-
-.summary-label {
-    color: #64748b;
-    font-weight: 500;
-}
-
-.summary-value {
-    color: #1e293b;
-}
-
-/* Pagination */
-.pagination-container {
-    padding: 20px 24px;
-    border-top: 1px solid #f3f4f6;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.pagination-info {
-    color: #6b7280;
-    font-size: 0.9rem;
-}
-
-.pagination {
-    display: flex;
-    gap: 8px;
-}
-
-.page-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: white;
-    color: #64748b;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    font-size: 0.85rem;
-}
-
-.page-btn:hover {
-    background: #f1f5f9;
-    color: #0066ff;
-}
-
-.page-btn.active {
-    background: linear-gradient(90deg, #0066ff, #33ccff);
-    color: white;
-    border-color: transparent;
-}
-
-/* No Data State */
-.no-data {
-    text-align: center;
-    padding: 80px 24px;
-    color: #6b7280;
-}
-
-.no-data-icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: #f3f4f6;
-    margin: 0 auto 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.5rem;
-    color: #9ca3af;
-}
-
-.no-data h3 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 8px;
-}
-
-.no-data p {
-    font-size: 0.95rem;
-    margin: 0;
-}
-
-/* Animations */
-@keyframes slideInDown {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
 @keyframes slideUp {
     from { opacity: 0; transform: translateY(30px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes slideInRight {
-    from { opacity: 0; transform: translateX(100%); }
-    to { opacity: 1; transform: translateX(0); }
-}
-
-/* Responsive Design */
+/* Responsive */
 @media (max-width: 768px) {
-    .permission-content {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 16px;
-    }
-
     .page-header {
-        flex-direction: column;
-        gap: 16px;
         text-align: center;
     }
-
-    .header-actions {
-        width: 100%;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-
+    
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 16px;
     }
-
-    .filters-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .form-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .report-item {
+    
+    .section-header {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 16px;
+        align-items: stretch;
+    }
+    
+    .filters-container {
+        justify-content: stretch;
+    }
+    
+    .search-box {
+        min-width: auto;
+        flex: 1;
+    }
+    
+    .filter-dropdown select,
+    .filter-dropdown input {
+        min-width: auto;
+        flex: 1;
+    }
+    
+    .report-list-item {
+        flex-wrap: wrap;
+        gap: 12px;
         padding: 16px;
     }
-
-    .report-user {
-        min-width: auto;
-        width: 100%;
+    
+    .report-user-section {
+        flex-direction: row;
+        gap: 8px;
+        margin-right: 0;
     }
-
-    .report-content {
-        margin: 0;
-        width: 100%;
+    
+    .report-header-row {
+        flex-direction: column;
+        align-items: flex-start;
     }
-
-    .activity-details {
+    
+    .report-details {
         flex-direction: column;
         gap: 8px;
     }
-
-    .report-actions {
-        width: 100%;
+    
+    .report-list-actions {
+        opacity: 1;
+        margin-top: 8px;
         justify-content: center;
+        width: 100%;
     }
-
+    
     .pagination-container {
         flex-direction: column;
-        gap: 16px;
         text-align: center;
     }
-
+    
     .pagination {
         justify-content: center;
+        flex-wrap: wrap;
     }
-
-    .modal-footer {
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .modal-footer .btn {
-        width: 100%;
-        justify-content: center;
+    
+    .reports-list {
+        max-height: none;
     }
 }
 
@@ -1710,347 +1602,143 @@ function canDeleteReport($report_user_id) {
     .stats-grid {
         grid-template-columns: 1fr;
     }
-
-    .stat-card {
-        padding: 16px;
+    
+    .pagination-btn {
+        min-width: 35px;
+        height: 35px;
+        font-size: 0.85rem;
     }
-
-    .page-title {
-        font-size: 1.5rem;
-    }
-
-    .filters-section {
-        padding: 16px;
-    }
-
-    .reports-header {
+    
+    .add-new-content {
         flex-direction: column;
-        gap: 12px;
         text-align: center;
-    }
-
-    .header-actions {
-        flex-direction: column;
-        width: 100%;
-    }
-
-    .btn {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .permission-badges {
-        justify-content: center;
+        gap: 12px;
     }
 }
 </style>
 
 <script>
-// Global variables for delete confirmation
-let deleteReportId = null;
+let currentEditId = null;
 
-// Filter functions - Fixed to properly handle URL construction
+function openAddReportModal() {
+    document.getElementById('modalTitle').textContent = 'Tambah Laporan Baru';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Simpan';
+    document.getElementById('submitBtn').name = 'add_report';
+    document.getElementById('reportForm').reset();
+    document.getElementById('reportId').value = '';
+    document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
+    currentEditId = null;
+    document.getElementById('reportModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function editReport(id, activity, problem, status, responsiblePerson) {
+    document.getElementById('modalTitle').textContent = 'Edit Laporan';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Update';
+    document.getElementById('submitBtn').name = 'edit_report';
+    document.getElementById('reportId').value = id;
+    document.getElementById('reportActivity').value = activity;
+    document.getElementById('reportProblem').value = problem;
+    document.getElementById('reportStatus').value = status;
+    document.getElementById('responsiblePerson').value = responsiblePerson;
+    currentEditId = id;
+    document.getElementById('reportModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function deleteReport(id, activity) {
+    document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus laporan "${activity.substring(0, 50)}${activity.length > 50 ? '...' : ''}"?`;
+    document.getElementById('deleteReportId').value = id;
+    document.getElementById('deleteModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeReportModal() {
+    document.getElementById('reportModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+// Filter by status from stat cards
+function filterByStatus(status) {
+    let url = new URL(window.location);
+    const currentStatus = url.searchParams.get('status');
+    
+    if (currentStatus === status) {
+        url.searchParams.delete('status');
+    } else {
+        url.searchParams.set('status', status);
+    }
+    
+    url.searchParams.set('page', 'reports');
+    url.searchParams.delete('page_num');
+    
+    window.location.href = url.toString();
+}
+
+// Filter functions
 function applyFilters() {
     const roleFilter = document.getElementById('roleFilter')?.value || '';
     const dateFilter = document.getElementById('dateFilter')?.value || '';
     const userFilter = document.getElementById('userFilter')?.value || '';
     const statusFilter = document.getElementById('statusFilter')?.value || '';
+    const searchValue = document.getElementById('searchInput').value;
     
-    // Use module parameter to maintain current module
     let url = new URL(window.location);
-    url.searchParams.set('module', 'reports'); // Ensure we stay in reports module
     url.searchParams.delete('role');
     url.searchParams.delete('date');
     url.searchParams.delete('user');
     url.searchParams.delete('status');
-    url.searchParams.delete('page');
+    url.searchParams.delete('search');
+    url.searchParams.delete('page_num');
+    url.searchParams.set('page', 'reports');
     
     if (roleFilter) url.searchParams.set('role', roleFilter);
     if (dateFilter) url.searchParams.set('date', dateFilter);
     if (userFilter) url.searchParams.set('user', userFilter);
     if (statusFilter) url.searchParams.set('status', statusFilter);
+    if (searchValue) url.searchParams.set('search', searchValue);
     
     window.location.href = url.toString();
 }
 
-function clearAllFilters() {
+function handleSearch(event) {
+    if (event.key === 'Enter') {
+        applyFilters();
+    }
+}
+
+function clearFilters() {
     let url = new URL(window.location);
-    url.searchParams.set('module', 'reports'); // Keep the module parameter
     url.searchParams.delete('role');
     url.searchParams.delete('date');
     url.searchParams.delete('user');
     url.searchParams.delete('status');
-    url.searchParams.delete('page');
+    url.searchParams.delete('search');
+    url.searchParams.delete('page_num');
+    url.searchParams.set('page', 'reports');
     window.location.href = url.toString();
 }
 
-function refreshReport() {
-    window.location.reload();
-}
-
-function exportReport() {
-    alert('Fitur export PDF akan segera tersedia!');
-}
-
-// Add Report Modal Functions
-function openAddReportModal() {
-    const modal = document.getElementById('addReportModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        updateSummary();
+// Close modals when clicking outside
+document.addEventListener('click', function(e) {
+    if(e.target.classList.contains('modal')) {
+        closeReportModal();
+        closeDeleteModal();
     }
-}
+});
 
-function closeAddReportModal() {
-    const modal = document.getElementById('addReportModal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-        
-        // Reset form
-        document.querySelector('#addReportModal form').reset();
-        const selectedInfo = document.getElementById('selectedInfo');
-        if (selectedInfo) selectedInfo.style.display = 'none';
-        
-        // Set current date
-        const dateField = document.getElementById('report_date');
-        if (dateField) dateField.value = new Date().toISOString().split('T')[0];
-    }
-}
-
-function validateAddReportForm() {
-    const activity = document.getElementById('activity').value;
-    const status = document.getElementById('status').value;
-    
-    if (!activity || !status) {
-        alert('Harap lengkapi semua field yang wajib diisi!');
-        return false;
-    }
-    
-    return confirm('Apakah Anda yakin ingin menyimpan laporan ini?');
-}
-
-// Edit Report Modal Functions - Updated to include responsible person parameter
-function editReport(reportId, activity, problem, status, responsiblePerson = '') {
-    const modal = document.getElementById('editReportModal');
-    if (modal) {
-        document.getElementById('edit_report_id').value = reportId;
-        document.getElementById('edit_activity').value = activity;
-        document.getElementById('edit_problem').value = problem;
-        document.getElementById('edit_status').value = status;
-        document.getElementById('edit_responsible_person').value = responsiblePerson;
-        
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-function closeEditReportModal() {
-    const modal = document.getElementById('editReportModal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-        
-        // Reset form
-        document.querySelector('#editReportModal form').reset();
-    }
-}
-
-function validateEditReportForm() {
-    const activity = document.getElementById('edit_activity').value;
-    const status = document.getElementById('edit_status').value;
-    
-    if (!activity || !status) {
-        alert('Harap lengkapi semua field yang wajib diisi!');
-        return false;
-    }
-    
-    return confirm('Apakah Anda yakin ingin memperbarui laporan ini?');
-}
-
-// Delete Report Functions
-function deleteReport(reportId) {
-    deleteReportId = reportId;
-    const modal = document.getElementById('deleteConfirmModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-function closeDeleteConfirmModal() {
-    const modal = document.getElementById('deleteConfirmModal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-        deleteReportId = null;
-    }
-}
-
-function confirmDeleteReport() {
-    if (deleteReportId) {
-        // Create form and submit
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.style.display = 'none';
-        
-        const deleteInput = document.createElement('input');
-        deleteInput.type = 'hidden';
-        deleteInput.name = 'delete_report';
-        deleteInput.value = '1';
-        
-        const idInput = document.createElement('input');
-        idInput.type = 'hidden';
-        idInput.name = 'report_id';
-        idInput.value = deleteReportId;
-        
-        form.appendChild(deleteInput);
-        form.appendChild(idInput);
-        document.body.appendChild(form);
-        
-        form.submit();
-    }
-    closeDeleteConfirmModal();
-}
-
-// Update summary when form changes - Updated to include responsible person
-function updateSummary() {
-    const activityField = document.getElementById('activity');
-    const statusSelect = document.getElementById('status');
-    const problemField = document.getElementById('problem');
-    const responsibleField = document.getElementById('responsible_person');
-    const selectedInfo = document.getElementById('selectedInfo');
-    const summaryContent = document.getElementById('summaryContent');
-    
-    if (!activityField || !statusSelect || !problemField || !selectedInfo || !summaryContent || !responsibleField) {
-        return;
-    }
-    
-    function generateSummary() {
-        const activity = activityField.value;
-        const status = statusSelect.value;
-        const problem = problemField.value;
-        const responsible = responsibleField.value;
-        
-        if (activity && status) {
-            const statusText = status === 'done' ? 'Selesai' : (status === 'in_progress' ? 'In Progress' : 'Pending');
-            
-            let summary = `
-                <div class="summary-item">
-                    <span class="summary-label">Aktivitas:</span>
-                    <span class="summary-value">${activity.substring(0, 50)}${activity.length > 50 ? '...' : ''}</span>
-                </div>
-                <div class="summary-item">
-                    <span class="summary-label">Status:</span>
-                    <span class="summary-value">${statusText}</span>
-                </div>
-            `;
-            
-            if (responsible) {
-                summary += `
-                    <div class="summary-item">
-                        <span class="summary-label">Penanggung Jawab:</span>
-                        <span class="summary-value">${responsible.substring(0, 30)}${responsible.length > 30 ? '...' : ''}</span>
-                    </div>
-                `;
-            }
-            
-            if (problem) {
-                summary += `
-                    <div class="summary-item">
-                        <span class="summary-label">Problem:</span>
-                        <span class="summary-value">${problem.substring(0, 50)}${problem.length > 50 ? '...' : ''}</span>
-                    </div>
-                `;
-            }
-            
-            summaryContent.innerHTML = summary;
-            selectedInfo.style.display = 'block';
-        } else {
-            selectedInfo.style.display = 'none';
-        }
-    }
-    
-    // Add event listeners
-    activityField.addEventListener('input', generateSummary);
-    statusSelect.addEventListener('change', generateSummary);
-    problemField.addEventListener('input', generateSummary);
-    responsibleField.addEventListener('input', generateSummary);
-}
-
-// View functions
-function viewDetails(reportId) {
-    alert('Detail untuk Report ID: ' + reportId + '\nFitur detail akan segera tersedia!');
-}
-
-// Auto-refresh every 5 minutes
-setInterval(function() {
-    const lastUpdate = document.createElement('div');
-    lastUpdate.className = 'auto-refresh-notice';
-    lastUpdate.innerHTML = '<i class="fas fa-sync-alt"></i> Data diperbarui otomatis';
-    lastUpdate.style.cssText = `
-        position: fixed;
-        top: 90px;
-        right: 20px;
-        background: #10b981;
-        color: white;
-        padding: 8px 16px;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        z-index: 1000;
-        animation: slideInRight 0.3s ease;
-    `;
-    
-    document.body.appendChild(lastUpdate);
-    
-    setTimeout(() => {
-        lastUpdate.remove();
-    }, 3000);
-    
-    window.location.reload();
-}, 300000);
-
-// Initialize on page load
+// Auto-hide alerts after 5 seconds
 document.addEventListener('DOMContentLoaded', function() {
-    // Set today as default date if no filters are applied
-    const dateFilter = document.getElementById('dateFilter');
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    if (dateFilter && !urlParams.has('date') && !urlParams.has('role') && !urlParams.has('user') && !urlParams.has('status')) {
-        const today = new Date().toISOString().split('T')[0];
-        dateFilter.value = today;
-    }
-    
-    // Set current date for add report form
-    const reportDate = document.getElementById('report_date');
-    if (reportDate) {
-        reportDate.value = new Date().toISOString().split('T')[0];
-    }
-    
-    // Initialize summary update
-    updateSummary();
-    
-    // Close modals when clicking outside
-    const modals = ['addReportModal', 'editReportModal', 'deleteConfirmModal'];
-    modals.forEach(modalId => {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    if (modalId === 'addReportModal') closeAddReportModal();
-                    else if (modalId === 'editReportModal') closeEditReportModal();
-                    else if (modalId === 'deleteConfirmModal') closeDeleteConfirmModal();
-                }
-            });
-        }
-    });
-    
-    // Auto-dismiss alerts after 5 seconds
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
         setTimeout(() => {
-            alert.style.animation = 'slideInDown 0.3s ease reverse';
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-20px)';
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
@@ -2058,10 +1746,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + N to open add report modal (only if user can create)
+    // Ctrl/Cmd + N to open add report modal
     if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault();
-        const modal = document.getElementById('addReportModal');
+        const modal = document.getElementById('reportModal');
         if (modal) {
             openAddReportModal();
         }
@@ -2069,15 +1757,8 @@ document.addEventListener('keydown', function(e) {
     
     // Escape to close any open modal
     if (e.key === 'Escape') {
-        const modals = ['addReportModal', 'editReportModal', 'deleteConfirmModal'];
-        modals.forEach(modalId => {
-            const modal = document.getElementById(modalId);
-            if (modal && modal.style.display === 'flex') {
-                if (modalId === 'addReportModal') closeAddReportModal();
-                else if (modalId === 'editReportModal') closeEditReportModal();
-                else if (modalId === 'deleteConfirmModal') closeDeleteConfirmModal();
-            }
-        });
+        closeReportModal();
+        closeDeleteModal();
     }
 });
 
