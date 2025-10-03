@@ -1,5 +1,4 @@
 <?php
-// modul/data/reports.php
 // Enhanced Reports Module with Consistent Design
 
 // Get current logged in user info
@@ -293,11 +292,6 @@ function getRoleIcon($role) {
     return $icons[$role] ?? 'fas fa-user';
 }
 
-function getStatusColor($status) {
-    $colors = ['done' => '#10b981', 'in_progress' => '#f59e0b', 'pending' => '#6b7280'];
-    return $colors[$status] ?? '#6b7280';
-}
-
 function getStatusIcon($status) {
     $icons = ['done' => 'fas fa-check-circle', 'in_progress' => 'fas fa-clock', 'pending' => 'fas fa-pause-circle'];
     return $icons[$status] ?? 'fas fa-question-circle';
@@ -323,306 +317,301 @@ function canDeleteReport($report_user_id) {
 }
 ?>
 
-<div class="main-content" style="margin-top: 80px;">
-    <!-- Success/Error Messages -->
-    <?php if ($message): ?>
-    <div class="alert alert-success">
-        <i class="fas fa-check-circle"></i>
-        <?= htmlspecialchars($message) ?>
+<!-- Success/Error Messages -->
+<?php if ($message): ?>
+<div class="alert alert-success">
+    <i class="fas fa-check-circle"></i>
+    <?= htmlspecialchars($message) ?>
+</div>
+<?php endif; ?>
+
+<?php if ($error): ?>
+<div class="alert alert-error">
+    <i class="fas fa-exclamation-triangle"></i>
+    <?= htmlspecialchars($error) ?>
+</div>
+<?php endif; ?>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="header-content">
+        <h1 class="page-title">Manajemen Laporan</h1>
+        <p class="page-subtitle">
+            Kelola dan monitor semua laporan aktivitas dalam sistem
+        </p>
     </div>
-    <?php endif; ?>
+</div>
 
-    <?php if ($error): ?>
-    <div class="alert alert-error">
-        <i class="fas fa-exclamation-triangle"></i>
-        <?= htmlspecialchars($error) ?>
-    </div>
-    <?php endif; ?>
-
-    <!-- Page Header -->
-    <div class="page-header">
-        <div class="header-content">
-            <h1 class="page-title">
-                <i class="fas fa-chart-line mr-3"></i>
-                Manajemen Laporan
-            </h1>
-            <p class="page-subtitle">
-                Kelola dan monitor semua laporan aktivitas dalam sistem
-            </p>
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card bg-gradient-blue">
+        <div class="stat-icon">
+            <i class="fas fa-calendar-day"></i>
         </div>
-    </div>
-
-    <!-- Statistics Cards -->
-    <div class="stats-grid">
-        <div class="stat-card bg-gradient-blue">
-            <div class="stat-icon">
-                <i class="fas fa-calendar-day"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $stats_today ?></h3>
-                <p class="stat-label">Laporan Hari Ini</p>
-            </div>
-        </div>
-
-        <div class="stat-card bg-gradient-green <?= $status_filter == 'done' ? 'active' : '' ?>" onclick="filterByStatus('done')">
-            <div class="stat-icon">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $stats_done ?></h3>
-                <p class="stat-label">Selesai</p>
-            </div>
-        </div>
-
-        <div class="stat-card bg-gradient-orange <?= $status_filter == 'in_progress' ? 'active' : '' ?>" onclick="filterByStatus('in_progress')">
-            <div class="stat-icon">
-                <i class="fas fa-clock"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $stats_in_progress ?></h3>
-                <p class="stat-label">In Progress</p>
-            </div>
-        </div>
-
-        <div class="stat-card bg-gradient-purple <?= $status_filter == 'pending' ? 'active' : '' ?>" onclick="filterByStatus('pending')">
-            <div class="stat-icon">
-                <i class="fas fa-pause-circle"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $stats_pending ?></h3>
-                <p class="stat-label">Pending</p>
-            </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $stats_today ?></h3>
+            <p class="stat-label">Hari Ini</p>
         </div>
     </div>
 
-    <!-- Reports Container -->
-    <div class="reports-container">
-        <div class="section-header">
-            <div class="section-title-container">
-                <h2 class="section-title">Daftar Laporan</h2>
-                <span class="section-count"><?= $total_records ?> laporan</span>
+    <div class="stat-card bg-gradient-green <?= $status_filter == 'done' ? 'active' : '' ?>" onclick="filterByStatus('done')">
+        <div class="stat-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $stats_done ?></h3>
+            <p class="stat-label">Selesai</p>
+        </div>
+    </div>
+
+    <div class="stat-card bg-gradient-orange <?= $status_filter == 'in_progress' ? 'active' : '' ?>" onclick="filterByStatus('in_progress')">
+        <div class="stat-icon">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $stats_in_progress ?></h3>
+            <p class="stat-label">In Progress</p>
+        </div>
+    </div>
+
+    <div class="stat-card bg-gradient-purple <?= $status_filter == 'pending' ? 'active' : '' ?>" onclick="filterByStatus('pending')">
+        <div class="stat-icon">
+            <i class="fas fa-pause-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $stats_pending ?></h3>
+            <p class="stat-label">Pending</p>
+        </div>
+    </div>
+</div>
+
+<!-- Reports Container -->
+<div class="reports-container">
+    <div class="section-header">
+        <div class="section-title-wrapper">
+            <h2 class="section-title">Daftar Laporan</h2>
+            <span class="section-count"><?= $total_records ?> laporan</span>
+        </div>
+        
+        <!-- Filters -->
+        <div class="filters-container">
+            <div class="search-box">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Cari aktivitas..." 
+                       value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
             </div>
             
-            <!-- Filters -->
-            <div class="filters-container">
-                <div class="search-box">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text" id="searchInput" placeholder="Cari aktivitas, problem, atau PJ..." 
-                           value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
-                </div>
-                
-                <?php if ($current_permissions['can_view_all']): ?>
-                <div class="filter-dropdown">
-                    <select id="roleFilter" onchange="applyFilters()">
-                        <option value="">Semua Role</option>
-                        <option value="admin" <?= $role_filter == 'admin' ? 'selected' : '' ?>>Administrator</option>
-                        <option value="client" <?= $role_filter == 'client' ? 'selected' : '' ?>>Client</option>
-                        <option value="programmer" <?= $role_filter == 'programmer' ? 'selected' : '' ?>>Programmer</option>
-                        <option value="support" <?= $role_filter == 'support' ? 'selected' : '' ?>>Support</option>
-                    </select>
-                </div>
-
-                <div class="filter-dropdown">
-                    <select id="userFilter" onchange="applyFilters()">
-                        <option value="">Semua Pengguna</option>
-                        <?php 
-                        $users_options->data_seek(0);
-                        while($user = $users_options->fetch_assoc()): 
-                        ?>
-                        <option value="<?= $user['id'] ?>" <?= $user_filter == $user['id'] ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($user['name']) ?>
-                        </option>
-                        <?php endwhile; ?>
-                    </select>
-                </div>
-                <?php endif; ?>
-
-                <div class="filter-dropdown">
-                    <input type="date" id="dateFilter" value="<?= htmlspecialchars($date_filter) ?>" onchange="applyFilters()">
-                </div>
-
-                <div class="filter-dropdown">
-                    <select id="statusFilter" onchange="applyFilters()">
-                        <option value="">Semua Status</option>
-                        <option value="pending" <?= $status_filter == 'pending' ? 'selected' : '' ?>>Pending</option>
-                        <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
-                        <option value="done" <?= $status_filter == 'done' ? 'selected' : '' ?>>Done</option>
-                    </select>
-                </div>
-                
-                <?php if ($role_filter || $date_filter || $user_filter || $status_filter || $search): ?>
-                <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
-                    <i class="fas fa-times"></i>
-                </button>
-                <?php endif; ?>
+            <?php if ($current_permissions['can_view_all']): ?>
+            <div class="filter-dropdown">
+                <select id="roleFilter" onchange="applyFilters()">
+                    <option value="">Semua Role</option>
+                    <option value="admin" <?= $role_filter == 'admin' ? 'selected' : '' ?>>Admin</option>
+                    <option value="client" <?= $role_filter == 'client' ? 'selected' : '' ?>>Client</option>
+                    <option value="programmer" <?= $role_filter == 'programmer' ? 'selected' : '' ?>>Programmer</option>
+                    <option value="support" <?= $role_filter == 'support' ? 'selected' : '' ?>>Support</option>
+                </select>
             </div>
-        </div>
-        
-        <!-- Add New Report Button -->
-        <?php if ($current_permissions['can_create']): ?>
-        <div class="report-list-item add-new-item" onclick="openAddReportModal()">
-            <div class="add-new-content">
-                <div class="add-new-icon">
-                    <i class="fas fa-plus"></i>
-                </div>
-                <div class="add-new-text">
-                    <h3>Tambah Laporan Baru</h3>
-                    <p>Klik untuk menambahkan laporan aktivitas baru</p>
-                </div>
+
+            <div class="filter-dropdown">
+                <select id="userFilter" onchange="applyFilters()">
+                    <option value="">Semua User</option>
+                    <?php 
+                    $users_options->data_seek(0);
+                    while($user = $users_options->fetch_assoc()): 
+                    ?>
+                    <option value="<?= $user['id'] ?>" <?= $user_filter == $user['id'] ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($user['name']) ?>
+                    </option>
+                    <?php endwhile; ?>
+                </select>
             </div>
-        </div>
-        <?php endif; ?>
-        
-        <!-- Reports List -->
-        <div class="reports-list">
-            <?php if ($reports_result->num_rows > 0): ?>
-                <?php $no = $offset + 1; while($report = $reports_result->fetch_assoc()): ?>
-                <div class="report-list-item">
-                    <div class="report-status-indicator status-<?= $report['status'] ?>"></div>
-                    
-                    <div class="report-user-section">
-                        <div class="user-avatar" style="background: <?= getRoleColor($report['user_role']) ?>">
-                            <i class="<?= getRoleIcon($report['user_role']) ?>"></i>
-                        </div>
-                        <div class="report-number"><?= $no++ ?></div>
-                    </div>
-                    
-                    <div class="report-list-content">
-                        <div class="report-header-row">
-                            <div class="report-user-info">
-                                <h4 class="user-name"><?= htmlspecialchars($report['user_name']) ?></h4>
-                                <span class="user-role" style="color: <?= getRoleColor($report['user_role']) ?>">
-                                    <?= ucfirst($report['user_role']) ?>
-                                </span>
-                            </div>
-                            <div class="report-status-badge">
-                                <span class="status-badge status-<?= $report['status'] ?>">
-                                    <i class="<?= getStatusIcon($report['status']) ?>"></i>
-                                    <?= getStatusText($report['status']) ?>
-                                </span>
-                            </div>
-                        </div>
-                        
-                        <div class="report-activity">
-                            <p><strong>Aktivitas:</strong> <?= htmlspecialchars($report['activity']) ?></p>
-                        </div>
-                        
-                        <?php if (!empty($report['problem'])): ?>
-                        <div class="report-problem">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <span><strong>Problem:</strong> <?= htmlspecialchars($report['problem']) ?></span>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if (!empty($report['responsible_person'])): ?>
-                        <div class="report-responsible">
-                            <i class="fas fa-user-shield"></i>
-                            <span><strong>PJ:</strong> <?= htmlspecialchars($report['responsible_person']) ?></span>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <div class="report-details">
-                            <span class="detail-item">
-                                <i class="fas fa-calendar"></i>
-                                <?= date('d M Y', strtotime($report['date'])) ?>
-                            </span>
-                            <span class="detail-item">
-                                <i class="fas fa-clock"></i>
-                                <?= date('H:i', strtotime($report['created_at'])) ?>
-                            </span>
-                            <?php if ($report['user_id'] == $current_user_id): ?>
-                            <span class="owner-badge">
-                                <i class="fas fa-user"></i>
-                                Milik Anda
-                            </span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    
-                    <div class="report-list-actions">
-                        <?php if (canEditReport($report['user_id'])): ?>
-                        <button class="action-btn-small edit" 
-                                onclick="editReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>', '<?= htmlspecialchars(addslashes($report['problem'])) ?>', '<?= $report['status'] ?>', '<?= htmlspecialchars(addslashes($report['responsible_person'] ?? '')) ?>')" 
-                                title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <?php endif; ?>
-                        <?php if (canDeleteReport($report['user_id'])): ?>
-                        <button class="action-btn-small delete" 
-                                onclick="deleteReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>')" 
-                                title="Hapus">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endwhile; ?>
-            <?php else: ?>
-                <div class="no-data">
-                    <div class="no-data-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <h3>Tidak ada laporan ditemukan</h3>
-                    <p>Tidak ada laporan yang sesuai dengan filter yang diterapkan.</p>
-                </div>
+            <?php endif; ?>
+
+            <div class="filter-dropdown">
+                <input type="date" id="dateFilter" value="<?= htmlspecialchars($date_filter) ?>" onchange="applyFilters()">
+            </div>
+
+            <div class="filter-dropdown">
+                <select id="statusFilter" onchange="applyFilters()">
+                    <option value="">Semua Status</option>
+                    <option value="pending" <?= $status_filter == 'pending' ? 'selected' : '' ?>>Pending</option>
+                    <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
+                    <option value="done" <?= $status_filter == 'done' ? 'selected' : '' ?>>Done</option>
+                </select>
+            </div>
+            
+            <?php if ($role_filter || $date_filter || $user_filter || $status_filter || $search): ?>
+            <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
+                <i class="fas fa-times"></i>
+            </button>
             <?php endif; ?>
         </div>
-
-        <!-- Pagination -->
-        <?php if ($total_pages > 1): ?>
-        <div class="pagination-container">
-            <div class="pagination">
-                <?php
-                $query_params = ['page' => 'reports'];
-                if (!empty($search)) $query_params['search'] = $search;
-                if (!empty($role_filter)) $query_params['role'] = $role_filter;
-                if (!empty($date_filter)) $query_params['date'] = $date_filter;
-                if (!empty($user_filter)) $query_params['user'] = $user_filter;
-                if (!empty($status_filter)) $query_params['status'] = $status_filter;
-                $query_string = '&' . http_build_query($query_params);
-                ?>
-                
-                <?php if ($page > 1): ?>
-                <a href="?page_num=1<?= $query_string ?>" class="pagination-btn">
-                    <i class="fas fa-angle-double-left"></i>
-                </a>
-                <a href="?page_num=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
-                    <i class="fas fa-angle-left"></i>
-                </a>
-                <?php endif; ?>
-
-                <?php
-                $start = max(1, $page - 2);
-                $end = min($total_pages, $page + 2);
-                
-                if ($start > 1) echo '<span class="pagination-dots">...</span>';
-                
-                for ($i = $start; $i <= $end; $i++):
-                ?>
-                <a href="?page_num=<?= $i ?><?= $query_string ?>" 
-                   class="pagination-btn <?= $i == $page ? 'active' : '' ?>">
-                    <?= $i ?>
-                </a>
-                <?php endfor; ?>
-                
-                <?php if ($end < $total_pages) echo '<span class="pagination-dots">...</span>'; ?>
-
-                <?php if ($page < $total_pages): ?>
-                <a href="?page_num=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
-                    <i class="fas fa-angle-right"></i>
-                </a>
-                <a href="?page_num=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
-                    <i class="fas fa-angle-double-right"></i>
-                </a>
-                <?php endif; ?>
+    </div>
+    
+    <!-- Add New Report Button -->
+    <?php if ($current_permissions['can_create']): ?>
+    <div class="report-list-item add-new-item" onclick="openAddReportModal()">
+        <div class="add-new-content">
+            <div class="add-new-icon">
+                <i class="fas fa-plus"></i>
             </div>
-            
-            <div class="pagination-info">
-                Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_records) ?> dari <?= $total_records ?> data
+            <div class="add-new-text">
+                <h3>Tambah Laporan Baru</h3>
+                <p>Klik untuk menambahkan laporan aktivitas</p>
             </div>
         </div>
+    </div>
+    <?php endif; ?>
+    
+    <!-- Reports List -->
+    <div class="reports-list">
+        <?php if ($reports_result->num_rows > 0): ?>
+            <?php $no = $offset + 1; while($report = $reports_result->fetch_assoc()): ?>
+            <div class="report-list-item">
+                <div class="report-status-indicator status-<?= $report['status'] ?>"></div>
+                
+                <div class="report-user-section">
+                    <div class="user-avatar" style="background: <?= getRoleColor($report['user_role']) ?>">
+                        <i class="<?= getRoleIcon($report['user_role']) ?>"></i>
+                    </div>
+                </div>
+                
+                <div class="report-list-content">
+                    <div class="report-header-row">
+                        <div class="report-user-info">
+                            <h4 class="user-name"><?= htmlspecialchars($report['user_name']) ?></h4>
+                            <span class="user-role" style="color: <?= getRoleColor($report['user_role']) ?>">
+                                <?= ucfirst($report['user_role']) ?>
+                            </span>
+                        </div>
+                        <div class="report-status-badge">
+                            <span class="status-badge status-<?= $report['status'] ?>">
+                                <i class="<?= getStatusIcon($report['status']) ?>"></i>
+                                <?= getStatusText($report['status']) ?>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="report-activity">
+                        <p><?= htmlspecialchars(substr($report['activity'], 0, 120)) ?><?= strlen($report['activity']) > 120 ? '...' : '' ?></p>
+                    </div>
+                    
+                    <div class="report-meta-info">
+                        <?php if (!empty($report['problem'])): ?>
+                        <span class="meta-badge problem">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Problem
+                        </span>
+                        <?php endif; ?>
+                        <?php if (!empty($report['responsible_person'])): ?>
+                        <span class="meta-badge pj">
+                            <i class="fas fa-user-shield"></i>
+                            <?= htmlspecialchars(substr($report['responsible_person'], 0, 20)) ?>
+                        </span>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div class="report-list-details">
+                        <span class="detail-badge date">
+                            <i class="fas fa-calendar"></i>
+                            <?= date('d M Y', strtotime($report['date'])) ?>
+                        </span>
+                        <span class="detail-badge time">
+                            <i class="fas fa-clock"></i>
+                            <?= date('H:i', strtotime($report['created_at'])) ?>
+                        </span>
+                        <?php if ($report['user_id'] == $current_user_id): ?>
+                        <span class="owner-badge">
+                            <i class="fas fa-user"></i>
+                            Milik Anda
+                        </span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                
+                <div class="report-list-actions">
+                    <?php if (canEditReport($report['user_id'])): ?>
+                    <button class="action-btn-small edit" 
+                            onclick="editReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>', '<?= htmlspecialchars(addslashes($report['problem'])) ?>', '<?= $report['status'] ?>', '<?= htmlspecialchars(addslashes($report['responsible_person'] ?? '')) ?>')" 
+                            title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <?php endif; ?>
+                    <?php if (canDeleteReport($report['user_id'])): ?>
+                    <button class="action-btn-small delete" 
+                            onclick="deleteReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>')" 
+                            title="Hapus">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <div class="no-data">
+                <div class="no-data-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3>Tidak ada laporan ditemukan</h3>
+                <p>Tidak ada laporan yang sesuai dengan filter yang diterapkan.</p>
+            </div>
         <?php endif; ?>
     </div>
+
+    <!-- Pagination -->
+    <?php if ($total_pages > 1): ?>
+    <div class="pagination-container">
+        <div class="pagination">
+            <?php
+            $query_params = ['page' => 'reports'];
+            if (!empty($search)) $query_params['search'] = $search;
+            if (!empty($role_filter)) $query_params['role'] = $role_filter;
+            if (!empty($date_filter)) $query_params['date'] = $date_filter;
+            if (!empty($user_filter)) $query_params['user'] = $user_filter;
+            if (!empty($status_filter)) $query_params['status'] = $status_filter;
+            $query_string = '&' . http_build_query($query_params);
+            ?>
+            
+            <?php if ($page > 1): ?>
+            <a href="?page_num=1<?= $query_string ?>" class="pagination-btn">
+                <i class="fas fa-angle-double-left"></i>
+            </a>
+            <a href="?page_num=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
+                <i class="fas fa-angle-left"></i>
+            </a>
+            <?php endif; ?>
+
+            <?php
+            $start = max(1, $page - 2);
+            $end = min($total_pages, $page + 2);
+            
+            if ($start > 1) echo '<span class="pagination-dots">...</span>';
+            
+            for ($i = $start; $i <= $end; $i++):
+            ?>
+            <a href="?page_num=<?= $i ?><?= $query_string ?>" 
+               class="pagination-btn <?= $i == $page ? 'active' : '' ?>">
+                <?= $i ?>
+            </a>
+            <?php endfor; ?>
+            
+            <?php if ($end < $total_pages) echo '<span class="pagination-dots">...</span>'; ?>
+
+            <?php if ($page < $total_pages): ?>
+            <a href="?page_num=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
+                <i class="fas fa-angle-right"></i>
+            </a>
+            <a href="?page_num=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
+                <i class="fas fa-angle-double-right"></i>
+            </a>
+            <?php endif; ?>
+        </div>
+        
+        <div class="pagination-info">
+            Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_records) ?> dari <?= $total_records ?> data
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- Add/Edit Report Modal -->
@@ -639,25 +628,36 @@ function canDeleteReport($report_user_id) {
                 <input type="hidden" id="reportId" name="report_id">
                 
                 <div class="form-group">
-                    <label for="reportStatus">Status *</label>
-                    <select id="reportStatus" name="status" required>
-                        <option value="">Pilih Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="in_progress" selected>In Progress</option>
-                        <option value="done">Selesai</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="reportDate">Tanggal</label>
+                    <label for="reportDate">Tanggal *</label>
                     <input type="date" id="reportDate" name="report_date" 
                            value="<?= date('Y-m-d') ?>" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="responsiblePerson">Penanggung Jawab</label>
-                    <input type="text" id="responsiblePerson" name="responsible_person" 
-                           placeholder="Nama penanggung jawab (opsional)">
+                    <label for="reportStatus">Status *</label>
+                    <div class="status-selector">
+                        <label class="status-option">
+                            <input type="radio" name="status" value="pending" id="statusPending">
+                            <span class="status-badge status-pending">
+                                <i class="fas fa-pause-circle"></i>
+                                Pending
+                            </span>
+                        </label>
+                        <label class="status-option">
+                            <input type="radio" name="status" value="in_progress" id="statusInProgress" checked>
+                            <span class="status-badge status-in_progress">
+                                <i class="fas fa-clock"></i>
+                                In Progress
+                            </span>
+                        </label>
+                        <label class="status-option">
+                            <input type="radio" name="status" value="done" id="statusDone">
+                            <span class="status-badge status-done">
+                                <i class="fas fa-check-circle"></i>
+                                Done
+                            </span>
+                        </label>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -670,6 +670,12 @@ function canDeleteReport($report_user_id) {
                     <label for="reportProblem">Problem/Kendala</label>
                     <textarea id="reportProblem" name="problem" rows="3" 
                               placeholder="Jelaskan problem atau kendala (opsional)..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="responsiblePerson">Penanggung Jawab</label>
+                    <input type="text" id="responsiblePerson" name="responsible_person" 
+                           placeholder="Nama penanggung jawab (opsional)">
                 </div>
             </form>
         </div>
@@ -713,9 +719,10 @@ function canDeleteReport($report_user_id) {
 .alert {
     padding: 12px 16px;
     border-radius: 8px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     animation: slideDown 0.3s ease;
 }
@@ -737,12 +744,17 @@ function canDeleteReport($report_user_id) {
     to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* Page Header */
 .page-header {
     background: white;
     border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 24px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.05);
 }
 
@@ -751,8 +763,6 @@ function canDeleteReport($report_user_id) {
     font-weight: 700;
     color: #1f2937;
     margin-bottom: 4px;
-    display: flex;
-    align-items: center;
 }
 
 .page-subtitle {
@@ -760,9 +770,6 @@ function canDeleteReport($report_user_id) {
     font-size: 0.95rem;
     margin: 0;
 }
-
-.mr-2 { margin-right: 8px; }
-.mr-3 { margin-right: 12px; }
 
 /* Buttons */
 .btn {
@@ -774,8 +781,6 @@ function canDeleteReport($report_user_id) {
     transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
-    text-decoration: none;
-    font-size: 0.9rem;
 }
 
 .btn-primary {
@@ -786,7 +791,6 @@ function canDeleteReport($report_user_id) {
 .btn-primary:hover {
     background: linear-gradient(90deg, #0044cc, #00aaff);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,102,255,0.3);
 }
 
 .btn-secondary {
@@ -796,7 +800,7 @@ function canDeleteReport($report_user_id) {
 }
 
 .btn-secondary:hover {
-    background: #f1f5f9;
+    background: #e2e8f0;
 }
 
 .btn-danger {
@@ -807,25 +811,28 @@ function canDeleteReport($report_user_id) {
 .btn-danger:hover {
     background: linear-gradient(90deg, #dc2626, #b91c1c);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(239,68,68,0.3);
+}
+
+.mr-2 {
+    margin-right: 8px;
 }
 
 /* Statistics Grid */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-    margin-bottom: 32px;
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
 .stat-card {
     background: white;
     border-radius: 16px;
-    padding: 24px;
+    padding: 20px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     cursor: pointer;
     position: relative;
@@ -853,26 +860,40 @@ function canDeleteReport($report_user_id) {
     font-weight: bold;
 }
 
-.bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
-.bg-gradient-green { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
-.bg-gradient-orange { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
-.bg-gradient-purple { background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; }
+.bg-gradient-blue { 
+    background: linear-gradient(135deg, #0066ff, #33ccff); 
+    color: white; 
+}
+
+.bg-gradient-green { 
+    background: linear-gradient(135deg, #10b981, #34d399); 
+    color: white; 
+}
+
+.bg-gradient-orange { 
+    background: linear-gradient(135deg, #f59e0b, #fbbf24); 
+    color: white; 
+}
+
+.bg-gradient-purple { 
+    background: linear-gradient(135deg, #7c3aed, #a855f7); 
+    color: white; 
+}
 
 .stat-icon {
-    font-size: 2.5rem;
+    font-size: 2rem;
     opacity: 0.8;
 }
 
-.stat-content h3 {
-    font-size: 2.2rem;
+.stat-content .stat-number {
+    font-size: 2rem;
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
-.stat-content p {
-    font-size: 0.9rem;
+.stat-content .stat-label {
+    font-size: 0.85rem;
     opacity: 0.9;
-    margin: 0;
 }
 
 /* Reports Container */
@@ -884,7 +905,7 @@ function canDeleteReport($report_user_id) {
 }
 
 .section-header {
-    padding: 24px 24px 16px;
+    padding: 20px 24px 16px;
     border-bottom: 1px solid #f3f4f6;
     display: flex;
     justify-content: space-between;
@@ -893,14 +914,14 @@ function canDeleteReport($report_user_id) {
     gap: 16px;
 }
 
-.section-title-container {
+.section-title-wrapper {
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
 .section-title {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: 600;
     color: #1f2937;
     margin: 0;
@@ -908,7 +929,7 @@ function canDeleteReport($report_user_id) {
 
 .section-count {
     color: #6b7280;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     background: #f3f4f6;
     padding: 4px 12px;
     border-radius: 20px;
@@ -924,7 +945,7 @@ function canDeleteReport($report_user_id) {
 
 .search-box {
     position: relative;
-    min-width: 250px;
+    min-width: 200px;
 }
 
 .search-icon {
@@ -959,7 +980,7 @@ function canDeleteReport($report_user_id) {
     font-size: 0.9rem;
     background: white;
     cursor: pointer;
-    min-width: 150px;
+    min-width: 140px;
     transition: all 0.3s ease;
 }
 
@@ -991,7 +1012,7 @@ function canDeleteReport($report_user_id) {
 
 /* Reports List */
 .reports-list {
-    max-height: 600px;
+    max-height: 500px;
     overflow-y: auto;
 }
 
@@ -1008,10 +1029,15 @@ function canDeleteReport($report_user_id) {
     border-radius: 3px;
 }
 
+.reports-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Report List Items */
 .report-list-item {
     display: flex;
     align-items: center;
-    padding: 16px 24px;
+    padding: 14px 24px;
     border-bottom: 1px solid #f3f4f6;
     transition: all 0.3s ease;
     position: relative;
@@ -1025,7 +1051,6 @@ function canDeleteReport($report_user_id) {
     border-bottom: none;
 }
 
-/* Add New Item */
 .add-new-item {
     border: 2px dashed #d1d5db !important;
     background: #f9fafb !important;
@@ -1060,14 +1085,14 @@ function canDeleteReport($report_user_id) {
 }
 
 .add-new-text h3 {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     margin: 0 0 4px 0;
     color: #374151;
 }
 
 .add-new-text p {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     margin: 0;
     color: #9ca3af;
 }
@@ -1096,35 +1121,20 @@ function canDeleteReport($report_user_id) {
 /* Report User Section */
 .report-user-section {
     display: flex;
-    flex-direction: column;
     align-items: center;
     margin-right: 16px;
     flex-shrink: 0;
 }
 
 .user-avatar {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 1.1rem;
-    margin-bottom: 8px;
-}
-
-.report-number {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #6b7280;
-    background: #f3f4f6;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    font-size: 1rem;
 }
 
 /* Report List Content */
@@ -1137,25 +1147,25 @@ function canDeleteReport($report_user_id) {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     gap: 12px;
 }
 
 .report-user-info {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 }
 
 .user-name {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     color: #1f2937;
     margin: 0;
 }
 
 .user-role {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 500;
     text-transform: uppercase;
 }
@@ -1163,10 +1173,10 @@ function canDeleteReport($report_user_id) {
 .report-status-badge .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
+    gap: 4px;
+    padding: 4px 10px;
     border-radius: 12px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 500;
     color: white;
 }
@@ -1184,71 +1194,77 @@ function canDeleteReport($report_user_id) {
 }
 
 .report-activity {
-    color: #1f2937;
-    font-size: 0.95rem;
-    line-height: 1.5;
+    color: #374151;
+    font-size: 0.85rem;
+    line-height: 1.4;
     margin-bottom: 8px;
 }
 
-.report-problem {
-    background: #fef3c7;
-    border: 1px solid #fde68a;
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin: 8px 0;
-    font-size: 0.85rem;
-    color: #92400e;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.report-activity p {
+    margin: 0;
 }
 
-.report-problem i {
+.report-meta-info {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.meta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.meta-badge.problem {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.meta-badge.problem i {
     color: #f59e0b;
 }
 
-.report-responsible {
+.meta-badge.pj {
     background: #e0f2fe;
-    border: 1px solid #b3e5fc;
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin: 8px 0;
-    font-size: 0.85rem;
-    color: #0277bd;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    color: #0c4a6e;
+    border: 1px solid #bae6fd;
 }
 
-.report-responsible i {
-    color: #0288d1;
+.meta-badge.pj i {
+    color: #0ea5e9;
 }
 
-.report-details {
+.report-list-details {
     display: flex;
-    gap: 20px;
-    font-size: 0.85rem;
-    color: #6b7280;
+    gap: 12px;
     flex-wrap: wrap;
-    margin-top: 8px;
 }
 
-.detail-item {
-    display: flex;
+.detail-badge {
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: #6b7280;
 }
 
-.detail-item i {
+.detail-badge i {
     width: 14px;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
 }
 
 .owner-badge {
-    padding: 4px 8px;
+    padding: 3px 8px;
     background: #0066ff;
     color: white;
-    border-radius: 12px;
+    border-radius: 10px;
     font-size: 0.7rem;
     font-weight: 500;
     display: flex;
@@ -1259,7 +1275,7 @@ function canDeleteReport($report_user_id) {
 /* Report List Actions */
 .report-list-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     opacity: 0;
     transition: opacity 0.3s ease;
     flex-shrink: 0;
@@ -1270,8 +1286,8 @@ function canDeleteReport($report_user_id) {
 }
 
 .action-btn-small {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: 6px;
     border: none;
     background: #f8fafc;
@@ -1281,7 +1297,7 @@ function canDeleteReport($report_user_id) {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
 }
 
 .action-btn-small:hover {
@@ -1332,8 +1348,8 @@ function canDeleteReport($report_user_id) {
 
 /* Pagination */
 .pagination-container {
-    padding: 24px;
-    border-top: 1px solid #f1f5f9;
+    padding: 20px 24px;
+    border-top: 1px solid #f3f4f6;
     background: #f8fafc;
     display: flex;
     justify-content: space-between;
@@ -1345,12 +1361,12 @@ function canDeleteReport($report_user_id) {
 .pagination {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .pagination-btn {
-    min-width: 40px;
-    height: 40px;
+    min-width: 36px;
+    height: 36px;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
     background: white;
@@ -1360,6 +1376,7 @@ function canDeleteReport($report_user_id) {
     align-items: center;
     justify-content: center;
     font-weight: 500;
+    font-size: 0.85rem;
     transition: all 0.3s ease;
 }
 
@@ -1378,13 +1395,13 @@ function canDeleteReport($report_user_id) {
 
 .pagination-dots {
     color: #9ca3af;
-    padding: 0 8px;
+    padding: 0 4px;
     font-weight: 500;
 }
 
 .pagination-info {
     color: #6b7280;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 /* Modal Styles */
@@ -1438,18 +1455,20 @@ function canDeleteReport($report_user_id) {
     padding: 24px 24px 0;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .modal-header h3 {
     font-size: 1.3rem;
     font-weight: 600;
     color: #1f2937;
+    margin: 0;
 }
 
 .delete-modal .modal-header {
     flex-direction: column;
     text-align: center;
+    align-items: center;
 }
 
 .delete-modal .modal-header p {
@@ -1497,6 +1516,7 @@ function canDeleteReport($report_user_id) {
     border-radius: 8px;
     font-size: 0.9rem;
     transition: border-color 0.3s ease;
+    box-sizing: border-box;
 }
 
 .form-group input:focus,
@@ -1509,7 +1529,7 @@ function canDeleteReport($report_user_id) {
 
 .form-group textarea {
     resize: vertical;
-    min-height: 100px;
+    min-height: 80px;
 }
 
 .modal-footer {
@@ -1519,19 +1539,67 @@ function canDeleteReport($report_user_id) {
     gap: 12px;
 }
 
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
+/* Status Selector */
+.status-selector {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.status-option {
+    cursor: pointer;
+}
+
+.status-option input[type="radio"] {
+    display: none;
+}
+
+.status-selector .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: white;
+}
+
+.status-selector .status-badge.status-pending {
+    background: linear-gradient(135deg, #6b7280, #9ca3af);
+}
+
+.status-selector .status-badge.status-in_progress {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.status-selector .status-badge.status-done {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.status-option input[type="radio"]:checked + .status-badge {
+    border-color: #1f2937;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     .page-header {
-        text-align: center;
+        padding: 16px 20px;
     }
     
     .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
+        gap: 12px;
     }
     
     .section-header {
@@ -1541,6 +1609,7 @@ function canDeleteReport($report_user_id) {
     
     .filters-container {
         justify-content: stretch;
+        width: 100%;
     }
     
     .search-box {
@@ -1556,14 +1625,6 @@ function canDeleteReport($report_user_id) {
     
     .report-list-item {
         flex-wrap: wrap;
-        gap: 12px;
-        padding: 16px;
-    }
-    
-    .report-user-section {
-        flex-direction: row;
-        gap: 8px;
-        margin-right: 0;
     }
     
     .report-header-row {
@@ -1571,16 +1632,30 @@ function canDeleteReport($report_user_id) {
         align-items: flex-start;
     }
     
-    .report-details {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
     .report-list-actions {
         opacity: 1;
-        margin-top: 8px;
-        justify-content: center;
-        width: 100%;
+    }
+    
+    .reports-list {
+        max-height: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .report-list-item {
+        padding: 12px 16px;
+    }
+    
+    .section-header {
+        padding: 16px 20px 12px;
+    }
+    
+    .add-new-item {
+        margin: 12px 16px;
+    }
+    
+    .status-selector {
+        flex-direction: column;
     }
     
     .pagination-container {
@@ -1591,28 +1666,6 @@ function canDeleteReport($report_user_id) {
     .pagination {
         justify-content: center;
         flex-wrap: wrap;
-    }
-    
-    .reports-list {
-        max-height: none;
-    }
-}
-
-@media (max-width: 480px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .pagination-btn {
-        min-width: 35px;
-        height: 35px;
-        font-size: 0.85rem;
-    }
-    
-    .add-new-content {
-        flex-direction: column;
-        text-align: center;
-        gap: 12px;
     }
 }
 </style>
@@ -1627,6 +1680,7 @@ function openAddReportModal() {
     document.getElementById('reportForm').reset();
     document.getElementById('reportId').value = '';
     document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('statusInProgress').checked = true;
     currentEditId = null;
     document.getElementById('reportModal').classList.add('show');
     document.body.style.overflow = 'hidden';
@@ -1639,15 +1693,25 @@ function editReport(id, activity, problem, status, responsiblePerson) {
     document.getElementById('reportId').value = id;
     document.getElementById('reportActivity').value = activity;
     document.getElementById('reportProblem').value = problem;
-    document.getElementById('reportStatus').value = status;
     document.getElementById('responsiblePerson').value = responsiblePerson;
+    
+    // Set status radio button
+    if (status === 'pending') {
+        document.getElementById('statusPending').checked = true;
+    } else if (status === 'in_progress') {
+        document.getElementById('statusInProgress').checked = true;
+    } else if (status === 'done') {
+        document.getElementById('statusDone').checked = true;
+    }
+    
     currentEditId = id;
     document.getElementById('reportModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
 function deleteReport(id, activity) {
-    document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus laporan "${activity.substring(0, 50)}${activity.length > 50 ? '...' : ''}"?`;
+    const truncated = activity.length > 50 ? activity.substring(0, 50) + '...' : activity;
+    document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus laporan "${truncated}"?`;
     document.getElementById('deleteReportId').value = id;
     document.getElementById('deleteModal').classList.add('show');
     document.body.style.overflow = 'hidden';
@@ -1663,7 +1727,6 @@ function closeDeleteModal() {
     document.body.style.overflow = '';
 }
 
-// Filter by status from stat cards
 function filterByStatus(status) {
     let url = new URL(window.location);
     const currentStatus = url.searchParams.get('status');
@@ -1680,7 +1743,6 @@ function filterByStatus(status) {
     window.location.href = url.toString();
 }
 
-// Filter functions
 function applyFilters() {
     const roleFilter = document.getElementById('roleFilter')?.value || '';
     const dateFilter = document.getElementById('dateFilter')?.value || '';
@@ -1732,6 +1794,14 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeReportModal();
+        closeDeleteModal();
+    }
+});
+
 // Auto-hide alerts after 5 seconds
 document.addEventListener('DOMContentLoaded', function() {
     const alerts = document.querySelectorAll('.alert');
@@ -1744,26 +1814,35 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + N to open add report modal
-    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-        e.preventDefault();
-        const modal = document.getElementById('reportModal');
-        if (modal) {
-            openAddReportModal();
+// Form validation
+if (document.getElementById('reportForm')) {
+    document.getElementById('reportForm').addEventListener('submit', function(e) {
+        const activity = document.getElementById('reportActivity').value.trim();
+        
+        if (!activity) {
+            e.preventDefault();
+            alert('Aktivitas harus diisi!');
+            document.getElementById('reportActivity').focus();
+            return false;
         }
-    }
-    
-    // Escape to close any open modal
-    if (e.key === 'Escape') {
-        closeReportModal();
-        closeDeleteModal();
-    }
+    });
+}
+
+// Auto-focus first input when modal opens
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.target.classList.contains('modal') && mutation.target.classList.contains('show')) {
+            setTimeout(() => {
+                const firstInput = mutation.target.querySelector('input[type="date"], textarea');
+                if (firstInput && firstInput.offsetParent !== null) {
+                    firstInput.focus();
+                }
+            }, 300);
+        }
+    });
 });
 
-// Prevent form resubmission on page refresh
-if (window.history.replaceState) {
-    window.history.replaceState(null, null, window.location.href);
-}
+document.querySelectorAll('.modal').forEach(modal => {
+    observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+});
 </script>
