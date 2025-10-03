@@ -62,7 +62,7 @@ if (isset($_POST['delete_todo'])) {
 }
 
 // Pagination setup
-$limit = 10; // Items per page
+$limit = 10;
 $page = isset($_GET['page_num']) ? max(1, (int)$_GET['page_num']) : 1;
 $offset = ($page - 1) * $limit;
 
@@ -137,11 +137,8 @@ $todos_query = "
     LIMIT ? OFFSET ?
 ";
 
-// Prepare parameters for pagination query
-$pagination_params = $params; // Copy existing params
+$pagination_params = $params;
 $pagination_param_types = $param_types;
-
-// Add LIMIT and OFFSET parameters
 $pagination_params[] = $limit;
 $pagination_params[] = $offset;
 $pagination_param_types .= 'ii';
@@ -171,285 +168,268 @@ function getPriorityIcon($priority) {
     ];
     return $icons[$priority] ?? 'fas fa-circle';
 }
-
-function getPriorityColor($priority) {
-    $colors = [
-        'high' => '#ef4444',
-        'medium' => '#f59e0b',
-        'low' => '#10b981'
-    ];
-    return $colors[$priority] ?? '#6b7280';
-}
 ?>
 
-<div class="main-content" style="margin-top: 80px;">
-    <!-- Success/Error Messages -->
-    <?php if ($message): ?>
-    <div class="alert alert-success">
-        <i class="fas fa-check-circle"></i>
-        <?= $message ?>
+<!-- Success/Error Messages -->
+<?php if ($message): ?>
+<div class="alert alert-success">
+    <i class="fas fa-check-circle"></i>
+    <?= $message ?>
+</div>
+<?php endif; ?>
+
+<?php if ($error): ?>
+<div class="alert alert-error">
+    <i class="fas fa-exclamation-triangle"></i>
+    <?= $error ?>
+</div>
+<?php endif; ?>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="header-content">
+        <h1 class="page-title">Manajemen Todo</h1>
+        <p class="page-subtitle">
+            Kelola dan monitor semua tugas dalam sistem
+        </p>
     </div>
-    <?php endif; ?>
-    
-    <?php if ($error): ?>
-    <div class="alert alert-error">
-        <i class="fas fa-exclamation-triangle"></i>
-        <?= $error ?>
-    </div>
-    <?php endif; ?>
+</div>
 
-    <!-- Page Header -->
-    <div class="page-header">
-        <div class="header-content">
-            <h1 class="page-title">
-                <i class="fas fa-tasks mr-3"></i>
-                Manajemen Todo
-            </h1>
-            <p class="page-subtitle">
-                Kelola dan monitor semua tugas dalam sistem
-            </p>
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card bg-gradient-blue">
+        <div class="stat-icon">
+            <i class="fas fa-list-check"></i>
         </div>
-    </div>
-
-    <!-- Statistics Cards -->
-    <div class="stats-grid">
-        <div class="stat-card bg-gradient-blue">
-            <div class="stat-icon">
-                <i class="fas fa-list-check"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $total_todos ?></h3>
-                <p class="stat-label">Total Todo</p>
-            </div>
-        </div>
-
-        <div class="stat-card bg-gradient-red <?= $filter_priority == 'high' ? 'active' : '' ?>" onclick="filterByPriority('high')">
-            <div class="stat-icon">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $high_priority ?></h3>
-                <p class="stat-label">High Priority</p>
-            </div>
-        </div>
-
-        <div class="stat-card bg-gradient-orange <?= $filter_priority == 'medium' ? 'active' : '' ?>" onclick="filterByPriority('medium')">
-            <div class="stat-icon">
-                <i class="fas fa-minus-circle"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $medium_priority ?></h3>
-                <p class="stat-label">Medium Priority</p>
-            </div>
-        </div>
-
-        <div class="stat-card bg-gradient-green <?= $filter_priority == 'low' ? 'active' : '' ?>" onclick="filterByPriority('low')">
-            <div class="stat-icon">
-                <i class="fas fa-arrow-down"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-number"><?= $low_priority ?></h3>
-                <p class="stat-label">Low Priority</p>
-            </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $total_todos ?></h3>
+            <p class="stat-label">Total Todo</p>
         </div>
     </div>
 
-    <!-- Todos Container -->
-    <div class="todos-container">
-        <div class="section-header">
-            <div class="section-title-container">
-                <h2 class="section-title">Daftar Todo</h2>
-                <span class="section-count"><?= $total_records ?> todo</span>
+    <div class="stat-card bg-gradient-red <?= $filter_priority == 'high' ? 'active' : '' ?>" onclick="filterByPriority('high')">
+        <div class="stat-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $high_priority ?></h3>
+            <p class="stat-label">High Priority</p>
+        </div>
+    </div>
+
+    <div class="stat-card bg-gradient-orange <?= $filter_priority == 'medium' ? 'active' : '' ?>" onclick="filterByPriority('medium')">
+        <div class="stat-icon">
+            <i class="fas fa-minus-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $medium_priority ?></h3>
+            <p class="stat-label">Medium Priority</p>
+        </div>
+    </div>
+
+    <div class="stat-card bg-gradient-green <?= $filter_priority == 'low' ? 'active' : '' ?>" onclick="filterByPriority('low')">
+        <div class="stat-icon">
+            <i class="fas fa-arrow-down"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $low_priority ?></h3>
+            <p class="stat-label">Low Priority</p>
+        </div>
+    </div>
+</div>
+
+<!-- Todos Container -->
+<div class="todos-container">
+    <div class="section-header">
+        <div class="section-title-wrapper">
+            <h2 class="section-title">Daftar Todo</h2>
+            <span class="section-count"><?= $total_records ?> todo</span>
+        </div>
+        
+        <!-- Filters -->
+        <div class="filters-container">
+            <div class="search-box">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Cari judul atau deskripsi..." 
+                       value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
             </div>
             
-            <!-- Filters -->
-            <div class="filters-container">
-                <div class="search-box">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text" id="searchInput" placeholder="Cari judul atau deskripsi..." 
-                           value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
-                </div>
-                
-                <div class="filter-dropdown">
-                    <select id="priorityFilter" onchange="applyFilters()">
-                        <option value="">Semua Prioritas</option>
-                        <option value="high" <?= $filter_priority == 'high' ? 'selected' : '' ?>>High Priority</option>
-                        <option value="medium" <?= $filter_priority == 'medium' ? 'selected' : '' ?>>Medium Priority</option>
-                        <option value="low" <?= $filter_priority == 'low' ? 'selected' : '' ?>>Low Priority</option>
-                    </select>
-                </div>
+            <div class="filter-dropdown">
+                <select id="priorityFilter" onchange="applyFilters()">
+                    <option value="">Semua Prioritas</option>
+                    <option value="high" <?= $filter_priority == 'high' ? 'selected' : '' ?>>High Priority</option>
+                    <option value="medium" <?= $filter_priority == 'medium' ? 'selected' : '' ?>>Medium Priority</option>
+                    <option value="low" <?= $filter_priority == 'low' ? 'selected' : '' ?>>Low Priority</option>
+                </select>
+            </div>
 
-                <div class="filter-dropdown">
-                    <select id="appFilter" onchange="applyFilters()">
-                        <option value="">Semua Aplikasi</option>
-                        <?php 
-                        $apps_result->data_seek(0);
-                        while($app = $apps_result->fetch_assoc()): 
-                        ?>
-                        <option value="<?= $app['id'] ?>" <?= $filter_app == $app['id'] ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($app['name']) ?>
-                        </option>
-                        <?php endwhile; ?>
-                    </select>
-                </div>
-                
-                <?php if ($filter_priority || $search || $filter_app): ?>
-                <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
-                    <i class="fas fa-times"></i>
-                </button>
-                <?php endif; ?>
+            <div class="filter-dropdown">
+                <select id="appFilter" onchange="applyFilters()">
+                    <option value="">Semua Aplikasi</option>
+                    <?php 
+                    $apps_result->data_seek(0);
+                    while($app = $apps_result->fetch_assoc()): 
+                    ?>
+                    <option value="<?= $app['id'] ?>" <?= $filter_app == $app['id'] ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($app['name']) ?>
+                    </option>
+                    <?php endwhile; ?>
+                </select>
             </div>
-        </div>
-        
-        <!-- Add New Todo Button -->
-        <div class="todo-list-item add-new-item" onclick="openAddTodoModal()">
-            <div class="add-new-content">
-                <div class="add-new-icon">
-                    <i class="fas fa-plus"></i>
-                </div>
-                <div class="add-new-text">
-                    <h3>Tambah Todo Baru</h3>
-                    <p>Klik untuk menambahkan todo baru</p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Todos List -->
-        <div class="todos-list">
-            <?php if ($todos_result->num_rows > 0): ?>
-                <?php $no = $offset + 1; while($todo = $todos_result->fetch_assoc()): ?>
-                <div class="todo-list-item" data-todo-id="<?= $todo['id'] ?>">
-                    <div class="todo-priority-container">
-                        <div class="todo-priority-badge priority-<?= $todo['priority'] ?>">
-                            <i class="<?= getPriorityIcon($todo['priority']) ?>"></i>
-                        </div>
-                        <div class="todo-number"><?= $no++ ?></div>
-                    </div>
-                    
-                    <div class="todo-list-content">
-                        <div class="todo-list-main">
-                            <div class="todo-title-section">
-                                <h3 class="todo-list-title"><?= htmlspecialchars($todo['title']) ?></h3>
-                                <span class="todo-priority-text priority-<?= $todo['priority'] ?>"><?= ucfirst($todo['priority']) ?></span>
-                            </div>
-                            <div class="todo-description">
-                                <?= htmlspecialchars($todo['description']) ?>
-                            </div>
-                            <div class="todo-details">
-                                <span class="todo-app">
-                                    <i class="fas fa-cube"></i>
-                                    <?= htmlspecialchars($todo['app_name']) ?>
-                                </span>
-                                <span class="todo-user">
-                                    <i class="fas fa-user"></i>
-                                    <?= htmlspecialchars($todo['user_name']) ?>
-                                </span>
-                                <span class="todo-date">
-                                    <i class="fas fa-calendar"></i>
-                                    <?= date('d/m/Y H:i', strtotime($todo['created_at'])) ?>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="todo-status-container">
-                        <?php if($todo['taken_status']): ?>
-                        <div class="status-badge status-<?= $todo['taken_status'] ?>">
-                            <i class="fas fa-<?= $todo['taken_status'] == 'done' ? 'check-circle' : 'clock' ?>"></i>
-                            <?= $todo['taken_status'] == 'done' ? 'Completed' : 'In Progress' ?>
-                        </div>
-                        <?php else: ?>
-                        <div class="status-badge status-available">
-                            <i class="fas fa-hand-paper"></i>
-                            Available
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="todo-list-actions">
-                        <button class="action-btn-small edit" 
-                                onclick="editTodo(<?= $todo['id'] ?>, <?= $todo['app_id'] ?>, '<?= htmlspecialchars($todo['title'], ENT_QUOTES) ?>', '<?= htmlspecialchars($todo['description'], ENT_QUOTES) ?>', '<?= $todo['priority'] ?>')" 
-                                title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="action-btn-small delete" 
-                                onclick="deleteTodo(<?= $todo['id'] ?>, '<?= htmlspecialchars($todo['title'], ENT_QUOTES) ?>')" 
-                                title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-                <?php endwhile; ?>
-            <?php else: ?>
-                <div class="no-data">
-                    <div class="no-data-icon">
-                        <i class="fas fa-clipboard-list"></i>
-                    </div>
-                    <h3>Tidak ada todo ditemukan</h3>
-                    <p>Tidak ada todo yang sesuai dengan filter yang diterapkan.</p>
-                </div>
+            
+            <?php if ($filter_priority || $search || $filter_app): ?>
+            <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
+                <i class="fas fa-times"></i>
+            </button>
             <?php endif; ?>
         </div>
-
-        <!-- Pagination -->
-        <?php if ($total_pages > 1): ?>
-        <div class="pagination-container">
-            <div class="pagination">
-                <?php
-                // Build query string for pagination
-                $query_params = ['page' => 'todos'];
-                if (!empty($search)) $query_params['search'] = $search;
-                if (!empty($filter_priority)) $query_params['priority'] = $filter_priority;
-                if (!empty($filter_app)) $query_params['app'] = $filter_app;
-                
-                $query_string = '&' . http_build_query($query_params);
-                ?>
-                
-                <?php if ($page > 1): ?>
-                <a href="?page_num=1<?= $query_string ?>" class="pagination-btn">
-                    <i class="fas fa-angle-double-left"></i>
-                </a>
-                <a href="?page_num=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
-                    <i class="fas fa-angle-left"></i>
-                </a>
-                <?php endif; ?>
-
-                <?php
-                $start = max(1, $page - 2);
-                $end = min($total_pages, $page + 2);
-                
-                if ($start > 1) {
-                    echo '<span class="pagination-dots">...</span>';
-                }
-                
-                for ($i = $start; $i <= $end; $i++):
-                ?>
-                <a href="?page_num=<?= $i ?><?= $query_string ?>" 
-                   class="pagination-btn <?= $i == $page ? 'active' : '' ?>">
-                    <?= $i ?>
-                </a>
-                <?php endfor; ?>
-                
-                <?php if ($end < $total_pages) {
-                    echo '<span class="pagination-dots">...</span>';
-                } ?>
-
-                <?php if ($page < $total_pages): ?>
-                <a href="?page_num=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
-                    <i class="fas fa-angle-right"></i>
-                </a>
-                <a href="?page_num=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
-                    <i class="fas fa-angle-double-right"></i>
-                </a>
-                <?php endif; ?>
+    </div>
+    
+    <!-- Add New Todo Button -->
+    <div class="todo-list-item add-new-item" onclick="openAddTodoModal()">
+        <div class="add-new-content">
+            <div class="add-new-icon">
+                <i class="fas fa-plus"></i>
             </div>
-            
-            <div class="pagination-info">
-                Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_records) ?> dari <?= $total_records ?> data
+            <div class="add-new-text">
+                <h3>Tambah Todo Baru</h3>
+                <p>Klik untuk menambahkan todo baru</p>
             </div>
         </div>
+    </div>
+    
+    <!-- Todos List -->
+    <div class="todos-list">
+        <?php if ($todos_result->num_rows > 0): ?>
+            <?php $no = $offset + 1; while($todo = $todos_result->fetch_assoc()): ?>
+            <div class="todo-list-item" data-todo-id="<?= $todo['id'] ?>">
+                <div class="todo-priority-container">
+                    <div class="todo-priority-badge priority-<?= $todo['priority'] ?>">
+                        <i class="<?= getPriorityIcon($todo['priority']) ?>"></i>
+                    </div>
+                </div>
+                
+                <div class="todo-list-content">
+                    <div class="todo-list-main">
+                        <h3 class="todo-list-title"><?= htmlspecialchars($todo['title']) ?></h3>
+                        <p class="todo-list-description">
+                            <?= htmlspecialchars(substr($todo['description'], 0, 80)) ?>
+                            <?= strlen($todo['description']) > 80 ? '...' : '' ?>
+                        </p>
+                    </div>
+                    
+                    <div class="todo-list-details">
+                        <span class="detail-badge app">
+                            <i class="fas fa-cube"></i>
+                            <?= htmlspecialchars($todo['app_name']) ?>
+                        </span>
+                        <span class="detail-badge user">
+                            <i class="fas fa-user"></i>
+                            <?= htmlspecialchars($todo['user_name']) ?>
+                        </span>
+                        <span class="detail-badge date">
+                            <i class="fas fa-calendar"></i>
+                            <?= date('d/m/Y H:i', strtotime($todo['created_at'])) ?>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="todo-status-container">
+                    <?php if($todo['taken_status']): ?>
+                    <div class="status-badge status-<?= $todo['taken_status'] ?>">
+                        <i class="fas fa-<?= $todo['taken_status'] == 'done' ? 'check-circle' : 'clock' ?>"></i>
+                        <?= $todo['taken_status'] == 'done' ? 'Completed' : 'In Progress' ?>
+                    </div>
+                    <?php else: ?>
+                    <div class="status-badge status-available">
+                        <i class="fas fa-hand-paper"></i>
+                        Available
+                    </div>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="todo-list-actions">
+                    <button class="action-btn-small edit" 
+                            onclick="editTodo(<?= $todo['id'] ?>, <?= $todo['app_id'] ?>, '<?= htmlspecialchars($todo['title'], ENT_QUOTES) ?>', '<?= htmlspecialchars($todo['description'], ENT_QUOTES) ?>', '<?= $todo['priority'] ?>')" 
+                            title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn-small delete" 
+                            onclick="deleteTodo(<?= $todo['id'] ?>, '<?= htmlspecialchars($todo['title'], ENT_QUOTES) ?>')" 
+                            title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <div class="no-data">
+                <div class="no-data-icon">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <h3>Tidak ada todo ditemukan</h3>
+                <p>Tidak ada todo yang sesuai dengan filter yang diterapkan.</p>
+            </div>
         <?php endif; ?>
     </div>
+
+    <!-- Pagination -->
+    <?php if ($total_pages > 1): ?>
+    <div class="pagination-container">
+        <div class="pagination">
+            <?php
+            $query_params = ['page' => 'todos'];
+            if (!empty($search)) $query_params['search'] = $search;
+            if (!empty($filter_priority)) $query_params['priority'] = $filter_priority;
+            if (!empty($filter_app)) $query_params['app'] = $filter_app;
+            
+            $query_string = '&' . http_build_query($query_params);
+            ?>
+            
+            <?php if ($page > 1): ?>
+            <a href="?page_num=1<?= $query_string ?>" class="pagination-btn">
+                <i class="fas fa-angle-double-left"></i>
+            </a>
+            <a href="?page_num=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
+                <i class="fas fa-angle-left"></i>
+            </a>
+            <?php endif; ?>
+
+            <?php
+            $start = max(1, $page - 2);
+            $end = min($total_pages, $page + 2);
+            
+            if ($start > 1) {
+                echo '<span class="pagination-dots">...</span>';
+            }
+            
+            for ($i = $start; $i <= $end; $i++):
+            ?>
+            <a href="?page_num=<?= $i ?><?= $query_string ?>" 
+               class="pagination-btn <?= $i == $page ? 'active' : '' ?>">
+                <?= $i ?>
+            </a>
+            <?php endfor; ?>
+            
+            <?php if ($end < $total_pages) {
+                echo '<span class="pagination-dots">...</span>';
+            } ?>
+
+            <?php if ($page < $total_pages): ?>
+            <a href="?page_num=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
+                <i class="fas fa-angle-right"></i>
+            </a>
+            <a href="?page_num=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
+                <i class="fas fa-angle-double-right"></i>
+            </a>
+            <?php endif; ?>
+        </div>
+        
+        <div class="pagination-info">
+            Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_records) ?> dari <?= $total_records ?> data
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- Add/Edit Todo Modal -->
@@ -488,11 +468,29 @@ function getPriorityColor($priority) {
                 </div>
                 <div class="form-group">
                     <label for="todoPriority">Prioritas</label>
-                    <select id="todoPriority" name="priority">
-                        <option value="low">Low</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="high">High</option>
-                    </select>
+                    <div class="priority-selector">
+                        <label class="priority-option">
+                            <input type="radio" name="priority" value="low" id="priorityLow">
+                            <span class="priority-badge priority-low">
+                                <i class="fas fa-arrow-down"></i>
+                                Low
+                            </span>
+                        </label>
+                        <label class="priority-option">
+                            <input type="radio" name="priority" value="medium" id="priorityMedium" checked>
+                            <span class="priority-badge priority-medium">
+                                <i class="fas fa-minus"></i>
+                                Medium
+                            </span>
+                        </label>
+                        <label class="priority-option">
+                            <input type="radio" name="priority" value="high" id="priorityHigh">
+                            <span class="priority-badge priority-high">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                High
+                            </span>
+                        </label>
+                    </div>
                 </div>
             </form>
         </div>
@@ -536,12 +534,12 @@ function getPriorityColor($priority) {
 .alert {
     padding: 12px 16px;
     border-radius: 8px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     animation: slideDown 0.3s ease;
-    transition: all 0.3s ease;
 }
 
 .alert-success {
@@ -561,16 +559,18 @@ function getPriorityColor($priority) {
     to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* Page Header */
 .page-header {
     background: white;
     border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 24px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
 }
 
 .page-title {
@@ -578,8 +578,6 @@ function getPriorityColor($priority) {
     font-weight: 700;
     color: #1f2937;
     margin-bottom: 4px;
-    display: flex;
-    align-items: center;
 }
 
 .page-subtitle {
@@ -587,9 +585,6 @@ function getPriorityColor($priority) {
     font-size: 0.95rem;
     margin: 0;
 }
-
-.mr-2 { margin-right: 8px; }
-.mr-3 { margin-right: 12px; }
 
 /* Buttons */
 .btn {
@@ -601,8 +596,6 @@ function getPriorityColor($priority) {
     transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
-    text-decoration: none;
-    font-size: 0.9rem;
 }
 
 .btn-primary {
@@ -613,7 +606,6 @@ function getPriorityColor($priority) {
 .btn-primary:hover {
     background: linear-gradient(90deg, #0044cc, #00aaff);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,102,255,0.3);
 }
 
 .btn-secondary {
@@ -623,7 +615,7 @@ function getPriorityColor($priority) {
 }
 
 .btn-secondary:hover {
-    background: #f1f5f9;
+    background: #e2e8f0;
 }
 
 .btn-danger {
@@ -634,25 +626,28 @@ function getPriorityColor($priority) {
 .btn-danger:hover {
     background: linear-gradient(90deg, #dc2626, #b91c1c);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(239,68,68,0.3);
+}
+
+.mr-2 {
+    margin-right: 8px;
 }
 
 /* Statistics Grid */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-    margin-bottom: 32px;
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
 .stat-card {
     background: white;
     border-radius: 16px;
-    padding: 24px;
+    padding: 20px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     cursor: pointer;
     position: relative;
@@ -680,26 +675,40 @@ function getPriorityColor($priority) {
     font-weight: bold;
 }
 
-.bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
-.bg-gradient-red { background: linear-gradient(135deg, #dc2626, #ef4444); color: white; }
-.bg-gradient-orange { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
-.bg-gradient-green { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
+.bg-gradient-blue { 
+    background: linear-gradient(135deg, #0066ff, #33ccff); 
+    color: white; 
+}
+
+.bg-gradient-red { 
+    background: linear-gradient(135deg, #dc2626, #ef4444); 
+    color: white; 
+}
+
+.bg-gradient-orange { 
+    background: linear-gradient(135deg, #f59e0b, #fbbf24); 
+    color: white; 
+}
+
+.bg-gradient-green { 
+    background: linear-gradient(135deg, #10b981, #34d399); 
+    color: white; 
+}
 
 .stat-icon {
-    font-size: 2.5rem;
+    font-size: 2rem;
     opacity: 0.8;
 }
 
-.stat-content h3 {
-    font-size: 2.2rem;
+.stat-content .stat-number {
+    font-size: 2rem;
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
-.stat-content p {
-    font-size: 0.9rem;
+.stat-content .stat-label {
+    font-size: 0.85rem;
     opacity: 0.9;
-    margin: 0;
 }
 
 /* Todos Container */
@@ -711,7 +720,7 @@ function getPriorityColor($priority) {
 }
 
 .section-header {
-    padding: 24px 24px 16px;
+    padding: 20px 24px 16px;
     border-bottom: 1px solid #f3f4f6;
     display: flex;
     justify-content: space-between;
@@ -720,14 +729,14 @@ function getPriorityColor($priority) {
     gap: 16px;
 }
 
-.section-title-container {
+.section-title-wrapper {
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
 .section-title {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: 600;
     color: #1f2937;
     margin: 0;
@@ -735,7 +744,7 @@ function getPriorityColor($priority) {
 
 .section-count {
     color: #6b7280;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     background: #f3f4f6;
     padding: 4px 12px;
     border-radius: 20px;
@@ -751,7 +760,7 @@ function getPriorityColor($priority) {
 
 .search-box {
     position: relative;
-    min-width: 250px;
+    min-width: 200px;
 }
 
 .search-icon {
@@ -785,7 +794,7 @@ function getPriorityColor($priority) {
     font-size: 0.9rem;
     background: white;
     cursor: pointer;
-    min-width: 150px;
+    min-width: 140px;
     transition: all 0.3s ease;
 }
 
@@ -816,7 +825,7 @@ function getPriorityColor($priority) {
 
 /* Todos List */
 .todos-list {
-    max-height: 600px;
+    max-height: 500px;
     overflow-y: auto;
 }
 
@@ -837,10 +846,11 @@ function getPriorityColor($priority) {
     background: #94a3b8;
 }
 
+/* Todo List Items */
 .todo-list-item {
     display: flex;
     align-items: center;
-    padding: 16px 24px;
+    padding: 14px 24px;
     border-bottom: 1px solid #f3f4f6;
     transition: all 0.3s ease;
     cursor: pointer;
@@ -854,7 +864,6 @@ function getPriorityColor($priority) {
     border-bottom: none;
 }
 
-/* Add New Item */
 .add-new-item {
     border: 2px dashed #d1d5db !important;
     background: #f9fafb !important;
@@ -888,22 +897,20 @@ function getPriorityColor($priority) {
 }
 
 .add-new-text h3 {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     margin: 0 0 4px 0;
     color: #374151;
 }
 
 .add-new-text p {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     margin: 0;
     color: #9ca3af;
 }
 
-/* Todo Priority Container */
 .todo-priority-container {
     display: flex;
-    flex-direction: column;
     align-items: center;
     margin-right: 16px;
     flex-shrink: 0;
@@ -912,44 +919,34 @@ function getPriorityColor($priority) {
 .todo-priority-badge {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1rem;
     color: white;
-    margin-bottom: 8px;
 }
 
 .todo-priority-badge.priority-high {
-    background: linear-gradient(90deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, #ef4444, #dc2626);
 }
 
 .todo-priority-badge.priority-medium {
-    background: linear-gradient(90deg, #f59e0b, #d97706);
+    background: linear-gradient(135deg, #f59e0b, #d97706);
 }
 
 .todo-priority-badge.priority-low {
-    background: linear-gradient(90deg, #10b981, #059669);
-}
-
-.todo-number {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #6b7280;
-    background: #f3f4f6;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: linear-gradient(135deg, #10b981, #059669);
 }
 
 /* Todo List Content */
 .todo-list-content {
     flex: 1;
     min-width: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
 }
 
 .todo-list-main {
@@ -957,75 +954,41 @@ function getPriorityColor($priority) {
     min-width: 0;
 }
 
-.todo-title-section {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
-}
-
 .todo-list-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     color: #1f2937;
-    margin: 0;
-    flex: 1;
+    margin: 0 0 4px 0;
 }
 
-.todo-priority-text {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: white;
-    padding: 2px 8px;
-    border-radius: 12px;
-    text-transform: uppercase;
-}
-
-.todo-priority-text.priority-high {
-    background: #ef4444;
-}
-
-.todo-priority-text.priority-medium {
-    background: #f59e0b;
-}
-
-.todo-priority-text.priority-low {
-    background: #10b981;
-}
-
-.todo-description {
+.todo-list-description {
+    font-size: 0.8rem;
     color: #6b7280;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    margin-bottom: 12px;
+    margin: 0 0 8px 0;
 }
 
-.todo-details {
+.todo-list-details {
     display: flex;
-    gap: 20px;
-    font-size: 0.85rem;
-    color: #6b7280;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
-.todo-app,
-.todo-user,
-.todo-date {
-    display: flex;
+.detail-badge {
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: #6b7280;
 }
 
-.todo-app i,
-.todo-user i,
-.todo-date i {
-    width: 16px;
-    font-size: 0.8rem;
+.detail-badge i {
+    width: 14px;
+    font-size: 0.7rem;
 }
 
 /* Todo Status Container */
 .todo-status-container {
-    margin: 0 20px;
+    margin: 0 16px;
     flex-shrink: 0;
 }
 
@@ -1035,7 +998,7 @@ function getPriorityColor($priority) {
     gap: 6px;
     padding: 6px 12px;
     border-radius: 20px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 500;
     color: white;
 }
@@ -1055,7 +1018,7 @@ function getPriorityColor($priority) {
 /* Todo List Actions */
 .todo-list-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     opacity: 0;
     transition: opacity 0.3s ease;
     flex-shrink: 0;
@@ -1066,8 +1029,8 @@ function getPriorityColor($priority) {
 }
 
 .action-btn-small {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: 6px;
     border: none;
     background: #f8fafc;
@@ -1077,7 +1040,7 @@ function getPriorityColor($priority) {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
 }
 
 .action-btn-small:hover {
@@ -1128,8 +1091,8 @@ function getPriorityColor($priority) {
 
 /* Pagination */
 .pagination-container {
-    padding: 24px;
-    border-top: 1px solid #f1f5f9;
+    padding: 20px 24px;
+    border-top: 1px solid #f3f4f6;
     background: #f8fafc;
     display: flex;
     justify-content: space-between;
@@ -1141,12 +1104,12 @@ function getPriorityColor($priority) {
 .pagination {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .pagination-btn {
-    min-width: 40px;
-    height: 40px;
+    min-width: 36px;
+    height: 36px;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
     background: white;
@@ -1156,6 +1119,7 @@ function getPriorityColor($priority) {
     align-items: center;
     justify-content: center;
     font-weight: 500;
+    font-size: 0.85rem;
     transition: all 0.3s ease;
 }
 
@@ -1174,13 +1138,13 @@ function getPriorityColor($priority) {
 
 .pagination-dots {
     color: #9ca3af;
-    padding: 0 8px;
+    padding: 0 4px;
     font-weight: 500;
 }
 
 .pagination-info {
     color: #6b7280;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 /* Modal Styles */
@@ -1234,18 +1198,20 @@ function getPriorityColor($priority) {
     padding: 24px 24px 0;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .modal-header h3 {
     font-size: 1.3rem;
     font-weight: 600;
     color: #1f2937;
+    margin: 0;
 }
 
 .delete-modal .modal-header {
     flex-direction: column;
     text-align: center;
+    align-items: center;
 }
 
 .delete-modal .modal-header p {
@@ -1293,6 +1259,7 @@ function getPriorityColor($priority) {
     border-radius: 8px;
     font-size: 0.9rem;
     transition: border-color 0.3s ease;
+    box-sizing: border-box;
 }
 
 .form-group input:focus,
@@ -1310,31 +1277,77 @@ function getPriorityColor($priority) {
     gap: 12px;
 }
 
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
+/* Priority Selector */
+.priority-selector {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.priority-option {
+    cursor: pointer;
+}
+
+.priority-option input[type="radio"] {
+    display: none;
+}
+
+.priority-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: white;
+}
+
+.priority-badge.priority-low {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.priority-badge.priority-medium {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.priority-badge.priority-high {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.priority-option input[type="radio"]:checked + .priority-badge {
+    border-color: #1f2937;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     .page-header {
-        flex-direction: column;
-        gap: 16px;
-        text-align: center;
+        padding: 16px 20px;
     }
     
     .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
+        gap: 12px;
     }
     
     .section-header {
         flex-direction: column;
         align-items: stretch;
-        gap: 16px;
     }
     
     .filters-container {
         justify-content: stretch;
+        width: 100%;
     }
     
     .search-box {
@@ -1347,39 +1360,44 @@ function getPriorityColor($priority) {
         flex: 1;
     }
     
-    .todo-list-item {
-        flex-wrap: wrap;
-        gap: 12px;
-        padding: 16px;
-    }
-    
-    .todo-priority-container {
-        flex-direction: row;
-        align-items: center;
-        gap: 8px;
-        margin-right: 0;
-        margin-bottom: 8px;
-    }
-    
-    .todo-number {
-        margin-bottom: 0;
-    }
-    
-    .todo-details {
+    .todo-list-content {
         flex-direction: column;
-        gap: 8px;
+        align-items: flex-start;
+        gap: 12px;
     }
     
     .todo-status-container {
-        margin: 8px 0 0 0;
-        order: 3;
+        margin: 0;
     }
     
     .todo-list-actions {
         opacity: 1;
-        margin-top: 8px;
-        justify-content: center;
-        order: 4;
+    }
+    
+    .todo-list-item {
+        flex-wrap: wrap;
+    }
+    
+    .todos-list {
+        max-height: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .todo-list-item {
+        padding: 12px 16px;
+    }
+    
+    .section-header {
+        padding: 16px 20px 12px;
+    }
+    
+    .add-new-item {
+        margin: 12px 16px;
+    }
+    
+    .priority-selector {
+        flex-direction: column;
     }
     
     .pagination-container {
@@ -1390,28 +1408,6 @@ function getPriorityColor($priority) {
     .pagination {
         justify-content: center;
         flex-wrap: wrap;
-    }
-    
-    .todos-list {
-        max-height: none;
-    }
-}
-
-@media (max-width: 480px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .pagination-btn {
-        min-width: 35px;
-        height: 35px;
-        font-size: 0.85rem;
-    }
-    
-    .add-new-content {
-        flex-direction: column;
-        text-align: center;
-        gap: 12px;
     }
 }
 </style>
@@ -1425,6 +1421,7 @@ function openAddTodoModal() {
     document.getElementById('submitBtn').name = 'add_todo';
     document.getElementById('todoForm').reset();
     document.getElementById('todoId').value = '';
+    document.getElementById('priorityMedium').checked = true;
     currentEditId = null;
     document.getElementById('todoModal').classList.add('show');
     document.body.style.overflow = 'hidden';
@@ -1438,7 +1435,16 @@ function editTodo(id, app_id, title, description, priority) {
     document.getElementById('todoApp').value = app_id;
     document.getElementById('todoTitle').value = title;
     document.getElementById('todoDescription').value = description;
-    document.getElementById('todoPriority').value = priority;
+    
+    // Set priority radio button
+    if (priority === 'low') {
+        document.getElementById('priorityLow').checked = true;
+    } else if (priority === 'medium') {
+        document.getElementById('priorityMedium').checked = true;
+    } else if (priority === 'high') {
+        document.getElementById('priorityHigh').checked = true;
+    }
+    
     currentEditId = id;
     document.getElementById('todoModal').classList.add('show');
     document.body.style.overflow = 'hidden';
@@ -1461,26 +1467,22 @@ function closeDeleteModal() {
     document.body.style.overflow = '';
 }
 
-// Filter by priority from stat cards
 function filterByPriority(priority) {
     let url = new URL(window.location);
     const currentPriority = url.searchParams.get('priority');
     
-    // Toggle filter: if already filtering by this priority, clear the filter
     if (currentPriority === priority) {
         url.searchParams.delete('priority');
     } else {
         url.searchParams.set('priority', priority);
     }
     
-    // Keep page parameter but reset to page 1
     url.searchParams.set('page', 'todos');
     url.searchParams.delete('page_num');
     
     window.location.href = url.toString();
 }
 
-// Filter functions
 function applyFilters() {
     const priorityFilter = document.getElementById('priorityFilter').value;
     const appFilter = document.getElementById('appFilter').value;
@@ -1490,8 +1492,8 @@ function applyFilters() {
     url.searchParams.delete('priority');
     url.searchParams.delete('app');
     url.searchParams.delete('search');
-    url.searchParams.delete('page_num'); // Reset to first page when filtering
-    url.searchParams.set('page', 'todos'); // Keep the page parameter
+    url.searchParams.delete('page_num');
+    url.searchParams.set('page', 'todos');
     
     if (priorityFilter) {
         url.searchParams.set('priority', priorityFilter);
@@ -1530,6 +1532,14 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeTodoModal();
+        closeDeleteModal();
+    }
+});
+
 // Auto-hide alerts after 5 seconds
 document.addEventListener('DOMContentLoaded', function() {
     const alerts = document.querySelectorAll('.alert');
@@ -1540,5 +1550,45 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
+});
+
+// Form validation
+if (document.getElementById('todoForm')) {
+    document.getElementById('todoForm').addEventListener('submit', function(e) {
+        const title = document.getElementById('todoTitle').value.trim();
+        const appId = document.getElementById('todoApp').value;
+        
+        if (!title) {
+            e.preventDefault();
+            alert('Judul todo harus diisi!');
+            document.getElementById('todoTitle').focus();
+            return false;
+        }
+        
+        if (!appId) {
+            e.preventDefault();
+            alert('Aplikasi harus dipilih!');
+            document.getElementById('todoApp').focus();
+            return false;
+        }
+    });
+}
+
+// Auto-focus first input when modal opens
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.target.classList.contains('modal') && mutation.target.classList.contains('show')) {
+            setTimeout(() => {
+                const firstInput = mutation.target.querySelector('input[type="text"], select');
+                if (firstInput) {
+                    firstInput.focus();
+                }
+            }, 300);
+        }
+    });
+});
+
+document.querySelectorAll('.modal').forEach(modal => {
+    observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
 });
 </script>

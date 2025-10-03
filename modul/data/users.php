@@ -161,17 +161,17 @@ if (!empty($params)) {
     $users_result = $koneksi->query($users_query);
 }
 
-// Get user statistics - Updated with client role (removed total_users)
+// Get user statistics
 $admin_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'admin'")->fetch_assoc()['count'];
 $client_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'client'")->fetch_assoc()['count'];
 $programmer_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'programmer'")->fetch_assoc()['count'];
 $support_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'support'")->fetch_assoc()['count'];
 
-// Helper functions - Updated with client role
+// Helper functions
 function getRoleColor($role) {
     $colors = [
         'admin' => '#dc2626',
-        'client' => '#7c3aed', // Purple for client
+        'client' => '#7c3aed',
         'programmer' => '#0066ff',
         'support' => '#10b981'
     ];
@@ -181,7 +181,7 @@ function getRoleColor($role) {
 function getRoleIcon($role) {
     $icons = [
         'admin' => 'fas fa-crown',
-        'client' => 'fas fa-briefcase', // Briefcase icon for client
+        'client' => 'fas fa-briefcase',
         'programmer' => 'fas fa-code',
         'support' => 'fas fa-headset'
     ];
@@ -189,12 +189,10 @@ function getRoleIcon($role) {
 }
 
 function getProfilePhoto($user) {
-    // Jika ada foto upload dari DB
     if (!empty($user['profile_photo']) && file_exists($user['profile_photo'])) {
         return $user['profile_photo'] . '?v=' . time();
     }
     
-    // Default avatar berdasarkan gender dan role
     $gender = $user['gender'] ?? 'male';
     $role_color = getRoleColor($user['role']);
     $name = urlencode($user['name']);
@@ -221,7 +219,7 @@ function getRoleDisplayName($role) {
 }
 ?>
 
-<div class="main-content" style="margin-top: 80px;">
+<div class="main-content">
     <!-- Alert Messages -->
     <?php if ($message): ?>
     <div class="alert alert-success">
@@ -248,7 +246,7 @@ function getRoleDisplayName($role) {
         </div>
     </div>
 
-    <!-- Statistics Cards - Without Total Users Card -->
+    <!-- Statistics Cards -->
     <div class="stats-grid">
         <div class="stat-card bg-gradient-red <?= $role_filter == 'admin' ? 'active' : '' ?>" onclick="filterByRole('admin')">
             <div class="stat-icon">
@@ -299,7 +297,7 @@ function getRoleDisplayName($role) {
                 <span class="section-count"><?= $users_result->num_rows ?> pengguna</span>
             </div>
             
-            <!-- Filters - Updated with Client -->
+            <!-- Filters -->
             <div class="filters-container">
                 <div class="search-box">
                     <i class="fas fa-search search-icon"></i>
@@ -433,7 +431,7 @@ function getRoleDisplayName($role) {
     </div>
 </div>
 
-<!-- Modal Tambah/Edit User - Updated with Client -->
+<!-- Modal Tambah/Edit User -->
 <div id="userModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -526,168 +524,16 @@ function getRoleDisplayName($role) {
     </div>
 </div>
 
-<script>
-// Validate no spaces function
-function validateNoSpaces(input) {
-    if (input.value.includes(' ')) {
-        input.setCustomValidity('Field ini tidak boleh mengandung spasi');
-        input.style.borderColor = '#dc2626';
-        input.style.backgroundColor = '#fee2e2';
-    } else {
-        input.setCustomValidity('');
-        input.style.borderColor = '';
-        input.style.backgroundColor = '';
-    }
-}
-
-// JavaScript functions untuk modal dan CRUD operations
-function openAddUserModal() {
-    document.getElementById('userModal').classList.add('show');
-    document.getElementById('modalTitle').textContent = 'Tambah Pengguna Baru';
-    document.getElementById('userForm').reset();
-    document.getElementById('userId').value = '';
-    document.getElementById('submitBtn').name = 'add_user';
-    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Simpan';
-    document.getElementById('passwordRequiredText').style.display = 'inline';
-    document.getElementById('passwordHelp').style.display = 'none';
-    document.getElementById('userPassword').required = true;
-    document.body.style.overflow = 'hidden';
-    
-    // Reset validation styles
-    const inputs = document.querySelectorAll('#userForm input');
-    inputs.forEach(input => {
-        input.style.borderColor = '';
-        input.style.backgroundColor = '';
-        input.setCustomValidity('');
-    });
-}
-
-function editUser(id, name, email, role, gender) {
-    document.getElementById('userModal').classList.add('show');
-    document.getElementById('modalTitle').textContent = 'Edit Pengguna';
-    document.getElementById('userId').value = id;
-    document.getElementById('userName').value = name;
-    document.getElementById('userEmail').value = email;
-    document.getElementById('userRole').value = role;
-    document.getElementById('userGender').value = gender;
-    document.getElementById('submitBtn').name = 'edit_user';
-    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Perbarui';
-    document.getElementById('passwordRequiredText').style.display = 'none';
-    document.getElementById('passwordHelp').style.display = 'block';
-    document.getElementById('userPassword').required = false;
-    document.getElementById('userPassword').value = '';
-    document.body.style.overflow = 'hidden';
-    
-    // Reset validation styles
-    const inputs = document.querySelectorAll('#userForm input');
-    inputs.forEach(input => {
-        input.style.borderColor = '';
-        input.style.backgroundColor = '';
-        input.setCustomValidity('');
-    });
-}
-
-function closeUserModal() {
-    document.getElementById('userModal').classList.remove('show');
-    document.getElementById('userForm').reset();
-    document.body.style.overflow = '';
-    
-    // Reset validation styles
-    const inputs = document.querySelectorAll('#userForm input');
-    inputs.forEach(input => {
-        input.style.borderColor = '';
-        input.style.backgroundColor = '';
-        input.setCustomValidity('');
-    });
-}
-
-function deleteUser(id, name) {
-    document.getElementById('deleteModal').classList.add('show');
-    document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus pengguna "${name}"?`;
-    document.getElementById('deleteUserId').value = id;
-    document.body.style.overflow = 'hidden';
-}
-
-function closeDeleteModal() {
-    document.getElementById('deleteModal').classList.remove('show');
-    document.body.style.overflow = '';
-}
-
-// Filter functions
-function filterByRole(role) {
-    let url = new URL(window.location);
-    url.searchParams.delete('search'); // Clear search when filtering by role
-    
-    // Toggle filter: if already filtering by this role, clear the filter
-    if (url.searchParams.get('role') === role) {
-        url.searchParams.delete('role');
-    } else {
-        url.searchParams.set('role', role);
-    }
-    
-    window.location.href = url.toString();
-}
-
-function applyFilters() {
-    const roleFilter = document.getElementById('roleFilter').value;
-    const searchValue = document.getElementById('searchInput').value;
-    
-    let url = new URL(window.location);
-    url.searchParams.delete('role');
-    url.searchParams.delete('search');
-    
-    if (roleFilter) {
-        url.searchParams.set('role', roleFilter);
-    }
-    if (searchValue) {
-        url.searchParams.set('search', searchValue);
-    }
-    
-    window.location.href = url.toString();
-}
-
-function handleSearch(event) {
-    if (event.key === 'Enter') {
-        applyFilters();
-    }
-}
-
-function clearFilters() {
-    let url = new URL(window.location);
-    url.searchParams.delete('role');
-    url.searchParams.delete('search');
-    window.location.href = url.toString();
-}
-
-// Close modal when clicking outside
-document.addEventListener('click', function(event) {
-    const userModal = document.getElementById('userModal');
-    const deleteModal = document.getElementById('deleteModal');
-    
-    if (event.target === userModal) {
-        closeUserModal();
-    }
-    if (event.target === deleteModal) {
-        closeDeleteModal();
-    }
-});
-
-// Auto-hide alerts after 5 seconds
-document.addEventListener('DOMContentLoaded', function() {
-    const alerts = document.querySelectorAll('.alert');
-    alerts.forEach(function(alert) {
-        setTimeout(function() {
-            alert.style.opacity = '0';
-            alert.style.transform = 'translateY(-20px)';
-            setTimeout(function() {
-                alert.remove();
-            }, 300);
-        }, 5000);
-    });
-});
-</script>
-
 <style>
+/* LAYOUT FIX - Dekat dengan Sidebar */
+.main-content {
+    margin-left: 0 !important;
+    padding: 20px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box;
+}
+
 /* Alert Messages */
 .alert {
     padding: 12px 16px;
@@ -1428,7 +1274,6 @@ document.addEventListener('DOMContentLoaded', function() {
     margin-top: 4px;
 }
 
-/* Validation styles for inputs with spaces */
 .form-group input.error {
     border-color: #dc2626 !important;
     background-color: #fee2e2 !important;
@@ -1469,9 +1314,15 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 /* Responsive Design */
+@media (max-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     .main-content {
-        padding: 0 16px;
+        padding: 16px !important;
     }
     
     .page-header {
@@ -1545,6 +1396,10 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 @media (max-width: 480px) {
+    .main-content {
+        padding: 12px !important;
+    }
+    
     .stats-grid {
         grid-template-columns: 1fr;
     }
@@ -1580,3 +1435,161 @@ document.addEventListener('DOMContentLoaded', function() {
         gap: 8px;
     }
 }
+</style>
+
+<script>
+// Validate no spaces function
+function validateNoSpaces(input) {
+    if (input.value.includes(' ')) {
+        input.setCustomValidity('Field ini tidak boleh mengandung spasi');
+        input.style.borderColor = '#dc2626';
+        input.style.backgroundColor = '#fee2e2';
+    } else {
+        input.setCustomValidity('');
+        input.style.borderColor = '';
+        input.style.backgroundColor = '';
+    }
+}
+
+// JavaScript functions untuk modal dan CRUD operations
+function openAddUserModal() {
+    document.getElementById('userModal').classList.add('show');
+    document.getElementById('modalTitle').textContent = 'Tambah Pengguna Baru';
+    document.getElementById('userForm').reset();
+    document.getElementById('userId').value = '';
+    document.getElementById('submitBtn').name = 'add_user';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Simpan';
+    document.getElementById('passwordRequiredText').style.display = 'inline';
+    document.getElementById('passwordHelp').style.display = 'none';
+    document.getElementById('userPassword').required = true;
+    document.body.style.overflow = 'hidden';
+    
+    const inputs = document.querySelectorAll('#userForm input');
+    inputs.forEach(input => {
+        input.style.borderColor = '';
+        input.style.backgroundColor = '';
+        input.setCustomValidity('');
+    });
+}
+
+function editUser(id, name, email, role, gender) {
+    document.getElementById('userModal').classList.add('show');
+    document.getElementById('modalTitle').textContent = 'Edit Pengguna';
+    document.getElementById('userId').value = id;
+    document.getElementById('userName').value = name;
+    document.getElementById('userEmail').value = email;
+    document.getElementById('userRole').value = role;
+    document.getElementById('userGender').value = gender;
+    document.getElementById('submitBtn').name = 'edit_user';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Perbarui';
+    document.getElementById('passwordRequiredText').style.display = 'none';
+    document.getElementById('passwordHelp').style.display = 'block';
+    document.getElementById('userPassword').required = false;
+    document.getElementById('userPassword').value = '';
+    document.body.style.overflow = 'hidden';
+    
+    const inputs = document.querySelectorAll('#userForm input');
+    inputs.forEach(input => {
+        input.style.borderColor = '';
+        input.style.backgroundColor = '';
+        input.setCustomValidity('');
+    });
+}
+
+function closeUserModal() {
+    document.getElementById('userModal').classList.remove('show');
+    document.getElementById('userForm').reset();
+    document.body.style.overflow = '';
+    
+    const inputs = document.querySelectorAll('#userForm input');
+    inputs.forEach(input => {
+        input.style.borderColor = '';
+        input.style.backgroundColor = '';
+        input.setCustomValidity('');
+    });
+}
+
+function deleteUser(id, name) {
+    document.getElementById('deleteModal').classList.add('show');
+    document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus pengguna "${name}"?`;
+    document.getElementById('deleteUserId').value = id;
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+// Filter functions
+function filterByRole(role) {
+    let url = new URL(window.location);
+    url.searchParams.delete('search');
+    
+    if (url.searchParams.get('role') === role) {
+        url.searchParams.delete('role');
+    } else {
+        url.searchParams.set('role', role);
+    }
+    
+    window.location.href = url.toString();
+}
+
+function applyFilters() {
+    const roleFilter = document.getElementById('roleFilter').value;
+    const searchValue = document.getElementById('searchInput').value;
+    
+    let url = new URL(window.location);
+    url.searchParams.delete('role');
+    url.searchParams.delete('search');
+    
+    if (roleFilter) {
+        url.searchParams.set('role', roleFilter);
+    }
+    if (searchValue) {
+        url.searchParams.set('search', searchValue);
+    }
+    
+    window.location.href = url.toString();
+}
+
+function handleSearch(event) {
+    if (event.key === 'Enter') {
+        applyFilters();
+    }
+}
+
+function clearFilters() {
+    let url = new URL(window.location);
+    url.searchParams.delete('role');
+    url.searchParams.delete('search');
+    window.location.href = url.toString();
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const userModal = document.getElementById('userModal');
+    const deleteModal = document.getElementById('deleteModal');
+    
+    if (event.target === userModal) {
+        closeUserModal();
+    }
+    if (event.target === deleteModal) {
+        closeDeleteModal();
+    }
+});
+
+// Auto-hide alerts after 5 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(function(alert) {
+        setTimeout(function() {
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-20px)';
+            setTimeout(function() {
+                alert.remove();
+            }, 300);
+        }, 5000);
+    });
+});
+</script>
