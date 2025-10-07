@@ -118,13 +118,13 @@ $params = [];
 $param_types = '';
 
 if (!empty($role_filter)) {
-    $where_conditions[] = "u.role = ?";
+    $where_conditions[] = "role = ?";
     $params[] = $role_filter;
     $param_types .= 's';
 }
 
 if (!empty($search)) {
-    $where_conditions[] = "(u.name LIKE ? OR u.email LIKE ?)";
+    $where_conditions[] = "(name LIKE ? OR email LIKE ?)";
     $params[] = "%$search%";
     $params[] = "%$search%";
     $param_types .= 'ss';
@@ -132,19 +132,33 @@ if (!empty($search)) {
 
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
-// Get users data with todo statistics
+// PAGINATION SETUP - 5 ITEMS PER PAGE
+$items_per_page = 5;
+$current_page = isset($_GET['pg']) ? max(1, intval($_GET['pg'])) : 1;
+$offset = ($current_page - 1) * $items_per_page;
+
+// Get total users count with filters
+$count_query = "SELECT COUNT(*) as count FROM users $where_clause";
+if (!empty($params)) {
+    $count_stmt = $koneksi->prepare($count_query);
+    $count_stmt->bind_param($param_types, ...$params);
+    $count_stmt->execute();
+    $total_users = $count_stmt->get_result()->fetch_assoc()['count'];
+} else {
+    $total_users = $koneksi->query($count_query)->fetch_assoc()['count'];
+}
+
+// Calculate total pages (maximum 10 pages)
+$max_pages = 10;
+$total_items = min($total_users, $max_pages * $items_per_page);
+$total_pages = $total_users > 0 ? min(ceil($total_users / $items_per_page), $max_pages) : 1;
+
+// Get users data with PAGINATION
 $users_query = "
-    SELECT u.*, 
-           COUNT(t.id) as total_todos,
-           COUNT(CASE WHEN tk.status = 'in_progress' THEN 1 END) as active_todos,
-           COUNT(CASE WHEN tk.status = 'done' THEN 1 END) as completed_todos,
-           MAX(t.created_at) as last_activity
-    FROM users u
-    LEFT JOIN todos t ON u.id = t.user_id
-    LEFT JOIN taken tk ON t.id = tk.id_todos AND tk.user_id = u.id
+    SELECT * FROM users
     $where_clause
-    GROUP BY u.id
-    ORDER BY u.name
+    ORDER BY name
+    LIMIT $items_per_page OFFSET $offset
 ";
 
 if (!empty($params)) {
@@ -156,7 +170,7 @@ if (!empty($params)) {
     $users_result = $koneksi->query($users_query);
 }
 
-// Get user statistics
+// Get user statistics (for stat cards)
 $admin_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'admin'")->fetch_assoc()['count'];
 $client_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'client'")->fetch_assoc()['count'];
 $programmer_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'programmer'")->fetch_assoc()['count'];
@@ -285,7 +299,7 @@ function getRoleDisplayName($role) {
     <div class="section-header">
         <div class="section-title-wrapper">
             <h2 class="section-title">Daftar Pengguna</h2>
-            <span class="section-count"><?= $users_result->num_rows ?> pengguna</span>
+            <span class="section-count"><?= $total_users ?> pengguna</span>
         </div>
         
         <!-- Filters -->
@@ -357,40 +371,6 @@ function getRoleDisplayName($role) {
                                 <i class="<?= getGenderIcon($user['gender'] ?? 'male') ?>"></i>
                                 <?= getGenderText($user['gender'] ?? 'male') ?>
                             </span>
-                            <?php if ($user['last_activity']): ?>
-                            <span class="detail-badge date">
-                                <i class="fas fa-clock"></i>
-                                <?= date('d/m/Y', strtotime($user['last_activity'])) ?>
-                            </span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="user-list-stats">
-                    <div class="stat-badge total">
-                        <span class="stat-number"><?= $user['total_todos'] ?></span>
-                        <span class="stat-label">Total</span>
-                    </div>
-                    <div class="stat-badge active">
-                        <span class="stat-number"><?= $user['active_todos'] ?></span>
-                        <span class="stat-label">Aktif</span>
-                    </div>
-                    <div class="stat-badge completed">
-                        <span class="stat-number"><?= $user['completed_todos'] ?></span>
-                        <span class="stat-label">Selesai</span>
-                    </div>
-                </div>
-                
-                <div class="user-list-progress">
-                    <div class="progress-info">
-                        <span class="progress-percentage">
-                            <?= $user['total_todos'] > 0 ? round(($user['completed_todos'] / $user['total_todos']) * 100) : 0 ?>%
-                        </span>
-                    </div>
-                    <div class="progress-bar-small">
-                        <div class="progress-fill-small" 
-                             style="width: <?= $user['total_todos'] > 0 ? ($user['completed_todos'] / $user['total_todos']) * 100 : 0 ?>%">
                         </div>
                     </div>
                 </div>
@@ -421,6 +401,67 @@ function getRoleDisplayName($role) {
             </div>
         <?php endif; ?>
     </div>
+
+    <!-- Pagination -->
+    <?php if ($total_users > 0): ?>
+    <div class="pagination-container">
+        <div class="pagination-info">
+            <span class="pagination-current">Halaman <?= $current_page ?> dari <?= $total_pages ?></span>
+            <span class="pagination-total">Menampilkan <?= min($items_per_page, $total_users - $offset) ?> dari <?= min($total_items, $total_users) ?> pengguna</span>
+        </div>
+        
+        <div class="pagination-controls">
+            <!-- Previous Page -->
+            <?php if ($current_page > 1): ?>
+            <a href="?page=users&role=<?= $role_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
+                <i class="fas fa-chevron-left"></i>
+                <span>Prev</span>
+            </a>
+            <?php else: ?>
+            <span class="pagination-btn pagination-btn-prev pagination-btn-disabled">
+                <i class="fas fa-chevron-left"></i>
+                <span>Prev</span>
+            </span>
+            <?php endif; ?>
+            
+            <!-- Page Numbers 1-10 -->
+            <div class="pagination-numbers">
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                    <?php if ($i == $current_page): ?>
+                        <span class="pagination-number pagination-number-active"><?= $i ?></span>
+                    <?php else: ?>
+                        <a href="?page=users&role=<?= $role_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
+                    <?php endif; ?>
+                <?php endfor; ?>
+            </div>
+            
+            <!-- Next Page -->
+            <?php if ($current_page < $total_pages): ?>
+            <a href="?page=users&role=<?= $role_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
+                <span>Next</span>
+                <i class="fas fa-chevron-right"></i>
+            </a>
+            <?php else: ?>
+            <span class="pagination-btn pagination-btn-next pagination-btn-disabled">
+                <span>Next</span>
+                <i class="fas fa-chevron-right"></i>
+            </span>
+            <?php endif; ?>
+        </div>
+        
+        <!-- Quick Jump -->
+        <div class="pagination-jump">
+            <span>Ke halaman:</span>
+            <select id="pageJumpSelect" class="pagination-jump-select" onchange="jumpToPage()">
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                <option value="<?= $i ?>" <?= $i == $current_page ? 'selected' : '' ?>>
+                    Halaman <?= $i ?>
+                </option>
+                <?php endfor; ?>
+            </select>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- Modal Tambah/Edit User -->
@@ -825,6 +866,8 @@ function getRoleDisplayName($role) {
     border-bottom: 1px solid #f3f4f6;
     transition: all 0.3s ease;
     cursor: pointer;
+    gap: 16px;
+    min-height: 80px;
 }
 
 .user-list-item:hover {
@@ -973,73 +1016,13 @@ function getRoleDisplayName($role) {
     font-size: 0.7rem;
 }
 
-.user-list-stats {
-    display: flex;
-    gap: 12px;
-    margin: 0 16px;
-}
-
-.stat-badge {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 45px;
-}
-
-.stat-badge .stat-number {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1f2937;
-}
-
-.stat-badge.total .stat-number { color: #3b82f6; }
-.stat-badge.active .stat-number { color: #f59e0b; }
-.stat-badge.completed .stat-number { color: #10b981; }
-
-.stat-badge .stat-label {
-    font-size: 0.65rem;
-    color: #9ca3af;
-    text-transform: uppercase;
-    font-weight: 500;
-}
-
-.user-list-progress {
-    width: 80px;
-    margin-right: 16px;
-    flex-shrink: 0;
-}
-
-.progress-info {
-    text-align: center;
-    margin-bottom: 4px;
-}
-
-.progress-percentage {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #374151;
-}
-
-.progress-bar-small {
-    width: 100%;
-    height: 4px;
-    background: #f3f4f6;
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.progress-fill-small {
-    height: 100%;
-    background: linear-gradient(90deg, #10b981, #34d399);
-    transition: width 0.3s ease;
-}
-
 .user-list-actions {
     display: flex;
     gap: 6px;
     opacity: 0;
     transition: opacity 0.3s ease;
     flex-shrink: 0;
+    margin-left: auto;
 }
 
 .user-list-item:hover .user-list-actions {
@@ -1047,9 +1030,9 @@ function getRoleDisplayName($role) {
 }
 
 .action-btn-small {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     border: none;
     background: #f8fafc;
     color: #64748b;
@@ -1058,7 +1041,7 @@ function getRoleDisplayName($role) {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
 }
 
 .action-btn-small:hover {
@@ -1105,6 +1088,157 @@ function getRoleDisplayName($role) {
 .no-data p {
     font-size: 0.9rem;
     margin: 0;
+}
+
+/* Pagination Styles */
+.pagination-container {
+    padding: 20px 24px;
+    border-top: 2px solid #f1f5f9;
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.pagination-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.pagination-current {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 0.9rem;
+}
+
+.pagination-total {
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pagination-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.pagination-btn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.pagination-btn-prev,
+.pagination-btn-next {
+    background: linear-gradient(135deg, #f8fafc, #ffffff);
+}
+
+.pagination-btn-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.pagination-numbers {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pagination-number {
+    min-width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.pagination-number:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transform: translateY(-1px);
+}
+
+.pagination-number-active {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-color: #2563eb;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.pagination-number-active:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.pagination-jump {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.pagination-jump-select {
+    height: 38px;
+    padding: 0 32px 0 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
+    background-size: 12px;
+    font-size: 0.85rem;
+    color: #1f2937;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.pagination-jump-select:hover {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+}
+
+.pagination-jump-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Modal Styles */
@@ -1261,6 +1395,16 @@ function getRoleDisplayName($role) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+    
+    .pagination-container {
+        justify-content: center;
+    }
+    
+    .pagination-info {
+        width: 100%;
+        text-align: center;
+        align-items: center;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1297,16 +1441,6 @@ function getRoleDisplayName($role) {
         flex-wrap: wrap;
     }
     
-    .user-list-stats {
-        margin: 8px 0 0 0;
-    }
-    
-    .user-list-progress {
-        width: 100%;
-        margin-right: 0;
-        margin-top: 8px;
-    }
-    
     .user-list-actions {
         opacity: 1;
     }
@@ -1317,6 +1451,35 @@ function getRoleDisplayName($role) {
     
     .users-list {
         max-height: none;
+    }
+    
+    .pagination-container {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .pagination-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .pagination-numbers {
+        order: 1;
+        flex-wrap: wrap;
+    }
+    
+    .pagination-btn span {
+        display: none;
+    }
+    
+    .pagination-btn {
+        padding: 8px 12px;
+    }
+    
+    .pagination-jump {
+        width: 100%;
+        justify-content: center;
     }
 }
 
@@ -1331,6 +1494,21 @@ function getRoleDisplayName($role) {
     
     .add-new-item {
         margin: 12px 16px;
+    }
+    
+    .pagination-number {
+        min-width: 34px;
+        height: 34px;
+        font-size: 0.8rem;
+    }
+    
+    .pagination-btn {
+        height: 34px;
+    }
+    
+    .pagination-jump-select {
+        height: 34px;
+        font-size: 0.8rem;
     }
 }
 </style>
@@ -1420,6 +1598,7 @@ function filterByRole(role) {
     }
     
     url.searchParams.delete('search');
+    url.searchParams.set('pg', '1');
     window.location.href = url.toString();
 }
 
@@ -1430,6 +1609,7 @@ function applyFilters() {
     let url = new URL(window.location);
     url.searchParams.delete('role');
     url.searchParams.delete('search');
+    url.searchParams.set('pg', '1');
     
     if (roleFilter) url.searchParams.set('role', roleFilter);
     if (searchValue) url.searchParams.set('search', searchValue);
@@ -1447,6 +1627,22 @@ function clearFilters() {
     let url = new URL(window.location);
     url.searchParams.delete('role');
     url.searchParams.delete('search');
+    url.searchParams.set('pg', '1');
+    window.location.href = url.toString();
+}
+
+function jumpToPage() {
+    const select = document.getElementById('pageJumpSelect');
+    const page = parseInt(select.value);
+    const roleFilter = document.getElementById('roleFilter') ? document.getElementById('roleFilter').value : '';
+    const searchValue = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+    
+    let url = new URL(window.location);
+    url.searchParams.set('pg', page);
+    
+    if (roleFilter) url.searchParams.set('role', roleFilter);
+    if (searchValue) url.searchParams.set('search', searchValue);
+    
     window.location.href = url.toString();
 }
 

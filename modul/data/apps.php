@@ -83,7 +83,20 @@ if (isset($_POST['delete_app'])) {
     }
 }
 
-// Get apps data with todo counts
+// PAGINATION SETUP - 5 ITEMS PER PAGE
+$items_per_page = 5;
+$current_page = isset($_GET['pg']) ? max(1, intval($_GET['pg'])) : 1;
+$offset = ($current_page - 1) * $items_per_page;
+
+// Get total apps count
+$total_apps = $koneksi->query("SELECT COUNT(*) as count FROM apps")->fetch_assoc()['count'];
+
+// Calculate total pages (maximum 10 pages)
+$max_pages = 10;
+$total_items = min($total_apps, $max_pages * $items_per_page);
+$total_pages = $total_apps > 0 ? min(ceil($total_apps / $items_per_page), $max_pages) : 1;
+
+// Get apps data with PAGINATION
 $apps_query = "
     SELECT a.*, 
            COUNT(t.id) as total_todos,
@@ -94,11 +107,11 @@ $apps_query = "
     LEFT JOIN taken tk ON t.id = tk.id_todos
     GROUP BY a.id
     ORDER BY a.name
+    LIMIT $items_per_page OFFSET $offset
 ";
 $apps_result = $koneksi->query($apps_query);
 
 // Get statistics
-$total_apps = $koneksi->query("SELECT COUNT(*) as count FROM apps")->fetch_assoc()['count'];
 $total_todos = $koneksi->query("SELECT COUNT(*) as count FROM todos")->fetch_assoc()['count'];
 $high_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'high'")->fetch_assoc()['count'];
 
@@ -200,68 +213,111 @@ function getAppIcon($appName) {
     </div>
     
     <div class="apps-list">
-        <?php while($app = $apps_result->fetch_assoc()): ?>
-        <div class="app-list-item" data-app-id="<?= $app['id'] ?>">
-            <div class="app-list-icon">
-                <i class="fas fa-<?= getAppIcon($app['name']) ?>"></i>
-            </div>
-            
-            <div class="app-list-content">
-                <div class="app-list-main">
-                    <h3 class="app-list-title"><?= htmlspecialchars($app['name']) ?></h3>
-                    <p class="app-list-description">
-                        <?= htmlspecialchars(substr($app['description'], 0, 80)) ?>
-                        <?= strlen($app['description']) > 80 ? '...' : '' ?>
-                    </p>
+        <?php if ($apps_result->num_rows > 0): ?>
+            <?php while($app = $apps_result->fetch_assoc()): ?>
+            <div class="app-list-item" data-app-id="<?= $app['id'] ?>">
+                <div class="app-list-icon">
+                    <i class="fas fa-<?= getAppIcon($app['name']) ?>"></i>
                 </div>
                 
-                <div class="app-list-stats">
-                    <div class="stat-badge total">
-                        <span class="stat-number"><?= $app['total_todos'] ?></span>
-                        <span class="stat-label">Total</span>
-                    </div>
-                    <div class="stat-badge active">
-                        <span class="stat-number"><?= $app['active_todos'] ?></span>
-                        <span class="stat-label">Aktif</span>
-                    </div>
-                    <div class="stat-badge completed">
-                        <span class="stat-number"><?= $app['completed_todos'] ?></span>
-                        <span class="stat-label">Selesai</span>
+                <div class="app-list-content">
+                    <div class="app-list-main">
+                        <h3 class="app-list-title"><?= htmlspecialchars($app['name']) ?></h3>
+                        <p class="app-list-description">
+                            <?= htmlspecialchars(substr($app['description'], 0, 100)) ?>
+                            <?= strlen($app['description']) > 100 ? '...' : '' ?>
+                        </p>
                     </div>
                 </div>
-            </div>
-            
-            <div class="app-list-progress">
-                <div class="progress-info">
-                    <span class="progress-percentage">
-                        <?= $app['total_todos'] > 0 ? round(($app['completed_todos'] / $app['total_todos']) * 100) : 0 ?>%
-                    </span>
-                </div>
-                <div class="progress-bar-small">
-                    <div class="progress-fill-small" 
-                         style="width: <?= $app['total_todos'] > 0 ? ($app['completed_todos'] / $app['total_todos']) * 100 : 0 ?>%">
-                    </div>
-                </div>
-            </div>
 
-            <div class="app-actions">
-                <button class="btn btn-todo-small" onclick="openAddTodoForAppModal(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Tambah Todo">
-                    <i class="fas fa-plus"></i>
-                    <span>Todo</span>
-                </button>
+                <div class="app-actions">
+                    <button class="btn btn-todo-small" onclick="openAddTodoForAppModal(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Tambah Todo">
+                        <i class="fas fa-plus"></i>
+                        <span>Todo</span>
+                    </button>
+                </div>
+                
+                <div class="app-list-actions">
+                    <button class="action-btn-small edit" onclick="editApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($app['description'], ENT_QUOTES) ?>')" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn-small delete" onclick="deleteApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <div class="no-data">
+                <div class="no-data-icon">
+                    <i class="fas fa-cube"></i>
+                </div>
+                <h3>Belum Ada Aplikasi</h3>
+                <p>Klik tombol "Tambah Aplikasi Baru" untuk menambahkan aplikasi pertama Anda.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Pagination - Show pages 1-10 -->
+    <?php if ($total_apps > 0): ?>
+    <div class="pagination-container">
+        <div class="pagination-info">
+            <span class="pagination-current">Halaman <?= $current_page ?> dari <?= $total_pages ?></span>
+            <span class="pagination-total">Menampilkan <?= min($items_per_page, $total_apps - $offset) ?> dari <?= min($total_items, $total_apps) ?> aplikasi</span>
+        </div>
+        
+        <div class="pagination-controls">
+            <!-- Previous Page -->
+            <?php if ($current_page > 1): ?>
+            <a href="?page=apps&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
+                <i class="fas fa-chevron-left"></i>
+                <span>Prev</span>
+            </a>
+            <?php else: ?>
+            <span class="pagination-btn pagination-btn-prev pagination-btn-disabled">
+                <i class="fas fa-chevron-left"></i>
+                <span>Prev</span>
+            </span>
+            <?php endif; ?>
+            
+            <!-- Page Numbers 1-10 -->
+            <div class="pagination-numbers">
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                    <?php if ($i == $current_page): ?>
+                        <span class="pagination-number pagination-number-active"><?= $i ?></span>
+                    <?php else: ?>
+                        <a href="?page=apps&pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
+                    <?php endif; ?>
+                <?php endfor; ?>
             </div>
             
-            <div class="app-list-actions">
-                <button class="action-btn-small edit" onclick="editApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($app['description'], ENT_QUOTES) ?>')" title="Edit">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="action-btn-small delete" onclick="deleteApp(<?= $app['id'] ?>, '<?= htmlspecialchars($app['name'], ENT_QUOTES) ?>')" title="Delete">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
+            <!-- Next Page -->
+            <?php if ($current_page < $total_pages): ?>
+            <a href="?page=apps&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
+                <span>Next</span>
+                <i class="fas fa-chevron-right"></i>
+            </a>
+            <?php else: ?>
+            <span class="pagination-btn pagination-btn-next pagination-btn-disabled">
+                <span>Next</span>
+                <i class="fas fa-chevron-right"></i>
+            </span>
+            <?php endif; ?>
         </div>
-        <?php endwhile; ?>
+        
+        <!-- Quick Jump -->
+        <div class="pagination-jump">
+            <span>Ke halaman:</span>
+            <select id="pageJumpSelect" class="pagination-jump-select" onchange="jumpToPage()">
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                <option value="<?= $i ?>" <?= $i == $current_page ? 'selected' : '' ?>>
+                    Halaman <?= $i ?>
+                </option>
+                <?php endfor; ?>
+            </select>
+        </div>
     </div>
+    <?php endif; ?>
 </div>
 
 <!-- Add/Edit App Modal -->
@@ -622,10 +678,11 @@ function getAppIcon($appName) {
 .app-list-item {
     display: flex;
     align-items: center;
-    padding: 14px 24px;
+    padding: 16px 24px;
     border-bottom: 1px solid #f3f4f6;
     transition: all 0.3s ease;
-    cursor: pointer;
+    gap: 16px;
+    min-height: 80px;
 }
 
 .app-list-item:hover {
@@ -642,6 +699,8 @@ function getAppIcon($appName) {
     margin: 16px 24px;
     border-radius: 12px;
     justify-content: center;
+    cursor: pointer;
+    min-height: 80px;
 }
 
 .add-new-item:hover {
@@ -682,117 +741,46 @@ function getAppIcon($appName) {
 }
 
 .app-list-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     background: linear-gradient(135deg, #0066ff, #33ccff);
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 1.1rem;
-    margin-right: 16px;
+    font-size: 1.2rem;
     flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,102,255,0.2);
 }
 
 .app-list-content {
     flex: 1;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
+    min-width: 0;
 }
 
 .app-list-main {
-    flex: 1;
-    min-width: 0;
+    width: 100%;
 }
 
 .app-list-title {
     font-size: 1rem;
     font-weight: 600;
     color: #1f2937;
-    margin: 0 0 4px 0;
+    margin: 0 0 6px 0;
 }
 
 .app-list-description {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: #6b7280;
     margin: 0;
-}
-
-.app-list-stats {
-    display: flex;
-    gap: 12px;
-    margin-right: 20px;
-}
-
-.stat-badge {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 45px;
-}
-
-.stat-badge .stat-number {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1f2937;
-}
-
-.stat-badge.total .stat-number { color: #3b82f6; }
-.stat-badge.active .stat-number { color: #f59e0b; }
-.stat-badge.completed .stat-number { color: #10b981; }
-
-.stat-badge .stat-label {
-    font-size: 0.65rem;
-    color: #9ca3af;
-    text-transform: uppercase;
-    font-weight: 500;
-}
-
-/* Progress Bar */
-.app-list-progress {
-    width: 70px;
-    margin-right: 16px;
-    flex-shrink: 0;
-}
-
-.progress-info {
-    text-align: center;
-    margin-bottom: 4px;
-}
-
-.progress-percentage {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #374151;
-}
-
-.progress-bar-small {
-    width: 100%;
-    height: 4px;
-    background: #f3f4f6;
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.progress-fill-small {
-    height: 100%;
-    background: linear-gradient(90deg, #10b981, #34d399);
-    transition: width 0.3s ease;
+    line-height: 1.4;
 }
 
 /* Action Buttons */
 .app-actions {
-    margin-right: 12px;
     flex-shrink: 0;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.app-list-item:hover .app-actions {
-    opacity: 1;
+    margin-left: auto;
 }
 
 .app-list-actions {
@@ -808,9 +796,9 @@ function getAppIcon($appName) {
 }
 
 .action-btn-small {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     border: none;
     background: #f8fafc;
     color: #64748b;
@@ -819,7 +807,7 @@ function getAppIcon($appName) {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
 }
 
 .action-btn-small:hover {
@@ -834,6 +822,189 @@ function getAppIcon($appName) {
 .action-btn-small.delete:hover {
     background: #fee2e2;
     color: #dc2626;
+}
+
+/* Empty State */
+.no-data {
+    text-align: center;
+    padding: 60px 40px;
+    color: #9ca3af;
+}
+
+.no-data-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: #d1d5db;
+}
+
+.no-data h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+.no-data p {
+    font-size: 0.95rem;
+    margin-bottom: 0;
+}
+
+/* Pagination Styles */
+.pagination-container {
+    padding: 20px 24px;
+    border-top: 2px solid #f1f5f9;
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.pagination-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.pagination-current {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 0.9rem;
+}
+
+.pagination-total {
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pagination-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.pagination-btn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.pagination-btn-prev,
+.pagination-btn-next {
+    background: linear-gradient(135deg, #f8fafc, #ffffff);
+}
+
+.pagination-btn-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.pagination-numbers {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pagination-number {
+    min-width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.pagination-number:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transform: translateY(-1px);
+}
+
+.pagination-number-active {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-color: #2563eb;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.pagination-number-active:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.pagination-jump {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.pagination-jump-select {
+    height: 38px;
+    padding: 0 32px 0 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
+    background-size: 12px;
+    font-size: 0.85rem;
+    color: #1f2937;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.pagination-jump-select:hover {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+}
+
+.pagination-jump-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Modal Styles */
@@ -1038,6 +1209,16 @@ function getAppIcon($appName) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+    
+    .pagination-container {
+        justify-content: center;
+    }
+    
+    .pagination-info {
+        width: 100%;
+        text-align: center;
+        align-items: center;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1050,19 +1231,9 @@ function getAppIcon($appName) {
         gap: 12px;
     }
     
-    .app-list-content {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-    }
-    
-    .app-list-stats {
-        margin-right: 0;
-    }
-    
-    .app-list-progress {
-        width: 100%;
-        margin-right: 0;
+    .app-list-item {
+        flex-wrap: wrap;
+        padding: 14px 20px;
     }
     
     .app-actions,
@@ -1070,12 +1241,37 @@ function getAppIcon($appName) {
         opacity: 1;
     }
     
-    .app-list-item {
+    .apps-list {
+        max-height: none;
+    }
+    
+    .pagination-container {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .pagination-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .pagination-numbers {
+        order: 1;
         flex-wrap: wrap;
     }
     
-    .apps-list {
-        max-height: none;
+    .pagination-btn span {
+        display: none;
+    }
+    
+    .pagination-btn {
+        padding: 8px 12px;
+    }
+    
+    .pagination-jump {
+        width: 100%;
+        justify-content: center;
     }
 }
 
@@ -1094,6 +1290,21 @@ function getAppIcon($appName) {
     
     .priority-selector {
         flex-direction: column;
+    }
+    
+    .pagination-number {
+        min-width: 34px;
+        height: 34px;
+        font-size: 0.8rem;
+    }
+    
+    .pagination-btn {
+        height: 34px;
+    }
+    
+    .pagination-jump-select {
+        height: 34px;
+        font-size: 0.8rem;
     }
 }
 </style>
@@ -1160,6 +1371,16 @@ function closeTodoToAppModal() {
 function closeDeleteModal() {
     document.getElementById('deleteModal').classList.remove('show');
     document.body.style.overflow = '';
+}
+
+// Quick jump to page function
+function jumpToPage() {
+    const select = document.getElementById('pageJumpSelect');
+    const page = parseInt(select.value);
+    
+    if (page >= 1) {
+        window.location.href = '?page=apps&pg=' + page;
+    }
 }
 
 // Close modal when clicking outside
