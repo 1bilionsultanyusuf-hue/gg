@@ -161,10 +161,10 @@ $user_filter = isset($_GET['user']) ? $_GET['user'] : '';
 $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-// Pagination
-$limit = 10;
-$page = isset($_GET['page_num']) ? max(1, (int)$_GET['page_num']) : 1;
-$offset = ($page - 1) * $limit;
+// PAGINATION SETUP - 5 ITEMS PER PAGE
+$items_per_page = 5;
+$current_page = isset($_GET['pg']) ? max(1, intval($_GET['pg'])) : 1;
+$offset = ($current_page - 1) * $items_per_page;
 
 // Build WHERE conditions
 $where_conditions = [];
@@ -223,14 +223,17 @@ if (!empty($params)) {
     $count_stmt = $koneksi->prepare($count_query);
     $count_stmt->bind_param($param_types, ...$params);
     $count_stmt->execute();
-    $total_records = $count_stmt->get_result()->fetch_assoc()['total'];
+    $total_reports = $count_stmt->get_result()->fetch_assoc()['total'];
 } else {
-    $total_records = $koneksi->query($count_query)->fetch_assoc()['total'];
+    $total_reports = $koneksi->query($count_query)->fetch_assoc()['total'];
 }
 
-$total_pages = ceil($total_records / $limit);
+// Calculate total pages (maximum 10 pages)
+$max_pages = 10;
+$total_items = min($total_reports, $max_pages * $items_per_page);
+$total_pages = $total_reports > 0 ? min(ceil($total_reports / $items_per_page), $max_pages) : 1;
 
-// Get report data
+// Get report data with PAGINATION
 $reports_query = "
     SELECT r.*, 
            u.name as user_name,
@@ -240,21 +243,17 @@ $reports_query = "
     LEFT JOIN users u ON r.user_id = u.id
     $where_clause
     ORDER BY r.date DESC, r.created_at DESC
-    LIMIT ? OFFSET ?
+    LIMIT $items_per_page OFFSET $offset
 ";
 
-$pagination_params = $params;
-$pagination_param_types = $param_types;
-$pagination_params[] = $limit;
-$pagination_params[] = $offset;
-$pagination_param_types .= 'ii';
-
-$reports_stmt = $koneksi->prepare($reports_query);
-if (!empty($pagination_params) && $pagination_param_types) {
-    $reports_stmt->bind_param($pagination_param_types, ...$pagination_params);
+if (!empty($params)) {
+    $reports_stmt = $koneksi->prepare($reports_query);
+    $reports_stmt->bind_param($param_types, ...$params);
+    $reports_stmt->execute();
+    $reports_result = $reports_stmt->get_result();
+} else {
+    $reports_result = $koneksi->query($reports_query);
 }
-$reports_stmt->execute();
-$reports_result = $reports_stmt->get_result();
 
 // Get filter options
 if ($current_permissions['can_view_all']) {
@@ -390,7 +389,7 @@ function canDeleteReport($report_user_id) {
     <div class="section-header">
         <div class="section-title-wrapper">
             <h2 class="section-title">Daftar Laporan</h2>
-            <span class="section-count"><?= $total_records ?> laporan</span>
+            <span class="section-count"><?= $total_reports ?> laporan</span>
         </div>
         
         <!-- Filters -->
@@ -466,7 +465,7 @@ function canDeleteReport($report_user_id) {
     <!-- Reports List -->
     <div class="reports-list">
         <?php if ($reports_result->num_rows > 0): ?>
-            <?php $no = $offset + 1; while($report = $reports_result->fetch_assoc()): ?>
+            <?php while($report = $reports_result->fetch_assoc()): ?>
             <div class="report-list-item">
                 <div class="report-status-indicator status-<?= $report['status'] ?>"></div>
                 
@@ -559,56 +558,62 @@ function canDeleteReport($report_user_id) {
     </div>
 
     <!-- Pagination -->
-    <?php if ($total_pages > 1): ?>
+    <?php if ($total_reports > 0): ?>
     <div class="pagination-container">
-        <div class="pagination">
-            <?php
-            $query_params = ['page' => 'reports'];
-            if (!empty($search)) $query_params['search'] = $search;
-            if (!empty($role_filter)) $query_params['role'] = $role_filter;
-            if (!empty($date_filter)) $query_params['date'] = $date_filter;
-            if (!empty($user_filter)) $query_params['user'] = $user_filter;
-            if (!empty($status_filter)) $query_params['status'] = $status_filter;
-            $query_string = '&' . http_build_query($query_params);
-            ?>
-            
-            <?php if ($page > 1): ?>
-            <a href="?page_num=1<?= $query_string ?>" class="pagination-btn">
-                <i class="fas fa-angle-double-left"></i>
+        <div class="pagination-info">
+            <span class="pagination-current">Halaman <?= $current_page ?> dari <?= $total_pages ?></span>
+            <span class="pagination-total">Menampilkan <?= min($items_per_page, $total_reports - $offset) ?> dari <?= min($total_items, $total_reports) ?> laporan</span>
+        </div>
+        
+        <div class="pagination-controls">
+            <!-- Previous Page -->
+            <?php if ($current_page > 1): ?>
+            <a href="?page=reports&role=<?= $role_filter ?>&date=<?= $date_filter ?>&user=<?= $user_filter ?>&status=<?= $status_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
+                <i class="fas fa-chevron-left"></i>
+                <span>Prev</span>
             </a>
-            <a href="?page_num=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
-                <i class="fas fa-angle-left"></i>
-            </a>
+            <?php else: ?>
+            <span class="pagination-btn pagination-btn-prev pagination-btn-disabled">
+                <i class="fas fa-chevron-left"></i>
+                <span>Prev</span>
+            </span>
             <?php endif; ?>
-
-            <?php
-            $start = max(1, $page - 2);
-            $end = min($total_pages, $page + 2);
             
-            if ($start > 1) echo '<span class="pagination-dots">...</span>';
+            <!-- Page Numbers 1-10 -->
+            <div class="pagination-numbers">
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                    <?php if ($i == $current_page): ?>
+                        <span class="pagination-number pagination-number-active"><?= $i ?></span>
+                    <?php else: ?>
+                        <a href="?page=reports&role=<?= $role_filter ?>&date=<?= $date_filter ?>&user=<?= $user_filter ?>&status=<?= $status_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
+                    <?php endif; ?>
+                <?php endfor; ?>
+            </div>
             
-            for ($i = $start; $i <= $end; $i++):
-            ?>
-            <a href="?page_num=<?= $i ?><?= $query_string ?>" 
-               class="pagination-btn <?= $i == $page ? 'active' : '' ?>">
-                <?= $i ?>
+            <!-- Next Page -->
+            <?php if ($current_page < $total_pages): ?>
+            <a href="?page=reports&role=<?= $role_filter ?>&date=<?= $date_filter ?>&user=<?= $user_filter ?>&status=<?= $status_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
+                <span>Next</span>
+                <i class="fas fa-chevron-right"></i>
             </a>
-            <?php endfor; ?>
-            
-            <?php if ($end < $total_pages) echo '<span class="pagination-dots">...</span>'; ?>
-
-            <?php if ($page < $total_pages): ?>
-            <a href="?page_num=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
-                <i class="fas fa-angle-right"></i>
-            </a>
-            <a href="?page_num=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
-                <i class="fas fa-angle-double-right"></i>
-            </a>
+            <?php else: ?>
+            <span class="pagination-btn pagination-btn-next pagination-btn-disabled">
+                <span>Next</span>
+                <i class="fas fa-chevron-right"></i>
+            </span>
             <?php endif; ?>
         </div>
         
-        <div class="pagination-info">
-            Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_records) ?> dari <?= $total_records ?> data
+        <!-- Quick Jump -->
+        <div class="pagination-jump">
+            <span>Ke halaman:</span>
+            <select id="pageJumpSelect" class="pagination-jump-select" onchange="jumpToPage()">
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                <option value="<?= $i ?>" <?= $i == $current_page ? 'selected' : '' ?>>
+                    Halaman <?= $i ?>
+                </option>
+                <?php endfor; ?>
+            </select>
         </div>
     </div>
     <?php endif; ?>
@@ -1041,6 +1046,8 @@ function canDeleteReport($report_user_id) {
     border-bottom: 1px solid #f3f4f6;
     transition: all 0.3s ease;
     position: relative;
+    gap: 16px;
+    min-height: 80px;
 }
 
 .report-list-item:hover {
@@ -1279,6 +1286,7 @@ function canDeleteReport($report_user_id) {
     opacity: 0;
     transition: opacity 0.3s ease;
     flex-shrink: 0;
+    margin-left: auto;
 }
 
 .report-list-item:hover .report-list-actions {
@@ -1286,9 +1294,9 @@ function canDeleteReport($report_user_id) {
 }
 
 .action-btn-small {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     border: none;
     background: #f8fafc;
     color: #64748b;
@@ -1297,7 +1305,7 @@ function canDeleteReport($report_user_id) {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
 }
 
 .action-btn-small:hover {
@@ -1346,62 +1354,155 @@ function canDeleteReport($report_user_id) {
     margin: 0;
 }
 
-/* Pagination */
+/* Pagination Styles */
 .pagination-container {
     padding: 20px 24px;
-    border-top: 1px solid #f3f4f6;
-    background: #f8fafc;
+    border-top: 2px solid #f1f5f9;
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
     display: flex;
-    justify-content: space-between;
-    align-items: center;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
     gap: 16px;
 }
 
-.pagination {
+.pagination-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.pagination-current {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 0.9rem;
+}
+
+.pagination-total {
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
+.pagination-controls {
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
 .pagination-btn {
-    min-width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: white;
-    color: #64748b;
-    text-decoration: none;
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-weight: 500;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
     font-size: 0.85rem;
-    transition: all 0.3s ease;
+    font-weight: 500;
 }
 
 .pagination-btn:hover {
-    background: #f8fafc;
-    border-color: #0066ff;
-    color: #0066ff;
-    transform: translateY(-2px);
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.pagination-btn.active {
-    background: linear-gradient(135deg, #0066ff, #33ccff);
-    color: white;
-    border-color: #0066ff;
+.pagination-btn-prev,
+.pagination-btn-next {
+    background: linear-gradient(135deg, #f8fafc, #ffffff);
 }
 
-.pagination-dots {
-    color: #9ca3af;
-    padding: 0 4px;
+.pagination-btn-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.pagination-numbers {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pagination-number {
+    min-width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 0.85rem;
     font-weight: 500;
 }
 
-.pagination-info {
-    color: #6b7280;
+.pagination-number:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transform: translateY(-1px);
+}
+
+.pagination-number-active {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-color: #2563eb;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.pagination-number-active:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.pagination-jump {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.pagination-jump-select {
+    height: 38px;
+    padding: 0 32px 0 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
+    background-size: 12px;
+    font-size: 0.85rem;
+    color: #1f2937;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.pagination-jump-select:hover {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+}
+
+.pagination-jump-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Modal Styles */
@@ -1590,6 +1691,16 @@ function canDeleteReport($report_user_id) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+    
+    .pagination-container {
+        justify-content: center;
+    }
+    
+    .pagination-info {
+        width: 100%;
+        text-align: center;
+        align-items: center;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1639,6 +1750,35 @@ function canDeleteReport($report_user_id) {
     .reports-list {
         max-height: none;
     }
+    
+    .pagination-container {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .pagination-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .pagination-numbers {
+        order: 1;
+        flex-wrap: wrap;
+    }
+    
+    .pagination-btn span {
+        display: none;
+    }
+    
+    .pagination-btn {
+        padding: 8px 12px;
+    }
+    
+    .pagination-jump {
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1658,14 +1798,19 @@ function canDeleteReport($report_user_id) {
         flex-direction: column;
     }
     
-    .pagination-container {
-        flex-direction: column;
-        text-align: center;
+    .pagination-number {
+        min-width: 34px;
+        height: 34px;
+        font-size: 0.8rem;
     }
     
-    .pagination {
-        justify-content: center;
-        flex-wrap: wrap;
+    .pagination-btn {
+        height: 34px;
+    }
+    
+    .pagination-jump-select {
+        height: 34px;
+        font-size: 0.8rem;
     }
 }
 </style>
@@ -1738,7 +1883,7 @@ function filterByStatus(status) {
     }
     
     url.searchParams.set('page', 'reports');
-    url.searchParams.delete('page_num');
+    url.searchParams.set('pg', '1');
     
     window.location.href = url.toString();
 }
@@ -1756,8 +1901,8 @@ function applyFilters() {
     url.searchParams.delete('user');
     url.searchParams.delete('status');
     url.searchParams.delete('search');
-    url.searchParams.delete('page_num');
     url.searchParams.set('page', 'reports');
+    url.searchParams.set('pg', '1');
     
     if (roleFilter) url.searchParams.set('role', roleFilter);
     if (dateFilter) url.searchParams.set('date', dateFilter);
@@ -1781,8 +1926,30 @@ function clearFilters() {
     url.searchParams.delete('user');
     url.searchParams.delete('status');
     url.searchParams.delete('search');
-    url.searchParams.delete('page_num');
     url.searchParams.set('page', 'reports');
+    url.searchParams.set('pg', '1');
+    window.location.href = url.toString();
+}
+
+function jumpToPage() {
+    const select = document.getElementById('pageJumpSelect');
+    const page = parseInt(select.value);
+    const roleFilter = document.getElementById('roleFilter')?.value || '';
+    const dateFilter = document.getElementById('dateFilter')?.value || '';
+    const userFilter = document.getElementById('userFilter')?.value || '';
+    const statusFilter = document.getElementById('statusFilter')?.value || '';
+    const searchValue = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+    
+    let url = new URL(window.location);
+    url.searchParams.set('page', 'reports');
+    url.searchParams.set('pg', page);
+    
+    if (roleFilter) url.searchParams.set('role', roleFilter);
+    if (dateFilter) url.searchParams.set('date', dateFilter);
+    if (userFilter) url.searchParams.set('user', userFilter);
+    if (statusFilter) url.searchParams.set('status', statusFilter);
+    if (searchValue) url.searchParams.set('search', searchValue);
+    
     window.location.href = url.toString();
 }
 

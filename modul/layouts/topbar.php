@@ -45,7 +45,7 @@
 }
 
 .header-container {
-    max-width: 1200px;
+    max-width: 1050px;
     margin: auto;
     display: flex;
     justify-content: center;

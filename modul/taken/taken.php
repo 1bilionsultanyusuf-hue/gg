@@ -16,13 +16,14 @@ if ($current_user_result->num_rows === 0) {
 
 $current_user = $current_user_result->fetch_assoc();
 $current_user_role = $current_user['role'];
+$current_user_name = $current_user['name'];
 
-// CREATE - Add new taken
+// CREATE - Add new taken (otomatis masuk ke user yang login)
 if (isset($_POST['add_taken'])) {
     $id_todos = (int)$_POST['id_todos'];
     $status = trim($_POST['status']);
     $date = trim($_POST['date']);
-    $user_id = $_SESSION['user_id'];
+    $user_id = $_SESSION['user_id']; // Otomatis ambil dari session
     
     if (!empty($id_todos) && !empty($status)) {
         $check_stmt = $koneksi->prepare("SELECT id FROM taken WHERE id_todos = ?");
@@ -30,13 +31,13 @@ if (isset($_POST['add_taken'])) {
         $check_stmt->execute();
         
         if ($check_stmt->get_result()->num_rows > 0) {
-            $error = "Todo ini sudah diambil!";
+            $error = "Todo ini sudah diambil oleh user lain!";
         } else {
             $stmt = $koneksi->prepare("INSERT INTO taken (id_todos, status, date, user_id) VALUES (?, ?, ?, ?)");
             $stmt->bind_param("issi", $id_todos, $status, $date, $user_id);
             
             if ($stmt->execute()) {
-                $message = "Todo berhasil diambil!";
+                $message = "Todo berhasil diambil dan ditambahkan ke daftar Anda!";
             } else {
                 $error = "Gagal mengambil todo!";
             }
@@ -46,54 +47,83 @@ if (isset($_POST['add_taken'])) {
     }
 }
 
-// UPDATE - Edit taken
+// UPDATE - Edit taken (hanya milik user sendiri)
 if (isset($_POST['edit_taken'])) {
     $id = (int)$_POST['taken_id'];
     $status = trim($_POST['status']);
     $date = trim($_POST['date']);
     
-    if (!empty($status)) {
-        $stmt = $koneksi->prepare("UPDATE taken SET status = ?, date = ? WHERE id = ?");
-        $stmt->bind_param("ssi", $status, $date, $id);
-        
-        if ($stmt->execute()) {
-            $message = "Status berhasil diperbarui!";
+    // Cek apakah taken ini milik user yang login
+    $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
+    $check_owner->bind_param("i", $id);
+    $check_owner->execute();
+    $owner_result = $check_owner->get_result();
+    
+    if ($owner_result->num_rows > 0) {
+        $owner = $owner_result->fetch_assoc();
+        if ($owner['user_id'] == $current_user_id) {
+            if (!empty($status)) {
+                $stmt = $koneksi->prepare("UPDATE taken SET status = ?, date = ? WHERE id = ?");
+                $stmt->bind_param("ssi", $status, $date, $id);
+                
+                if ($stmt->execute()) {
+                    $message = "Status berhasil diperbarui!";
+                } else {
+                    $error = "Gagal memperbarui status!";
+                }
+            } else {
+                $error = "Status harus diisi!";
+            }
         } else {
-            $error = "Gagal memperbarui status!";
+            $error = "Anda tidak memiliki akses untuk mengedit taken ini!";
         }
     } else {
-        $error = "Status harus diisi!";
+        $error = "Taken tidak ditemukan!";
     }
 }
 
-// DELETE - Remove taken
+// DELETE - Remove taken (hanya milik user sendiri)
 if (isset($_POST['delete_taken'])) {
     $id = (int)$_POST['taken_id'];
     
-    $stmt = $koneksi->prepare("DELETE FROM taken WHERE id = ?");
-    $stmt->bind_param("i", $id);
+    // Cek apakah taken ini milik user yang login
+    $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
+    $check_owner->bind_param("i", $id);
+    $check_owner->execute();
+    $owner_result = $check_owner->get_result();
     
-    if ($stmt->execute()) {
-        $message = "Taken berhasil dihapus!";
+    if ($owner_result->num_rows > 0) {
+        $owner = $owner_result->fetch_assoc();
+        if ($owner['user_id'] == $current_user_id) {
+            $stmt = $koneksi->prepare("DELETE FROM taken WHERE id = ?");
+            $stmt->bind_param("i", $id);
+            
+            if ($stmt->execute()) {
+                $message = "Taken berhasil dihapus!";
+            } else {
+                $error = "Gagal menghapus taken!";
+            }
+        } else {
+            $error = "Anda tidak memiliki akses untuk menghapus taken ini!";
+        }
     } else {
-        $error = "Gagal menghapus taken!";
+        $error = "Taken tidak ditemukan!";
     }
 }
-
-// Pagination setup
-$limit = 10;
-$page = isset($_GET['page_num']) ? max(1, (int)$_GET['page_num']) : 1;
-$offset = ($page - 1) * $limit;
 
 // Search functionality
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $filter_status = isset($_GET['status']) ? trim($_GET['status']) : '';
-$filter_user = isset($_GET['user']) ? (int)$_GET['user'] : 0;
 
-// Build WHERE clause
+// Build WHERE clause - HANYA MILIK USER YANG LOGIN
 $where_conditions = [];
 $params = [];
 $param_types = '';
+
+// Semua user (termasuk admin) hanya lihat taken miliknya sendiri
+$where_conditions[] = "tk.user_id = ?";
+$params[] = $current_user_id;
+$param_types .= 'i';
 
 if (!empty($search)) {
     $where_conditions[] = "(td.title LIKE ? OR td.description LIKE ?)";
@@ -108,13 +138,12 @@ if (!empty($filter_status) && in_array($filter_status, ['in_progress', 'done']))
     $param_types .= 's';
 }
 
-if (!empty($filter_user) && $filter_user > 0) {
-    $where_conditions[] = "tk.user_id = ?";
-    $params[] = $filter_user;
-    $param_types .= 'i';
-}
-
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+
+// PAGINATION SETUP - 5 ITEMS PER PAGE
+$items_per_page = 5;
+$current_page = isset($_GET['pg']) ? max(1, intval($_GET['pg'])) : 1;
+$offset = ($current_page - 1) * $items_per_page;
 
 // Get total count
 $count_query = "
@@ -123,6 +152,7 @@ $count_query = "
     LEFT JOIN todos td ON tk.id_todos = td.id
     LEFT JOIN users u ON tk.user_id = u.id
     LEFT JOIN apps a ON td.app_id = a.id
+    LEFT JOIN users todo_creator ON td.user_id = todo_creator.id
     $where_clause
 ";
 
@@ -132,63 +162,79 @@ if (!empty($params)) {
         $count_stmt->bind_param($param_types, ...$params);
     }
     $count_stmt->execute();
-    $total_records = $count_stmt->get_result()->fetch_assoc()['total'];
+    $total_taken = $count_stmt->get_result()->fetch_assoc()['total'];
     $count_stmt->close();
 } else {
-    $total_records = $koneksi->query($count_query)->fetch_assoc()['total'];
+    $total_taken = $koneksi->query($count_query)->fetch_assoc()['total'];
 }
 
-$total_pages = ceil($total_records / $limit);
+// Calculate total pages
+$max_pages = 10;
+$total_items = min($total_taken, $max_pages * $items_per_page);
+$total_pages = $total_taken > 0 ? min(ceil($total_taken / $items_per_page), $max_pages) : 1;
 
-// Get taken data
+// Get taken data with PAGINATION - TAMBAHKAN INFO PEMBUAT TODO
 $taken_query = "
     SELECT tk.*, 
            td.title as todo_title,
            td.description as todo_description,
            td.priority as todo_priority,
            u.name as user_name,
-           a.name as app_name
+           a.name as app_name,
+           todo_creator.name as todo_creator_name
     FROM taken tk
     LEFT JOIN todos td ON tk.id_todos = td.id
     LEFT JOIN users u ON tk.user_id = u.id
     LEFT JOIN apps a ON td.app_id = a.id
+    LEFT JOIN users todo_creator ON td.user_id = todo_creator.id
     $where_clause
     ORDER BY tk.date DESC, tk.created_at DESC
-    LIMIT ? OFFSET ?
+    LIMIT $items_per_page OFFSET $offset
 ";
 
-$pagination_params = $params;
-$pagination_param_types = $param_types;
-$pagination_params[] = $limit;
-$pagination_params[] = $offset;
-$pagination_param_types .= 'ii';
-
-$taken_stmt = $koneksi->prepare($taken_query);
-if (!empty($pagination_params) && $pagination_param_types) {
-    $taken_stmt->bind_param($pagination_param_types, ...$pagination_params);
+if (!empty($params)) {
+    $taken_stmt = $koneksi->prepare($taken_query);
+    $taken_stmt->bind_param($param_types, ...$params);
+    $taken_stmt->execute();
+    $taken_result = $taken_stmt->get_result();
+} else {
+    $taken_result = $koneksi->query($taken_query);
 }
-$taken_stmt->execute();
-$taken_result = $taken_stmt->get_result();
 
-// Get available todos
+// Get available todos (yang belum diambil siapapun) - TAMBAHKAN INFO PEMBUAT
 $available_todos_query = "
-    SELECT td.id, td.title, td.priority, a.name as app_name
+    SELECT td.id, td.title, td.priority, a.name as app_name, u.name as creator_name
     FROM todos td
     LEFT JOIN apps a ON td.app_id = a.id
+    LEFT JOIN users u ON td.user_id = u.id
     LEFT JOIN taken tk ON td.id = tk.id_todos
     WHERE tk.id IS NULL
     ORDER BY td.priority DESC, td.created_at DESC
 ";
 $available_todos_result = $koneksi->query($available_todos_query);
 
-// Get users for filter
-$users_query = "SELECT id, name FROM users ORDER BY name";
-$users_result = $koneksi->query($users_query);
+// Get statistics - UNTUK USER YANG LOGIN SAJA (dengan error handling)
+$stat_stmt = $koneksi->prepare("SELECT COUNT(*) as count FROM taken WHERE user_id = ?");
+$stat_stmt->bind_param("i", $current_user_id);
+$stat_stmt->execute();
+$stat_result = $stat_stmt->get_result();
+$total_taken_stat = $stat_result ? $stat_result->fetch_assoc()['count'] : 0;
+$stat_stmt->close();
 
-// Get statistics
-$total_taken = $koneksi->query("SELECT COUNT(*) as count FROM taken")->fetch_assoc()['count'];
-$in_progress = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE status = 'in_progress'")->fetch_assoc()['count'];
-$done = $koneksi->query("SELECT COUNT(*) as count FROM taken WHERE status = 'done'")->fetch_assoc()['count'];
+$stat_stmt = $koneksi->prepare("SELECT COUNT(*) as count FROM taken WHERE status = 'in_progress' AND user_id = ?");
+$stat_stmt->bind_param("i", $current_user_id);
+$stat_stmt->execute();
+$stat_result = $stat_stmt->get_result();
+$in_progress = $stat_result ? $stat_result->fetch_assoc()['count'] : 0;
+$stat_stmt->close();
+
+$stat_stmt = $koneksi->prepare("SELECT COUNT(*) as count FROM taken WHERE status = 'done' AND user_id = ?");
+$stat_stmt->bind_param("i", $current_user_id);
+$stat_stmt->execute();
+$stat_result = $stat_stmt->get_result();
+$done = $stat_result ? $stat_result->fetch_assoc()['count'] : 0;
+$stat_stmt->close();
+
 $available = $koneksi->query("SELECT COUNT(*) as count FROM todos td LEFT JOIN taken tk ON td.id = tk.id_todos WHERE tk.id IS NULL")->fetch_assoc()['count'];
 
 function getPriorityIcon($priority) {
@@ -219,10 +265,17 @@ function getPriorityIcon($priority) {
 <!-- Page Header -->
 <div class="page-header">
     <div class="header-content">
-        <h1 class="page-title">Todo yang Diambil</h1>
+        <h1 class="page-title">Todo Saya</h1>
         <p class="page-subtitle">
-            Kelola dan monitor todo yang sudah diambil
+            Kelola dan monitor todo yang sudah Anda ambil
         </p>
+        <div class="user-info-badge">
+            <i class="fas fa-user-circle"></i>
+            <span><?= htmlspecialchars($current_user_name) ?></span>
+            <span class="user-role-badge role-<?= $current_user_role ?>">
+                <?= ucfirst($current_user_role) ?>
+            </span>
+        </div>
     </div>
 </div>
 
@@ -233,8 +286,8 @@ function getPriorityIcon($priority) {
             <i class="fas fa-hand-paper"></i>
         </div>
         <div class="stat-content">
-            <h3 class="stat-number"><?= $total_taken ?></h3>
-            <p class="stat-label">Total Diambil</p>
+            <h3 class="stat-number"><?= $total_taken_stat ?></h3>
+            <p class="stat-label">Todo Saya</p>
         </div>
     </div>
 
@@ -273,8 +326,8 @@ function getPriorityIcon($priority) {
 <div class="taken-container">
     <div class="section-header">
         <div class="section-title-wrapper">
-            <h2 class="section-title">Daftar Todo Diambil</h2>
-            <span class="section-count"><?= $total_records ?> taken</span>
+            <h2 class="section-title">Daftar Todo</h2>
+            <span class="section-count"><?= $total_taken ?> taken</span>
         </div>
         
         <!-- Filters -->
@@ -292,22 +345,8 @@ function getPriorityIcon($priority) {
                     <option value="done" <?= $filter_status == 'done' ? 'selected' : '' ?>>Done</option>
                 </select>
             </div>
-
-            <div class="filter-dropdown">
-                <select id="userFilter" onchange="applyFilters()">
-                    <option value="">Semua User</option>
-                    <?php 
-                    $users_result->data_seek(0);
-                    while($user = $users_result->fetch_assoc()): 
-                    ?>
-                    <option value="<?= $user['id'] ?>" <?= $filter_user == $user['id'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($user['name']) ?>
-                    </option>
-                    <?php endwhile; ?>
-                </select>
-            </div>
             
-            <?php if ($filter_status || $search || $filter_user): ?>
+            <?php if ($filter_status || $search): ?>
             <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
                 <i class="fas fa-times"></i>
             </button>
@@ -331,7 +370,7 @@ function getPriorityIcon($priority) {
     <!-- Taken List -->
     <div class="taken-list">
         <?php if ($taken_result->num_rows > 0): ?>
-            <?php $no = $offset + 1; while($taken = $taken_result->fetch_assoc()): ?>
+            <?php while($taken = $taken_result->fetch_assoc()): ?>
             <div class="taken-list-item" data-taken-id="<?= $taken['id'] ?>">
                 <div class="taken-priority-container">
                     <div class="taken-priority-badge priority-<?= $taken['todo_priority'] ?>">
@@ -346,21 +385,20 @@ function getPriorityIcon($priority) {
                             <?= htmlspecialchars(substr($taken['todo_description'], 0, 80)) ?>
                             <?= strlen($taken['todo_description']) > 80 ? '...' : '' ?>
                         </p>
-                    </div>
-                    
-                    <div class="taken-list-details">
-                        <span class="detail-badge app">
-                            <i class="fas fa-cube"></i>
-                            <?= htmlspecialchars($taken['app_name']) ?>
-                        </span>
-                        <span class="detail-badge user">
-                            <i class="fas fa-user"></i>
-                            <?= htmlspecialchars($taken['user_name']) ?>
-                        </span>
-                        <span class="detail-badge date">
-                            <i class="fas fa-calendar"></i>
-                            <?= date('d/m/Y', strtotime($taken['date'])) ?>
-                        </span>
+                        <div class="taken-list-details">
+                            <span class="detail-badge app">
+                                <i class="fas fa-cube"></i>
+                                <?= htmlspecialchars($taken['app_name']) ?>
+                            </span>
+                            <span class="detail-badge creator">
+                                <i class="fas fa-user-tag"></i>
+                                Dibuat: <?= htmlspecialchars($taken['todo_creator_name']) ?>
+                            </span>
+                            <span class="detail-badge date">
+                                <i class="fas fa-calendar"></i>
+                                <?= date('d/m/Y', strtotime($taken['date'])) ?>
+                            </span>
+                        </div>
                     </div>
                 </div>
                 
@@ -390,62 +428,65 @@ function getPriorityIcon($priority) {
                 <div class="no-data-icon">
                     <i class="fas fa-hand-paper"></i>
                 </div>
-                <h3>Tidak ada taken ditemukan</h3>
-                <p>Belum ada todo yang diambil atau sesuai dengan filter.</p>
+                <h3>Belum ada todo yang diambil</h3>
+                <p>Anda belum mengambil todo apapun. Klik tombol di atas untuk mengambil todo!</p>
             </div>
         <?php endif; ?>
     </div>
 
     <!-- Pagination -->
-    <?php if ($total_pages > 1): ?>
+    <?php if ($total_taken > 0): ?>
     <div class="pagination-container">
-        <div class="pagination">
-            <?php
-            $query_params = ['page' => 'taken'];
-            if (!empty($search)) $query_params['search'] = $search;
-            if (!empty($filter_status)) $query_params['status'] = $filter_status;
-            if (!empty($filter_user)) $query_params['user'] = $filter_user;
-            
-            $query_string = '&' . http_build_query($query_params);
-            ?>
-            
-            <?php if ($page > 1): ?>
-            <a href="?page_num=1<?= $query_string ?>" class="pagination-btn">
-                <i class="fas fa-angle-double-left"></i>
+        <div class="pagination-info">
+            <span class="pagination-current">Halaman <?= $current_page ?> dari <?= $total_pages ?></span>
+            <span class="pagination-total">Menampilkan <?= min($items_per_page, $total_taken - $offset) ?> dari <?= min($total_items, $total_taken) ?> taken</span>
+        </div>
+        
+        <div class="pagination-controls">
+            <?php if ($current_page > 1): ?>
+            <a href="?page=taken&status=<?= $filter_status ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev">
+                <i class="fas fa-chevron-left"></i>
+                <span>Prev</span>
             </a>
-            <a href="?page_num=<?= $page - 1 ?><?= $query_string ?>" class="pagination-btn">
-                <i class="fas fa-angle-left"></i>
-            </a>
+            <?php else: ?>
+            <span class="pagination-btn pagination-btn-prev pagination-btn-disabled">
+                <i class="fas fa-chevron-left"></i>
+                <span>Prev</span>
+            </span>
             <?php endif; ?>
-
-            <?php
-            $start = max(1, $page - 2);
-            $end = min($total_pages, $page + 2);
             
-            if ($start > 1) echo '<span class="pagination-dots">...</span>';
+            <div class="pagination-numbers">
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                    <?php if ($i == $current_page): ?>
+                        <span class="pagination-number pagination-number-active"><?= $i ?></span>
+                    <?php else: ?>
+                        <a href="?page=taken&status=<?= $filter_status ?>&search=<?= urlencode($search) ?>&pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
+                    <?php endif; ?>
+                <?php endfor; ?>
+            </div>
             
-            for ($i = $start; $i <= $end; $i++):
-            ?>
-            <a href="?page_num=<?= $i ?><?= $query_string ?>" 
-               class="pagination-btn <?= $i == $page ? 'active' : '' ?>">
-                <?= $i ?>
+            <?php if ($current_page < $total_pages): ?>
+            <a href="?page=taken&status=<?= $filter_status ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next">
+                <span>Next</span>
+                <i class="fas fa-chevron-right"></i>
             </a>
-            <?php endfor; ?>
-            
-            <?php if ($end < $total_pages) echo '<span class="pagination-dots">...</span>'; ?>
-
-            <?php if ($page < $total_pages): ?>
-            <a href="?page_num=<?= $page + 1 ?><?= $query_string ?>" class="pagination-btn">
-                <i class="fas fa-angle-right"></i>
-            </a>
-            <a href="?page_num=<?= $total_pages ?><?= $query_string ?>" class="pagination-btn">
-                <i class="fas fa-angle-double-right"></i>
-            </a>
+            <?php else: ?>
+            <span class="pagination-btn pagination-btn-next pagination-btn-disabled">
+                <span>Next</span>
+                <i class="fas fa-chevron-right"></i>
+            </span>
             <?php endif; ?>
         </div>
         
-        <div class="pagination-info">
-            Menampilkan <?= $offset + 1 ?> - <?= min($offset + $limit, $total_records) ?> dari <?= $total_records ?> data
+        <div class="pagination-jump">
+            <span>Ke halaman:</span>
+            <select id="pageJumpSelect" class="pagination-jump-select" onchange="jumpToPage()">
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                <option value="<?= $i ?>" <?= $i == $current_page ? 'selected' : '' ?>>
+                    Halaman <?= $i ?>
+                </option>
+                <?php endfor; ?>
+            </select>
         </div>
     </div>
     <?php endif; ?>
@@ -472,10 +513,16 @@ function getPriorityIcon($priority) {
                         while($todo = $available_todos_result->fetch_assoc()): 
                         ?>
                         <option value="<?= $todo['id'] ?>">
-                            [<?= ucfirst($todo['priority']) ?>] <?= htmlspecialchars($todo['title']) ?> - <?= htmlspecialchars($todo['app_name']) ?>
+                            [<?= ucfirst($todo['priority']) ?>] <?= htmlspecialchars($todo['title']) ?> - <?= htmlspecialchars($todo['app_name']) ?> (by: <?= htmlspecialchars($todo['creator_name']) ?>)
                         </option>
                         <?php endwhile; ?>
                     </select>
+                    <?php if ($available_todos_result->num_rows == 0): ?>
+                    <p class="form-help-text">
+                        <i class="fas fa-info-circle"></i>
+                        Tidak ada todo yang tersedia saat ini
+                    </p>
+                    <?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label for="takenStatus">Status *</label>
@@ -592,7 +639,43 @@ function getPriorityIcon($priority) {
 .page-subtitle {
     color: #6b7280;
     font-size: 0.95rem;
-    margin: 0;
+    margin: 0 0 12px 0;
+}
+
+.user-info-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    border-radius: 20px;
+    border: 1px solid #cbd5e1;
+    font-size: 0.9rem;
+    color: #475569;
+    margin-top: 8px;
+}
+
+.user-info-badge i {
+    font-size: 1.1rem;
+    color: #64748b;
+}
+
+.user-role-badge {
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.user-role-badge.role-admin {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    color: white;
+}
+
+.user-role-badge.role-user {
+    background: linear-gradient(135deg, #0066ff, #0044cc);
+    color: white;
 }
 
 /* Buttons */
@@ -863,6 +946,8 @@ function getPriorityIcon($priority) {
     border-bottom: 1px solid #f3f4f6;
     transition: all 0.3s ease;
     cursor: pointer;
+    gap: 16px;
+    min-height: 80px;
 }
 
 .taken-list-item:hover {
@@ -952,10 +1037,6 @@ function getPriorityIcon($priority) {
 .taken-list-content {
     flex: 1;
     min-width: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
 }
 
 .taken-list-main {
@@ -995,6 +1076,15 @@ function getPriorityIcon($priority) {
     font-size: 0.7rem;
 }
 
+.detail-badge.creator {
+    color: #808080;
+    font-weight: 500;
+}
+
+.detail-badge.creator i {
+    color: #808080;
+}
+
 /* Taken Status Container */
 .taken-status-container {
     margin: 0 16px;
@@ -1027,6 +1117,7 @@ function getPriorityIcon($priority) {
     opacity: 0;
     transition: opacity 0.3s ease;
     flex-shrink: 0;
+    margin-left: auto;
 }
 
 .taken-list-item:hover .taken-list-actions {
@@ -1034,9 +1125,9 @@ function getPriorityIcon($priority) {
 }
 
 .action-btn-small {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     border: none;
     background: #f8fafc;
     color: #64748b;
@@ -1045,7 +1136,7 @@ function getPriorityIcon($priority) {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
 }
 
 .action-btn-small:hover {
@@ -1094,62 +1185,147 @@ function getPriorityIcon($priority) {
     margin: 0;
 }
 
-/* Pagination */
+/* Pagination Styles */
 .pagination-container {
     padding: 20px 24px;
-    border-top: 1px solid #f3f4f6;
-    background: #f8fafc;
+    border-top: 2px solid #f1f5f9;
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
     display: flex;
-    justify-content: space-between;
-    align-items: center;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
     gap: 16px;
 }
 
-.pagination {
+.pagination-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.pagination-current {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 0.9rem;
+}
+
+.pagination-total {
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
+.pagination-controls {
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
 .pagination-btn {
-    min-width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: white;
-    color: #64748b;
-    text-decoration: none;
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-weight: 500;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
     font-size: 0.85rem;
-    transition: all 0.3s ease;
+    font-weight: 500;
 }
 
 .pagination-btn:hover {
-    background: #f8fafc;
-    border-color: #0066ff;
-    color: #0066ff;
-    transform: translateY(-2px);
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.pagination-btn.active {
-    background: linear-gradient(135deg, #0066ff, #33ccff);
-    color: white;
-    border-color: #0066ff;
+.pagination-btn-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
-.pagination-dots {
-    color: #9ca3af;
-    padding: 0 4px;
+.pagination-numbers {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pagination-number {
+    min-width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 0.85rem;
     font-weight: 500;
 }
 
-.pagination-info {
-    color: #6b7280;
+.pagination-number:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transform: translateY(-1px);
+}
+
+.pagination-number-active {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-color: #2563eb;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.pagination-number-active:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.pagination-jump {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.pagination-jump-select {
+    height: 38px;
+    padding: 0 32px 0 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    font-size: 0.85rem;
+    color: #1f2937;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+}
+
+.pagination-jump-select:hover {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+}
+
+.pagination-jump-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Modal Styles */
@@ -1275,6 +1451,15 @@ function getPriorityIcon($priority) {
     box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
 }
 
+.form-help-text {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: #f59e0b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .modal-footer {
     padding: 0 24px 24px;
     display: flex;
@@ -1297,31 +1482,14 @@ function getPriorityIcon($priority) {
     display: none;
 }
 
-.status-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    border-radius: 20px;
-    border: 2px solid transparent;
+.status-selector .status-badge {
+    cursor: pointer;
     transition: all 0.3s ease;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: white;
-}
-
-.status-selector .status-badge.status-in_progress {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-}
-
-.status-selector .status-badge.status-done {
-    background: linear-gradient(135deg, #10b981, #059669);
 }
 
 .status-option input[type="radio"]:checked + .status-badge {
-    border-color: #1f2937;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 /* Responsive */
@@ -1332,90 +1500,26 @@ function getPriorityIcon($priority) {
 }
 
 @media (max-width: 768px) {
-    .page-header {
-        padding: 16px 20px;
-    }
-    
     .stats-grid {
         grid-template-columns: 1fr;
-        gap: 12px;
     }
     
-    .section-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .filters-container {
-        justify-content: stretch;
-        width: 100%;
-    }
-    
-    .search-box {
-        min-width: auto;
-        flex: 1;
-    }
-    
-    .filter-dropdown select {
-        min-width: auto;
-        flex: 1;
-    }
-    
-    .taken-list-content {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
+    .taken-list-item {
+        flex-wrap: wrap;
     }
     
     .taken-status-container {
-        margin: 0;
+        width: 100%;
+        margin: 8px 0 0 0;
     }
     
     .taken-list-actions {
         opacity: 1;
     }
-    
-    .taken-list-item {
-        flex-wrap: wrap;
-    }
-    
-    .taken-list {
-        max-height: none;
-    }
-}
-
-@media (max-width: 480px) {
-    .taken-list-item {
-        padding: 12px 16px;
-    }
-    
-    .section-header {
-        padding: 16px 20px 12px;
-    }
-    
-    .add-new-item {
-        margin: 12px 16px;
-    }
-    
-    .status-selector {
-        flex-direction: column;
-    }
-    
-    .pagination-container {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .pagination {
-        justify-content: center;
-        flex-wrap: wrap;
-    }
 }
 </style>
 
 <script>
-let currentEditId = null;
-
 function openAddTakenModal() {
     document.getElementById('modalTitle').textContent = 'Ambil Todo';
     document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Simpan';
@@ -1425,7 +1529,6 @@ function openAddTakenModal() {
     document.getElementById('todoSelectGroup').style.display = 'block';
     document.getElementById('takenDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('statusInProgress').checked = true;
-    currentEditId = null;
     document.getElementById('takenModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
@@ -1438,14 +1541,12 @@ function editTaken(id, status, date) {
     document.getElementById('takenDate').value = date;
     document.getElementById('todoSelectGroup').style.display = 'none';
     
-    // Set status radio button
     if (status === 'in_progress') {
         document.getElementById('statusInProgress').checked = true;
     } else if (status === 'done') {
         document.getElementById('statusDone').checked = true;
     }
     
-    currentEditId = id;
     document.getElementById('takenModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
@@ -1478,31 +1579,28 @@ function filterByStatus(status) {
     }
     
     url.searchParams.set('page', 'taken');
-    url.searchParams.delete('page_num');
-    
+    url.searchParams.set('pg', '1');
     window.location.href = url.toString();
 }
 
 function applyFilters() {
     const statusFilter = document.getElementById('statusFilter').value;
-    const userFilter = document.getElementById('userFilter').value;
     const searchValue = document.getElementById('searchInput').value;
     
     let url = new URL(window.location);
-    url.searchParams.delete('status');
-    url.searchParams.delete('user');
-    url.searchParams.delete('search');
-    url.searchParams.delete('page_num');
     url.searchParams.set('page', 'taken');
+    url.searchParams.set('pg', '1');
     
     if (statusFilter) {
         url.searchParams.set('status', statusFilter);
+    } else {
+        url.searchParams.delete('status');
     }
-    if (userFilter) {
-        url.searchParams.set('user', userFilter);
-    }
+    
     if (searchValue) {
         url.searchParams.set('search', searchValue);
+    } else {
+        url.searchParams.delete('search');
     }
     
     window.location.href = url.toString();
@@ -1517,14 +1615,28 @@ function handleSearch(event) {
 function clearFilters() {
     let url = new URL(window.location);
     url.searchParams.delete('status');
-    url.searchParams.delete('user');
     url.searchParams.delete('search');
-    url.searchParams.delete('page_num');
     url.searchParams.set('page', 'taken');
+    url.searchParams.set('pg', '1');
     window.location.href = url.toString();
 }
 
-// Close modals when clicking outside
+function jumpToPage() {
+    const select = document.getElementById('pageJumpSelect');
+    const page = parseInt(select.value);
+    const statusFilter = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : '';
+    const searchValue = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+    
+    let url = new URL(window.location);
+    url.searchParams.set('page', 'taken');
+    url.searchParams.set('pg', page);
+    
+    if (statusFilter) url.searchParams.set('status', statusFilter);
+    if (searchValue) url.searchParams.set('search', searchValue);
+    
+    window.location.href = url.toString();
+}
+
 document.addEventListener('click', function(e) {
     if(e.target.classList.contains('modal')) {
         closeTakenModal();
@@ -1532,7 +1644,6 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Close modal with Escape key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeTakenModal();
@@ -1540,7 +1651,6 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Auto-hide alerts after 5 seconds
 document.addEventListener('DOMContentLoaded', function() {
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
@@ -1550,37 +1660,5 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
-});
-
-// Form validation
-if (document.getElementById('takenForm')) {
-    document.getElementById('takenForm').addEventListener('submit', function(e) {
-        const todoSelect = document.getElementById('takenTodo');
-        
-        if (todoSelect.style.display !== 'none' && !todoSelect.value) {
-            e.preventDefault();
-            alert('Todo harus dipilih!');
-            todoSelect.focus();
-            return false;
-        }
-    });
-}
-
-// Auto-focus first input when modal opens
-const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-        if (mutation.target.classList.contains('modal') && mutation.target.classList.contains('show')) {
-            setTimeout(() => {
-                const firstInput = mutation.target.querySelector('select, input[type="date"]');
-                if (firstInput && firstInput.offsetParent !== null) {
-                    firstInput.focus();
-                }
-            }, 300);
-        }
-    });
-});
-
-document.querySelectorAll('.modal').forEach(modal => {
-    observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
 });
 </script>

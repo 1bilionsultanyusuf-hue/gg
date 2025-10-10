@@ -29,7 +29,17 @@ $new_tasks_query = "
 ";
 $new_tasks_count = $koneksi->query($new_tasks_query)->fetch_assoc()['count'];
 
-// Get recent todos - ONLY SHOW AVAILABLE (NOT TAKEN) TASKS
+// PAGINATION SETUP - CHANGED TO 5 ITEMS PER PAGE
+$items_per_page = 5;
+$current_page = isset($_GET['pg']) ? max(1, intval($_GET['pg'])) : 1;
+$offset = ($current_page - 1) * $items_per_page;
+
+// Calculate total pages (maximum 10 pages, showing 50 tasks total)
+$max_pages = 10;
+$total_items = min($available_tasks, $max_pages * $items_per_page); // Max 50 tasks
+$total_pages = $available_tasks > 0 ? min(ceil($available_tasks / $items_per_page), $max_pages) : 1;
+
+// Get recent todos with PAGINATION - ONLY SHOW AVAILABLE (NOT TAKEN) TASKS
 $recent_todos = $koneksi->query("
     SELECT t.*, a.name as app_name, u.name as user_name,
            CASE 
@@ -42,7 +52,7 @@ $recent_todos = $koneksi->query("
     LEFT JOIN taken tk ON t.id = tk.id_todos
     WHERE tk.id IS NULL
     ORDER BY t.created_at DESC 
-    LIMIT 20
+    LIMIT $items_per_page OFFSET $offset
 ");
 
 function getPriorityIcon($priority) {
@@ -78,6 +88,12 @@ function getPriorityIcon($priority) {
                     Tugas Tersedia
                 </h2>
                 <span class="section-count"><?= $available_tasks ?> tugas</span>
+                <?php if ($new_tasks_count > 0): ?>
+                <span class="section-count-new">
+                    <i class="fas fa-sparkles"></i>
+                    <?= $new_tasks_count ?> baru
+                </span>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -122,10 +138,10 @@ function getPriorityIcon($priority) {
                     </div>
                     
                     <div class="todo-list-actions">
-                        <a href="?page=todos" class="btn-take">
+                        <span class="status-available">
                             <i class="fas fa-hand-paper"></i>
-                            Ambil
-                        </a>
+                            Available
+                        </span>
                     </div>
                 </div>
                 <?php endwhile; ?>
@@ -136,13 +152,70 @@ function getPriorityIcon($priority) {
                     </div>
                     <h3>Semua Tugas Sudah Diambil</h3>
                     <p>Tidak ada tugas yang tersedia saat ini.</p>
-                    <a href="?page=todos" class="btn-refresh">
-                        <i class="fas fa-sync-alt"></i>
-                        Refresh
-                    </a>
                 </div>
             <?php endif; ?>
         </div>
+
+        <!-- Pagination - Show pages 1-10 -->
+        <?php if ($available_tasks > 0): ?>
+        <div class="pagination-container">
+            <div class="pagination-info">
+                <span class="pagination-current">Halaman <?= $current_page ?> dari <?= $total_pages ?></span>
+                <span class="pagination-total">Menampilkan <?= min($items_per_page, $available_tasks - $offset) ?> dari <?= min($total_items, $available_tasks) ?> tugas pertama</span>
+            </div>
+            
+            <div class="pagination-controls">
+                <!-- Previous Page -->
+                <?php if ($current_page > 1): ?>
+                <a href="?pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
+                    <i class="fas fa-chevron-left"></i>
+                    <span>Prev</span>
+                </a>
+                <?php else: ?>
+                <span class="pagination-btn pagination-btn-prev pagination-btn-disabled">
+                    <i class="fas fa-chevron-left"></i>
+                    <span>Prev</span>
+                </span>
+                <?php endif; ?>
+                
+                <!-- Page Numbers 1-10 -->
+                <div class="pagination-numbers">
+                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                        <?php if ($i == $current_page): ?>
+                            <span class="pagination-number pagination-number-active"><?= $i ?></span>
+                        <?php else: ?>
+                            <a href="?pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
+                        <?php endif; ?>
+                    <?php endfor; ?>
+                </div>
+                
+                <!-- Next Page -->
+                <?php if ($current_page < $total_pages): ?>
+                <a href="?pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
+                    <span>Next</span>
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                <?php else: ?>
+                <span class="pagination-btn pagination-btn-next pagination-btn-disabled">
+                    <span>Next</span>
+                    <i class="fas fa-chevron-right"></i>
+                </span>
+                <?php endif; ?>
+            </div>
+            
+            <!-- Quick Jump -->
+            <div class="pagination-jump">
+                <span>Ke halaman:</span>
+                <select id="pageJumpSelect" class="pagination-jump-select" onchange="jumpToPage()">
+                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                    <option value="<?= $i ?>" <?= $i == $current_page ? 'selected' : '' ?>>
+                        Halaman <?= $i ?>
+                    </option>
+                    <?php endfor; ?>
+                </select>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -247,26 +320,22 @@ function getPriorityIcon($priority) {
     font-weight: 600;
 }
 
-.btn-view-all {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+.section-count-new {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
     color: white;
-    padding: 10px 20px;
-    border-radius: 10px;
-    text-decoration: none;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
     font-weight: 600;
-    font-size: 0.9rem;
     display: flex;
     align-items: center;
-    gap: 8px;
-    transition: all 0.3s ease;
+    gap: 5px;
+    animation: pulse 2s infinite;
 }
 
-.btn-view-all:hover {
-    background: linear-gradient(135deg, #5568d3, #6a4091);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
-    text-decoration: none;
-    color: white;
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
 }
 
 /* Todos List */
@@ -403,27 +472,17 @@ function getPriorityIcon($priority) {
     flex-shrink: 0;
 }
 
-.btn-take {
-    display: flex;
+.status-available {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
     color: white;
-    border-radius: 8px;
-    text-decoration: none;
-    font-size: 0.85rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    white-space: nowrap;
-}
-
-.btn-take:hover {
-    background: linear-gradient(135deg, #5568d3, #6a4091);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
-    text-decoration: none;
-    color: white;
+    background: linear-gradient(90deg, #6b7280, #9ca3af);
+    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.2);
 }
 
 /* Empty State */
@@ -455,34 +514,170 @@ function getPriorityIcon($priority) {
 
 .no-data p {
     font-size: 0.95rem;
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
-.btn-refresh {
-    display: inline-flex;
+/* Pagination Styles */
+.pagination-container {
+    padding: 20px 24px;
+    border-top: 2px solid #f1f5f9;
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.pagination-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.pagination-current {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 0.9rem;
+}
+
+.pagination-total {
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pagination-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.pagination-btn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.pagination-btn-prev,
+.pagination-btn-next {
+    background: linear-gradient(135deg, #f8fafc, #ffffff);
+}
+
+.pagination-btn-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.pagination-numbers {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pagination-number {
+    min-width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.pagination-number:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transform: translateY(-1px);
+}
+
+.pagination-number-active {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-color: #2563eb;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.pagination-number-active:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.pagination-jump {
+    display: flex;
     align-items: center;
     gap: 8px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
-    padding: 10px 24px;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.3s ease;
+    font-size: 0.85rem;
+    color: #6b7280;
 }
 
-.btn-refresh:hover {
-    background: linear-gradient(135deg, #5568d3, #6a4091);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
-    text-decoration: none;
-    color: white;
+.pagination-jump-select {
+    height: 38px;
+    padding: 0 32px 0 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
+    background-size: 12px;
+    font-size: 0.85rem;
+    color: #1f2937;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.pagination-jump-select:hover {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+}
+
+.pagination-jump-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Responsive Design */
 @media (max-width: 1024px) {
-    .stats-container-compact {
-        grid-template-columns: repeat(2, 1fr);
+    .pagination-container {
+        justify-content: center;
+    }
+    
+    .pagination-info {
+        width: 100%;
+        text-align: center;
+        align-items: center;
     }
 }
 
@@ -496,11 +691,6 @@ function getPriorityIcon($priority) {
         align-items: flex-start;
         gap: 12px;
         padding: 16px 20px;
-    }
-    
-    .btn-view-all {
-        width: 100%;
-        justify-content: center;
     }
     
     .todo-list-item {
@@ -519,13 +709,42 @@ function getPriorityIcon($priority) {
         margin-left: 0;
     }
     
-    .btn-take {
+    .status-available {
         width: 100%;
         justify-content: center;
     }
     
     .todos-list {
         max-height: none;
+    }
+    
+    .pagination-container {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .pagination-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .pagination-numbers {
+        order: 1;
+        flex-wrap: wrap;
+    }
+    
+    .pagination-btn span {
+        display: none;
+    }
+    
+    .pagination-btn {
+        padding: 8px 12px;
+    }
+    
+    .pagination-jump {
+        width: 100%;
+        justify-content: center;
     }
 }
 
@@ -537,6 +756,21 @@ function getPriorityIcon($priority) {
     .todo-list-details {
         flex-direction: column;
         gap: 8px;
+    }
+    
+    .pagination-number {
+        min-width: 34px;
+        height: 34px;
+        font-size: 0.8rem;
+    }
+    
+    .pagination-btn {
+        height: 34px;
+    }
+    
+    .pagination-jump-select {
+        height: 34px;
+        font-size: 0.8rem;
     }
 }
 </style>
@@ -572,4 +806,14 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(item);
     });
 });
+
+// Quick jump to page function
+function jumpToPage() {
+    const select = document.getElementById('pageJumpSelect');
+    const page = parseInt(select.value);
+    
+    if (page >= 1) {
+        window.location.href = '?pg=' + page;
+    }
+}
 </script>
