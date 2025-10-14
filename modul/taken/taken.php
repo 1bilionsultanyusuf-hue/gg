@@ -434,7 +434,7 @@ function getPriorityIcon($priority) {
         <?php endif; ?>
     </div>
 
-    <!-- Pagination -->
+    <!-- Pagination - SESUAI DENGAN TODOS -->
     <?php if ($total_taken > 0): ?>
     <div class="pagination-container">
         <div class="pagination-info">
@@ -443,8 +443,9 @@ function getPriorityIcon($priority) {
         </div>
         
         <div class="pagination-controls">
+            <!-- Previous Page -->
             <?php if ($current_page > 1): ?>
-            <a href="?page=taken&status=<?= $filter_status ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev">
+            <a href="?page=taken&status=<?= $filter_status ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
                 <i class="fas fa-chevron-left"></i>
                 <span>Prev</span>
             </a>
@@ -455,6 +456,7 @@ function getPriorityIcon($priority) {
             </span>
             <?php endif; ?>
             
+            <!-- Page Numbers 1-10 -->
             <div class="pagination-numbers">
                 <?php for ($i = 1; $i <= $total_pages; $i++): ?>
                     <?php if ($i == $current_page): ?>
@@ -465,8 +467,9 @@ function getPriorityIcon($priority) {
                 <?php endfor; ?>
             </div>
             
+            <!-- Next Page -->
             <?php if ($current_page < $total_pages): ?>
-            <a href="?page=taken&status=<?= $filter_status ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next">
+            <a href="?page=taken&status=<?= $filter_status ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
                 <span>Next</span>
                 <i class="fas fa-chevron-right"></i>
             </a>
@@ -478,6 +481,7 @@ function getPriorityIcon($priority) {
             <?php endif; ?>
         </div>
         
+        <!-- Quick Jump -->
         <div class="pagination-jump">
             <span>Ke halaman:</span>
             <select id="pageJumpSelect" class="pagination-jump-select" onchange="jumpToPage()">
@@ -1185,7 +1189,7 @@ function getPriorityIcon($priority) {
     margin: 0;
 }
 
-/* Pagination Styles */
+/* Pagination Styles - SAMA DENGAN TODOS */
 .pagination-container {
     padding: 20px 24px;
     border-top: 2px solid #f1f5f9;
@@ -1243,6 +1247,11 @@ function getPriorityIcon($priority) {
     color: #1f2937;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.pagination-btn-prev,
+.pagination-btn-next {
+    background: linear-gradient(135deg, #f8fafc, #ffffff);
 }
 
 .pagination-btn-disabled {
@@ -1309,12 +1318,15 @@ function getPriorityIcon($priority) {
     padding: 0 32px 0 12px;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    background: white;
+    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
+    background-size: 12px;
     font-size: 0.85rem;
     color: #1f2937;
     cursor: pointer;
     transition: all 0.2s ease;
     appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
 }
 
 .pagination-jump-select:hover {
@@ -1497,6 +1509,16 @@ function getPriorityIcon($priority) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+    
+    .pagination-container {
+        justify-content: center;
+    }
+    
+    .pagination-info {
+        width: 100%;
+        text-align: center;
+        align-items: center;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1515,6 +1537,88 @@ function getPriorityIcon($priority) {
     
     .taken-list-actions {
         opacity: 1;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filters-container {
+        justify-content: stretch;
+        width: 100%;
+    }
+    
+    .search-box {
+        min-width: auto;
+        flex: 1;
+    }
+    
+    .filter-dropdown select {
+        min-width: auto;
+        flex: 1;
+    }
+    
+    .taken-list {
+        max-height: none;
+    }
+    
+    .pagination-container {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .pagination-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .pagination-numbers {
+        order: 1;
+        flex-wrap: wrap;
+    }
+    
+    .pagination-btn span {
+        display: none;
+    }
+    
+    .pagination-btn {
+        padding: 8px 12px;
+    }
+    
+    .pagination-jump {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .taken-list-item {
+        padding: 12px 16px;
+    }
+    
+    .section-header {
+        padding: 16px 20px 12px;
+    }
+    
+    .add-new-item {
+        margin: 12px 16px;
+    }
+    
+    .pagination-number {
+        min-width: 34px;
+        height: 34px;
+        font-size: 0.8rem;
+    }
+    
+    .pagination-btn {
+        height: 34px;
+    }
+    
+    .pagination-jump-select {
+        height: 34px;
+        font-size: 0.8rem;
     }
 }
 </style>
