@@ -99,7 +99,7 @@ if (isset($_POST['delete_taken'])) {
             $stmt->bind_param("i", $id);
             
             if ($stmt->execute()) {
-                $message = "Taken berhasil dihapus!";
+                $message = "Taken berhasil dihapus! Todo kembali tersedia.";
             } else {
                 $error = "Gagal menghapus taken!";
             }
@@ -239,9 +239,9 @@ $available = $koneksi->query("SELECT COUNT(*) as count FROM todos td LEFT JOIN t
 
 function getPriorityIcon($priority) {
     $icons = [
-        'high' => 'fas fa-exclamation-triangle',
-        'medium' => 'fas fa-minus',
-        'low' => 'fas fa-arrow-down'
+        'high' => 'fas fa-fire',
+        'medium' => 'fas fa-equals',
+        'low' => 'fas fa-chevron-down'
     ];
     return $icons[$priority] ?? 'fas fa-circle';
 }
@@ -269,13 +269,6 @@ function getPriorityIcon($priority) {
         <p class="page-subtitle">
             Kelola dan monitor todo yang sudah Anda ambil
         </p>
-        <div class="user-info-badge">
-            <i class="fas fa-user-circle"></i>
-            <span><?= htmlspecialchars($current_user_name) ?></span>
-            <span class="user-role-badge role-<?= $current_user_role ?>">
-                <?= ucfirst($current_user_role) ?>
-            </span>
-        </div>
     </div>
 </div>
 
@@ -434,7 +427,7 @@ function getPriorityIcon($priority) {
         <?php endif; ?>
     </div>
 
-    <!-- Pagination - SESUAI DENGAN TODOS -->
+    <!-- Pagination -->
     <?php if ($total_taken > 0): ?>
     <div class="pagination-container">
         <div class="pagination-info">
@@ -574,6 +567,7 @@ function getPriorityIcon($priority) {
             </div>
             <h3>Konfirmasi Hapus</h3>
             <p id="deleteMessage">Apakah Anda yakin ingin menghapus taken ini?</p>
+            <p class="delete-note">Todo akan kembali tersedia untuk diambil user lain.</p>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
@@ -1189,7 +1183,7 @@ function getPriorityIcon($priority) {
     margin: 0;
 }
 
-/* Pagination Styles - SAMA DENGAN TODOS */
+/* Pagination Styles */
 .pagination-container {
     padding: 20px 24px;
     border-top: 2px solid #f1f5f9;
@@ -1410,6 +1404,12 @@ function getPriorityIcon($priority) {
 .delete-modal .modal-header p {
     margin: 8px 0 0 0;
     color: #6b7280;
+}
+
+.delete-note {
+    font-size: 0.8rem !important;
+    color: #f59e0b !important;
+    font-weight: 500;
 }
 
 .modal-close {

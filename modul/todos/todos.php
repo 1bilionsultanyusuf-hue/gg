@@ -65,14 +65,12 @@ if (isset($_POST['delete_todo'])) {
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $filter_priority = isset($_GET['priority']) ? trim($_GET['priority']) : '';
 $filter_app = isset($_GET['app']) ? (int)$_GET['app'] : 0;
+$filter_status = isset($_GET['taken_status']) ? trim($_GET['taken_status']) : '';
 
 // Build WHERE clause for filters
 $where_conditions = [];
 $params = [];
 $param_types = '';
-
-// ALWAYS exclude taken todos
-$where_conditions[] = "tk.id_todos IS NULL";
 
 if (!empty($search)) {
     $where_conditions[] = "(t.title LIKE ? OR t.description LIKE ?)";
@@ -93,7 +91,14 @@ if (!empty($filter_app) && $filter_app > 0) {
     $param_types .= 'i';
 }
 
-$where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
+// Filter by taken status
+if ($filter_status === 'available') {
+    $where_conditions[] = "tk.id_todos IS NULL";
+} elseif ($filter_status === 'taken') {
+    $where_conditions[] = "tk.id_todos IS NOT NULL";
+}
+
+$where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
 // PAGINATION SETUP - 5 ITEMS PER PAGE
 $items_per_page = 5;
@@ -107,6 +112,7 @@ $count_query = "
     LEFT JOIN apps a ON t.app_id = a.id
     LEFT JOIN users u ON t.user_id = u.id
     LEFT JOIN taken tk ON t.id = tk.id_todos
+    LEFT JOIN users taker ON tk.user_id = taker.id
     $where_clause
 ";
 
@@ -133,11 +139,14 @@ $todos_query = "
            a.name as app_name,
            u.name as user_name,
            tk.status as taken_status,
-           tk.date as taken_date
+           tk.date as taken_date,
+           taker.name as taker_name,
+           taker.id as taker_id
     FROM todos t
     LEFT JOIN apps a ON t.app_id = a.id
     LEFT JOIN users u ON t.user_id = u.id
     LEFT JOIN taken tk ON t.id = tk.id_todos
+    LEFT JOIN users taker ON tk.user_id = taker.id
     $where_clause
     ORDER BY t.created_at DESC
     LIMIT $items_per_page OFFSET $offset
@@ -156,11 +165,13 @@ if (!empty($params)) {
 $apps_query = "SELECT id, name FROM apps ORDER BY name";
 $apps_result = $koneksi->query($apps_query);
 
-// Get statistics (exclude taken todos)
-$total_todos_stat = $koneksi->query("SELECT COUNT(*) as count FROM todos t LEFT JOIN taken tk ON t.id = tk.id_todos WHERE tk.id_todos IS NULL")->fetch_assoc()['count'];
-$high_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos t LEFT JOIN taken tk ON t.id = tk.id_todos WHERE t.priority = 'high' AND tk.id_todos IS NULL")->fetch_assoc()['count'];
-$medium_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos t LEFT JOIN taken tk ON t.id = tk.id_todos WHERE t.priority = 'medium' AND tk.id_todos IS NULL")->fetch_assoc()['count'];
-$low_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos t LEFT JOIN taken tk ON t.id = tk.id_todos WHERE t.priority = 'low' AND tk.id_todos IS NULL")->fetch_assoc()['count'];
+// Get statistics
+$total_todos_stat = $koneksi->query("SELECT COUNT(*) as count FROM todos")->fetch_assoc()['count'];
+$available_todos = $koneksi->query("SELECT COUNT(*) as count FROM todos t LEFT JOIN taken tk ON t.id = tk.id_todos WHERE tk.id_todos IS NULL")->fetch_assoc()['count'];
+$taken_todos = $koneksi->query("SELECT COUNT(*) as count FROM todos t INNER JOIN taken tk ON t.id = tk.id_todos")->fetch_assoc()['count'];
+$high_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'high'")->fetch_assoc()['count'];
+$medium_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'medium'")->fetch_assoc()['count'];
+$low_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'low'")->fetch_assoc()['count'];
 
 function getPriorityIcon($priority) {
     $icons = [
@@ -205,7 +216,27 @@ function getPriorityIcon($priority) {
         </div>
         <div class="stat-content">
             <h3 class="stat-number"><?= $total_todos_stat ?></h3>
-            <p class="stat-label">Todo Tersedia</p>
+            <p class="stat-label">Total Todo</p>
+        </div>
+    </div>
+
+    <div class="stat-card bg-gradient-green <?= $filter_status == 'available' ? 'active' : '' ?>" onclick="filterByTakenStatus('available')">
+        <div class="stat-icon">
+            <i class="fas fa-hand-paper"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $available_todos ?></h3>
+            <p class="stat-label">Tersedia</p>
+        </div>
+    </div>
+
+    <div class="stat-card bg-gradient-purple <?= $filter_status == 'taken' ? 'active' : '' ?>" onclick="filterByTakenStatus('taken')">
+        <div class="stat-icon">
+            <i class="fas fa-user-check"></i>
+        </div>
+        <div class="stat-content">
+            <h3 class="stat-number"><?= $taken_todos ?></h3>
+            <p class="stat-label">Sudah Diambil</p>
         </div>
     </div>
 
@@ -216,26 +247,6 @@ function getPriorityIcon($priority) {
         <div class="stat-content">
             <h3 class="stat-number"><?= $high_priority ?></h3>
             <p class="stat-label">Prioritas Tinggi</p>
-        </div>
-    </div>
-
-    <div class="stat-card bg-gradient-orange <?= $filter_priority == 'medium' ? 'active' : '' ?>" onclick="filterByPriority('medium')">
-        <div class="stat-icon">
-            <i class="fas fa-equals"></i>
-        </div>
-        <div class="stat-content">
-            <h3 class="stat-number"><?= $medium_priority ?></h3>
-            <p class="stat-label">Prioritas Sedang</p>
-        </div>
-    </div>
-
-    <div class="stat-card bg-gradient-green <?= $filter_priority == 'low' ? 'active' : '' ?>" onclick="filterByPriority('low')">
-        <div class="stat-icon">
-            <i class="fas fa-chevron-down"></i>
-        </div>
-        <div class="stat-content">
-            <h3 class="stat-number"><?= $low_priority ?></h3>
-            <p class="stat-label">Prioritas Rendah</p>
         </div>
     </div>
 </div>
@@ -254,6 +265,14 @@ function getPriorityIcon($priority) {
                 <i class="fas fa-search search-icon"></i>
                 <input type="text" id="searchInput" placeholder="Cari judul atau deskripsi..." 
                        value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
+            </div>
+
+            <div class="filter-dropdown">
+                <select id="takenStatusFilter" onchange="applyFilters()">
+                    <option value="">Semua Status</option>
+                    <option value="available" <?= $filter_status == 'available' ? 'selected' : '' ?>>Tersedia</option>
+                    <option value="taken" <?= $filter_status == 'taken' ? 'selected' : '' ?>>Sudah Diambil</option>
+                </select>
             </div>
             
             <div class="filter-dropdown">
@@ -279,7 +298,7 @@ function getPriorityIcon($priority) {
                 </select>
             </div>
             
-            <?php if ($filter_priority || $search || $filter_app): ?>
+            <?php if ($filter_priority || $search || $filter_app || $filter_status): ?>
             <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
                 <i class="fas fa-times"></i>
             </button>
@@ -287,24 +306,11 @@ function getPriorityIcon($priority) {
         </div>
     </div>
     
-    <!-- Add New Todo Button -->
-    <div class="todo-list-item add-new-item" onclick="openAddTodoModal()">
-        <div class="add-new-content">
-            <div class="add-new-icon">
-                <i class="fas fa-plus"></i>
-            </div>
-            <div class="add-new-text">
-                <h3>Tambah Todo Baru</h3>
-                <p>Klik untuk menambahkan todo baru</p>
-            </div>
-        </div>
-    </div>
-    
     <!-- Todos List -->
     <div class="todos-list">
         <?php if ($todos_result->num_rows > 0): ?>
             <?php while($todo = $todos_result->fetch_assoc()): ?>
-            <div class="todo-list-item" data-todo-id="<?= $todo['id'] ?>">
+            <div class="todo-list-item <?= $todo['taker_id'] ? 'taken-todo' : '' ?>" data-todo-id="<?= $todo['id'] ?>">
                 <div class="todo-priority-container">
                     <div class="todo-priority-badge priority-<?= $todo['priority'] ?>">
                         <i class="<?= getPriorityIcon($todo['priority']) ?>"></i>
@@ -325,8 +331,14 @@ function getPriorityIcon($priority) {
                             </span>
                             <span class="detail-badge user">
                                 <i class="fas fa-user"></i>
-                                <?= htmlspecialchars($todo['user_name']) ?>
+                                Dibuat: <?= htmlspecialchars($todo['user_name']) ?>
                             </span>
+                            <?php if ($todo['taker_id']): ?>
+                            <span class="detail-badge taker">
+                                <i class="fas fa-user-check"></i>
+                                Diambil: <?= htmlspecialchars($todo['taker_name']) ?>
+                            </span>
+                            <?php endif; ?>
                             <span class="detail-badge date">
                                 <i class="fas fa-calendar"></i>
                                 <?= date('d/m/Y H:i', strtotime($todo['created_at'])) ?>
@@ -336,10 +348,17 @@ function getPriorityIcon($priority) {
                 </div>
                 
                 <div class="todo-status-container">
-                    <div class="status-badge status-available">
-                        <i class="fas fa-hand-paper"></i>
-                        Available
-                    </div>
+                    <?php if ($todo['taker_id']): ?>
+                        <div class="status-badge status-taken">
+                            <i class="fas fa-<?= $todo['taken_status'] == 'done' ? 'check-circle' : 'clock' ?>"></i>
+                            <?= $todo['taken_status'] == 'done' ? 'Completed' : 'In Progress' ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="status-badge status-available">
+                            <i class="fas fa-hand-paper"></i>
+                            Available
+                        </div>
+                    <?php endif; ?>
                 </div>
                 
                 <div class="todo-list-actions">
@@ -378,7 +397,7 @@ function getPriorityIcon($priority) {
         <div class="pagination-controls">
             <!-- Previous Page -->
             <?php if ($current_page > 1): ?>
-            <a href="?page=todos&priority=<?= $filter_priority ?>&app=<?= $filter_app ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
+            <a href="?page=todos&priority=<?= $filter_priority ?>&app=<?= $filter_app ?>&search=<?= urlencode($search) ?>&taken_status=<?= $filter_status ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
                 <i class="fas fa-chevron-left"></i>
                 <span>Prev</span>
             </a>
@@ -395,14 +414,14 @@ function getPriorityIcon($priority) {
                     <?php if ($i == $current_page): ?>
                         <span class="pagination-number pagination-number-active"><?= $i ?></span>
                     <?php else: ?>
-                        <a href="?page=todos&priority=<?= $filter_priority ?>&app=<?= $filter_app ?>&search=<?= urlencode($search) ?>&pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
+                        <a href="?page=todos&priority=<?= $filter_priority ?>&app=<?= $filter_app ?>&search=<?= urlencode($search) ?>&taken_status=<?= $filter_status ?>&pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
                     <?php endif; ?>
                 <?php endfor; ?>
             </div>
             
             <!-- Next Page -->
             <?php if ($current_page < $total_pages): ?>
-            <a href="?page=todos&priority=<?= $filter_priority ?>&app=<?= $filter_app ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
+            <a href="?page=todos&priority=<?= $filter_priority ?>&app=<?= $filter_app ?>&search=<?= urlencode($search) ?>&taken_status=<?= $filter_status ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
                 <span>Next</span>
                 <i class="fas fa-chevron-right"></i>
             </a>
@@ -692,6 +711,11 @@ function getPriorityIcon($priority) {
     color: white; 
 }
 
+.bg-gradient-purple { 
+    background: linear-gradient(135deg, #7c3aed, #a855f7); 
+    color: white; 
+}
+
 .stat-icon {
     font-size: 2rem;
     opacity: 0.8;
@@ -863,6 +887,16 @@ function getPriorityIcon($priority) {
     border-bottom: none;
 }
 
+/* Taken Todo Style */
+.todo-list-item.taken-todo {
+    background: linear-gradient(90deg, #fef3c7 0%, #ffffff 100%);
+    border-left: 4px solid #f59e0b;
+}
+
+.todo-list-item.taken-todo:hover {
+    background: linear-gradient(90deg, #fde68a 0%, #fef3c7 100%);
+}
+
 .add-new-item {
     border: 2px dashed #d1d5db !important;
     background: #f9fafb !important;
@@ -981,6 +1015,18 @@ function getPriorityIcon($priority) {
     font-size: 0.7rem;
 }
 
+.detail-badge.taker {
+    background: #fef3c7;
+    padding: 4px 8px;
+    border-radius: 12px;
+    color: #92400e;
+    font-weight: 600;
+}
+
+.detail-badge.taker i {
+    color: #f59e0b;
+}
+
 /* Todo Status Container */
 .todo-status-container {
     margin: 0 16px;
@@ -999,7 +1045,11 @@ function getPriorityIcon($priority) {
 }
 
 .status-badge.status-available {
-    background: linear-gradient(90deg, #6b7280, #9ca3af);
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.status-badge.status-taken {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
 }
 
 /* Todo List Actions */
@@ -1604,15 +1654,33 @@ function filterByPriority(priority) {
     window.location.href = url.toString();
 }
 
+function filterByTakenStatus(status) {
+    let url = new URL(window.location);
+    const currentStatus = url.searchParams.get('taken_status');
+    
+    if (currentStatus === status) {
+        url.searchParams.delete('taken_status');
+    } else {
+        url.searchParams.set('taken_status', status);
+    }
+    
+    url.searchParams.set('page', 'todos');
+    url.searchParams.set('pg', '1');
+    
+    window.location.href = url.toString();
+}
+
 function applyFilters() {
     const priorityFilter = document.getElementById('priorityFilter').value;
     const appFilter = document.getElementById('appFilter').value;
     const searchValue = document.getElementById('searchInput').value;
+    const takenStatusFilter = document.getElementById('takenStatusFilter').value;
     
     let url = new URL(window.location);
     url.searchParams.delete('priority');
     url.searchParams.delete('app');
     url.searchParams.delete('search');
+    url.searchParams.delete('taken_status');
     url.searchParams.set('page', 'todos');
     url.searchParams.set('pg', '1');
     
@@ -1624,6 +1692,9 @@ function applyFilters() {
     }
     if (searchValue) {
         url.searchParams.set('search', searchValue);
+    }
+    if (takenStatusFilter) {
+        url.searchParams.set('taken_status', takenStatusFilter);
     }
     
     window.location.href = url.toString();
@@ -1640,6 +1711,7 @@ function clearFilters() {
     url.searchParams.delete('priority');
     url.searchParams.delete('app');
     url.searchParams.delete('search');
+    url.searchParams.delete('taken_status');
     url.searchParams.set('page', 'todos');
     url.searchParams.set('pg', '1');
     window.location.href = url.toString();
@@ -1651,6 +1723,7 @@ function jumpToPage() {
     const priorityFilter = document.getElementById('priorityFilter') ? document.getElementById('priorityFilter').value : '';
     const appFilter = document.getElementById('appFilter') ? document.getElementById('appFilter').value : '';
     const searchValue = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+    const takenStatusFilter = document.getElementById('takenStatusFilter') ? document.getElementById('takenStatusFilter').value : '';
     
     let url = new URL(window.location);
     url.searchParams.set('page', 'todos');
@@ -1659,6 +1732,7 @@ function jumpToPage() {
     if (priorityFilter) url.searchParams.set('priority', priorityFilter);
     if (appFilter) url.searchParams.set('app', appFilter);
     if (searchValue) url.searchParams.set('search', searchValue);
+    if (takenStatusFilter) url.searchParams.set('taken_status', takenStatusFilter);
     
     window.location.href = url.toString();
 }
