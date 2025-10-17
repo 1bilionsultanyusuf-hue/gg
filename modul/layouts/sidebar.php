@@ -116,7 +116,7 @@ function hasAccess($menu_roles, $user_role) {
 <div class="overlay" id="overlay"></div>
 
 <style>
-/* Enhanced Sidebar Styling dengan Role-Based Features - FIXED VERSION */
+/* Enhanced Sidebar Styling - Always Open on Desktop */
 .sidebar {
     background: white;
     width: 256px;
@@ -126,27 +126,16 @@ function hasAccess($menu_roles, $user_role) {
     top: 60px;
     box-shadow: 4px 0 15px rgba(0,0,0,0.1);
     z-index: 900;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-/* DESKTOP: Hidden state */
-.sidebar.hidden {
-    transform: translateX(-100%);
-}
-
-/* Main content adjustment - Add this class to your main content div */
+/* Main content adjustment - ALWAYS has margin on desktop */
 .main-content {
     margin-left: 256px;
     min-height: calc(100vh - 60px);
-    transition: margin-left 0.3s ease;
     padding: 20px;
-}
-
-.main-content.sidebar-hidden {
-    margin-left: 0;
 }
 
 /* Profile Section dengan Role Indicator */
@@ -359,10 +348,11 @@ function hasAccess($menu_roles, $user_role) {
     border-left-color: #ef4444 !important;
 }
 
-/* Mobile Responsiveness */
+/* Mobile Responsiveness - Sidebar hidden by default, shown with overlay */
 @media (max-width: 1024px) {
     .sidebar {
         transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         z-index: 1100;
         width: 280px;
         top: 0;
@@ -441,7 +431,7 @@ function hasAccess($menu_roles, $user_role) {
     }
 }
 
-/* Overlay for mobile */
+/* Overlay for mobile only */
 .overlay {
     display: none;
     position: fixed;
@@ -496,146 +486,75 @@ function hasAccess($menu_roles, $user_role) {
 </style>
 
 <script>
-// ENHANCED SIDEBAR TOGGLE SCRIPT - FIXED VERSION
+// MOBILE SIDEBAR SCRIPT - Only for mobile devices
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Sidebar script loaded');
-    
-    // Check if elements exist
     const sidebar = document.getElementById('sidebar');
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
     const overlay = document.getElementById('overlay');
     
-    console.log('Elements found:', {
-        sidebar: !!sidebar,
-        hamburgerBtn: !!hamburgerBtn,
-        overlay: !!overlay
-    });
-    
-    // Initialize overlay click handler
+    // Overlay click handler untuk mobile
     if (overlay) {
         overlay.addEventListener('click', function() {
-            console.log('Overlay clicked');
-            toggleSidebar();
+            if (window.innerWidth <= 1024) {
+                closeMobileSidebar();
+            }
         });
     }
     
-    // Initialize menu item click handlers for mobile
+    // Menu item click handlers untuk mobile - auto close setelah klik
     const menuItems = document.querySelectorAll('.menu-item:not(.logout-menu-item)');
     menuItems.forEach(item => {
         item.addEventListener('click', function() {
             if (window.innerWidth <= 1024) {
-                console.log('Menu item clicked on mobile');
                 closeMobileSidebar();
             }
         });
     });
-    
-    console.log('Sidebar initialization complete');
 });
 
-// Main toggle function
-function toggleSidebar() {
-    console.log('toggleSidebar called, window width:', window.innerWidth);
-    
-    const sidebar = document.getElementById('sidebar');
-    const mainContent = document.querySelector('.main-content');
-    const overlay = document.getElementById('overlay');
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    
-    if (!sidebar) {
-        console.error('Sidebar element not found!');
-        return;
-    }
-    
+// Function untuk toggle sidebar di mobile (dipanggil dari hamburger button di header)
+function toggleMobileSidebar() {
     if (window.innerWidth <= 1024) {
-        // Mobile behavior
+        const sidebar = document.getElementById('sidebar');
         const isVisible = sidebar.classList.contains('show');
-        console.log('Mobile mode - sidebar visible:', isVisible);
         
         if (isVisible) {
             closeMobileSidebar();
         } else {
             openMobileSidebar();
         }
-    } else {
-        // Desktop behavior
-        const isHidden = sidebar.classList.contains('hidden');
-        console.log('Desktop mode - sidebar hidden:', isHidden);
-        
-        if (isHidden) {
-            showDesktopSidebar();
-        } else {
-            hideDesktopSidebar();
-        }
     }
 }
 
-// Mobile sidebar functions
+// Open mobile sidebar
 function openMobileSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('overlay');
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
     
     sidebar.classList.add('show');
     if (overlay) overlay.classList.add('show');
     document.body.style.overflow = 'hidden';
-    if (hamburgerBtn) hamburgerBtn.classList.add('active');
-    
-    console.log('Mobile sidebar opened');
 }
 
+// Close mobile sidebar
 function closeMobileSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('overlay');
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
     
     sidebar.classList.remove('show');
     if (overlay) overlay.classList.remove('show');
     document.body.style.overflow = '';
-    if (hamburgerBtn) hamburgerBtn.classList.remove('active');
-    
-    console.log('Mobile sidebar closed');
 }
 
-// Desktop sidebar functions
-function showDesktopSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    
-    sidebar.classList.remove('hidden');
-    document.body.classList.remove('sidebar-hidden');
-    if (hamburgerBtn) hamburgerBtn.classList.remove('active');
-    
-    console.log('Desktop sidebar shown');
-}
-
-function hideDesktopSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    
-    sidebar.classList.add('hidden');
-    document.body.classList.add('sidebar-hidden');
-    if (hamburgerBtn) hamburgerBtn.classList.add('active');
-    
-    console.log('Desktop sidebar hidden');
-}
-
-// Handle window resize
+// Handle window resize - close sidebar jika berubah ke desktop
 window.addEventListener('resize', function() {
-    console.log('Window resized to:', window.innerWidth);
-    
     if (window.innerWidth > 1024) {
-        // Switch to desktop mode - close mobile sidebar if open
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('overlay');
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
         
         if (sidebar && sidebar.classList.contains('show')) {
             sidebar.classList.remove('show');
             if (overlay) overlay.classList.remove('show');
             document.body.style.overflow = '';
-            if (hamburgerBtn) hamburgerBtn.classList.remove('active');
-            console.log('Closed mobile sidebar on resize');
         }
     }
 });
@@ -864,23 +783,5 @@ function cancelLogout() {
             if (styles) styles.remove();
         }, 300);
     }
-}
-
-// Test function for debugging
-function testToggle() {
-    console.log('Testing toggle function...');
-    toggleSidebar();
-}
-
-// Global function untuk debugging - bisa dipanggil dari console
-window.debugSidebar = function() {
-    console.log('=== SIDEBAR DEBUG INFO ===');
-    console.log('Window width:', window.innerWidth);
-    console.log('Sidebar element:', document.getElementById('sidebar'));
-    console.log('Hamburger button:', document.getElementById('hamburgerBtn'));
-    console.log('Overlay element:', document.getElementById('overlay'));
-    console.log('Main content:', document.querySelector('.main-content'));
-    console.log('Sidebar classes:', document.getElementById('sidebar')?.className);
-    console.log('========================');
 }
 </script>
