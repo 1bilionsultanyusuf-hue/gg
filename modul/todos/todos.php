@@ -1045,7 +1045,7 @@ function getPriorityIcon($priority) {
 }
 
 .status-badge.status-available {
-    background: linear-gradient(90deg, #10b981, #34d399);
+    background: linear-gradient(90deg, #6b7280, #6b7280);
 }
 
 .status-badge.status-taken {

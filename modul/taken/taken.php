@@ -111,6 +111,66 @@ if (isset($_POST['delete_taken'])) {
     }
 }
 
+// COMPLETE - Tandai taken sebagai selesai (quick action)
+if (isset($_POST['complete_taken'])) {
+    $id = (int)$_POST['taken_id'];
+    
+    // Cek apakah taken ini milik user yang login
+    $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
+    $check_owner->bind_param("i", $id);
+    $check_owner->execute();
+    $owner_result = $check_owner->get_result();
+    
+    if ($owner_result->num_rows > 0) {
+        $owner = $owner_result->fetch_assoc();
+        if ($owner['user_id'] == $current_user_id) {
+            $status = 'done';
+            $date = date('Y-m-d');
+            $stmt = $koneksi->prepare("UPDATE taken SET status = ?, date = ? WHERE id = ?");
+            $stmt->bind_param("ssi", $status, $date, $id);
+            
+            if ($stmt->execute()) {
+                $message = "Todo berhasil ditandai selesai!";
+            } else {
+                $error = "Gagal menandai todo selesai!";
+            }
+        } else {
+            $error = "Anda tidak memiliki akses untuk mengedit taken ini!";
+        }
+    } else {
+        $error = "Taken tidak ditemukan!";
+    }
+}
+
+// RELEASE - Lepas taken (mengembalikan todo agar tersedia lagi)
+if (isset($_POST['release_taken'])) {
+    $id = (int)$_POST['taken_id'];
+    
+    // Cek apakah taken ini milik user yang login
+    $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
+    $check_owner->bind_param("i", $id);
+    $check_owner->execute();
+    $owner_result = $check_owner->get_result();
+    
+    if ($owner_result->num_rows > 0) {
+        $owner = $owner_result->fetch_assoc();
+        if ($owner['user_id'] == $current_user_id) {
+            $stmt = $koneksi->prepare("DELETE FROM taken WHERE id = ?");
+            $stmt->bind_param("i", $id);
+            
+            if ($stmt->execute()) {
+                $message = "Todo berhasil dilepas dan kembali tersedia untuk user lain!";
+            } else {
+                $error = "Gagal melepas todo!";
+            }
+        } else {
+            $error = "Anda tidak memiliki akses untuk melepas taken ini!";
+        }
+    } else {
+        $error = "Taken tidak ditemukan!";
+    }
+}
+
 // Search functionality
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $filter_status = isset($_GET['status']) ? trim($_GET['status']) : '';
@@ -403,15 +463,22 @@ function getPriorityIcon($priority) {
                 </div>
                 
                 <div class="taken-list-actions">
+                    <?php if ($taken['status'] == 'in_progress'): ?>
+                    <button class="action-btn-small complete" 
+                            onclick="completeTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')" 
+                            title="Tandai Selesai">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <?php endif; ?>
                     <button class="action-btn-small edit" 
                             onclick="editTaken(<?= $taken['id'] ?>, '<?= $taken['status'] ?>', '<?= $taken['date'] ?>')" 
                             title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="action-btn-small delete" 
-                            onclick="deleteTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')" 
-                            title="Delete">
-                        <i class="fas fa-trash"></i>
+                    <button class="action-btn-small release" 
+                            onclick="releaseTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')" 
+                            title="Lepas Tugas">
+                        <i class="fas fa-sign-out-alt"></i>
                     </button>
                 </div>
             </div>
@@ -558,25 +625,50 @@ function getPriorityIcon($priority) {
     </div>
 </div>
 
-<!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="modal">
-    <div class="modal-content delete-modal">
+<!-- Complete Confirmation Modal -->
+<div id="completeModal" class="modal">
+    <div class="modal-content complete-modal">
         <div class="modal-header">
-            <div class="delete-icon">
-                <i class="fas fa-trash-alt"></i>
+            <div class="complete-icon">
+                <i class="fas fa-check-circle"></i>
             </div>
-            <h3>Konfirmasi Hapus</h3>
-            <p id="deleteMessage">Apakah Anda yakin ingin menghapus taken ini?</p>
-            <p class="delete-note">Todo akan kembali tersedia untuk diambil user lain.</p>
+            <h3>Tandai Selesai</h3>
+            <p id="completeMessage">Apakah Anda yakin todo ini sudah selesai?</p>
+            <p class="complete-note">Status akan diubah menjadi "Done" dan tanggal akan diupdate ke hari ini.</p>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
+            <button type="button" class="btn btn-secondary" onclick="closeCompleteModal()">
                 Batal
             </button>
-            <form id="deleteForm" method="POST" action="?page=taken" style="display: inline;">
-                <input type="hidden" id="deleteTakenId" name="taken_id">
-                <button type="submit" name="delete_taken" class="btn btn-danger">
-                    <i class="fas fa-trash mr-2"></i>Hapus
+            <form id="completeForm" method="POST" action="?page=taken" style="display: inline;">
+                <input type="hidden" id="completeTakenId" name="taken_id">
+                <button type="submit" name="complete_taken" class="btn btn-success">
+                    <i class="fas fa-check mr-2"></i>Selesai
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Release Confirmation Modal -->
+<div id="releaseModal" class="modal">
+    <div class="modal-content release-modal">
+        <div class="modal-header">
+            <div class="release-icon">
+                <i class="fas fa-sign-out-alt"></i>
+            </div>
+            <h3>Lepas Tugas</h3>
+            <p id="releaseMessage">Apakah Anda yakin ingin melepas tugas ini?</p>
+            <p class="release-note">Todo akan kembali tersedia dan dapat diambil oleh user lain.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeReleaseModal()">
+                Batal
+            </button>
+            <form id="releaseForm" method="POST" action="?page=taken" style="display: inline;">
+                <input type="hidden" id="releaseTakenId" name="taken_id">
+                <button type="submit" name="release_taken" class="btn btn-warning">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Lepas
                 </button>
             </form>
         </div>
@@ -640,42 +732,6 @@ function getPriorityIcon($priority) {
     margin: 0 0 12px 0;
 }
 
-.user-info-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
-    border-radius: 20px;
-    border: 1px solid #cbd5e1;
-    font-size: 0.9rem;
-    color: #475569;
-    margin-top: 8px;
-}
-
-.user-info-badge i {
-    font-size: 1.1rem;
-    color: #64748b;
-}
-
-.user-role-badge {
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.user-role-badge.role-admin {
-    background: linear-gradient(135deg, #dc2626, #b91c1c);
-    color: white;
-}
-
-.user-role-badge.role-user {
-    background: linear-gradient(135deg, #0066ff, #0044cc);
-    color: white;
-}
-
 /* Buttons */
 .btn {
     padding: 12px 24px;
@@ -715,6 +771,26 @@ function getPriorityIcon($priority) {
 
 .btn-danger:hover {
     background: linear-gradient(90deg, #dc2626, #b91c1c);
+    transform: translateY(-2px);
+}
+
+.btn-success {
+    background: linear-gradient(90deg, #10b981, #059669);
+    color: white;
+}
+
+.btn-success:hover {
+    background: linear-gradient(90deg, #059669, #047857);
+    transform: translateY(-2px);
+}
+
+.btn-warning {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+    color: white;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(90deg, #d97706, #b45309);
     transform: translateY(-2px);
 }
 
@@ -1151,6 +1227,26 @@ function getPriorityIcon($priority) {
     color: #dc2626;
 }
 
+.action-btn-small.complete {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.action-btn-small.complete:hover {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.action-btn-small.release {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.action-btn-small.release:hover {
+    background: #fde68a;
+    color: #b45309;
+}
+
 /* No Data State */
 .no-data {
     text-align: center;
@@ -1363,7 +1459,7 @@ function getPriorityIcon($priority) {
     animation: slideUp 0.3s ease;
 }
 
-.delete-modal {
+.delete-modal, .complete-modal, .release-modal {
     max-width: 400px;
     text-align: center;
 }
@@ -1372,6 +1468,32 @@ function getPriorityIcon($priority) {
     width: 60px;
     height: 60px;
     background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.complete-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.release-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
     border-radius: 50%;
     margin: 0 auto 20px;
     display: flex;
@@ -1395,18 +1517,34 @@ function getPriorityIcon($priority) {
     margin: 0;
 }
 
-.delete-modal .modal-header {
+.delete-modal .modal-header,
+.complete-modal .modal-header,
+.release-modal .modal-header {
     flex-direction: column;
     text-align: center;
     align-items: center;
 }
 
-.delete-modal .modal-header p {
+.delete-modal .modal-header p,
+.complete-modal .modal-header p,
+.release-modal .modal-header p {
     margin: 8px 0 0 0;
     color: #6b7280;
 }
 
 .delete-note {
+    font-size: 0.8rem !important;
+    color: #f59e0b !important;
+    font-weight: 500;
+}
+
+.complete-note {
+    font-size: 0.8rem !important;
+    color: #10b981 !important;
+    font-weight: 500;
+}
+
+.release-note {
     font-size: 0.8rem !important;
     color: #f59e0b !important;
     font-weight: 500;
@@ -1655,10 +1793,17 @@ function editTaken(id, status, date) {
     document.body.style.overflow = 'hidden';
 }
 
-function deleteTaken(id, title) {
-    document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus taken "${title}"?`;
-    document.getElementById('deleteTakenId').value = id;
-    document.getElementById('deleteModal').classList.add('show');
+function completeTaken(id, title) {
+    document.getElementById('completeMessage').textContent = `Tandai "${title}" sebagai selesai?`;
+    document.getElementById('completeTakenId').value = id;
+    document.getElementById('completeModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function releaseTaken(id, title) {
+    document.getElementById('releaseMessage').textContent = `Lepas tugas "${title}"?`;
+    document.getElementById('releaseTakenId').value = id;
+    document.getElementById('releaseModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
@@ -1667,8 +1812,13 @@ function closeTakenModal() {
     document.body.style.overflow = '';
 }
 
-function closeDeleteModal() {
-    document.getElementById('deleteModal').classList.remove('show');
+function closeCompleteModal() {
+    document.getElementById('completeModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function closeReleaseModal() {
+    document.getElementById('releaseModal').classList.remove('show');
     document.body.style.overflow = '';
 }
 
@@ -1744,14 +1894,16 @@ function jumpToPage() {
 document.addEventListener('click', function(e) {
     if(e.target.classList.contains('modal')) {
         closeTakenModal();
-        closeDeleteModal();
+        closeCompleteModal();
+        closeReleaseModal();
     }
 });
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeTakenModal();
-        closeDeleteModal();
+        closeCompleteModal();
+        closeReleaseModal();
     }
 });
 

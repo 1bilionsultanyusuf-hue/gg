@@ -1,5 +1,5 @@
 <?php
-// Enhanced Reports Module with Consistent Design
+// Simplified Reports Module
 
 // Get current logged in user info
 $current_user_id = $_SESSION['user_id'];
@@ -90,9 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_report'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_report'])) {
     $report_id = (int)$_POST['report_id'];
     $activity = $_POST['activity'];
-    $problem = $_POST['problem'] ?? '';
-    $status = $_POST['status'];
-    $responsible_person = $_POST['responsible_person'] ?? '';
     
     $report_check = $koneksi->prepare("SELECT user_id FROM reports WHERE id = ?");
     $report_check->bind_param('i', $report_id);
@@ -107,11 +104,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_report'])) {
     }
     
     if ($can_edit) {
-        if (empty($activity) || empty($status)) {
-            $error = 'Semua field wajib harus diisi!';
+        if (empty($activity)) {
+            $error = 'Aktivitas harus diisi!';
         } else {
-            $update_stmt = $koneksi->prepare("UPDATE reports SET activity = ?, problem = ?, status = ?, responsible_person = ? WHERE id = ?");
-            $update_stmt->bind_param('ssssi', $activity, $problem, $status, $responsible_person, $report_id);
+            $update_stmt = $koneksi->prepare("UPDATE reports SET activity = ? WHERE id = ?");
+            $update_stmt->bind_param('si', $activity, $report_id);
             if ($update_stmt->execute()) {
                 $message = 'Laporan berhasil diperbarui!';
             } else {
@@ -129,19 +126,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_report'])) {
         $error = 'Anda tidak memiliki izin untuk membuat laporan!';
     } else {
         $activity = $_POST['activity'];
-        $problem = $_POST['problem'] ?? '';
-        $status = $_POST['status'];
-        $responsible_person = $_POST['responsible_person'] ?? '';
         $report_date = $_POST['report_date'] ?? date('Y-m-d');
         
-        if (empty($activity) || empty($status)) {
-            $error = 'Semua field wajib harus diisi!';
+        if (empty($activity)) {
+            $error = 'Aktivitas harus diisi!';
         } else {
             $insert_report = $koneksi->prepare("
-                INSERT INTO reports (date, user_id, activity, problem, status, responsible_person) 
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO reports (date, user_id, activity) 
+                VALUES (?, ?, ?)
             ");
-            $insert_report->bind_param('sissss', $report_date, $current_user_id, $activity, $problem, $status, $responsible_person);
+            $insert_report->bind_param('sis', $report_date, $current_user_id, $activity);
             
             if ($insert_report->execute()) {
                 $message = 'Laporan berhasil ditambahkan!';
@@ -158,7 +152,6 @@ $error = $error ?? '';
 $role_filter = isset($_GET['role']) ? $_GET['role'] : '';
 $date_filter = isset($_GET['date']) ? $_GET['date'] : '';
 $user_filter = isset($_GET['user']) ? $_GET['user'] : '';
-$status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // PAGINATION SETUP - 5 ITEMS PER PAGE
@@ -178,11 +171,9 @@ if (!$current_permissions['can_view_all']) {
 }
 
 if (!empty($search)) {
-    $where_conditions[] = "(r.activity LIKE ? OR r.problem LIKE ? OR r.responsible_person LIKE ?)";
+    $where_conditions[] = "(r.activity LIKE ?)";
     $params[] = "%$search%";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
-    $param_types .= 'sss';
+    $param_types .= 's';
 }
 
 if (!empty($role_filter)) {
@@ -201,12 +192,6 @@ if (!empty($user_filter)) {
     $where_conditions[] = "r.user_id = ?";
     $params[] = $user_filter;
     $param_types .= 'i';
-}
-
-if (!empty($status_filter)) {
-    $where_conditions[] = "r.status = ?";
-    $params[] = $status_filter;
-    $param_types .= 's';
 }
 
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
@@ -267,17 +252,19 @@ if ($current_permissions['can_view_all']) {
 
 // Get statistics
 $today = date('Y-m-d');
+$this_week = date('Y-m-d', strtotime('-7 days'));
+$this_month = date('Y-m-01');
 
 if ($current_permissions['can_view_all']) {
     $stats_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today'")->fetch_assoc()['count'];
-    $stats_done = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'done'")->fetch_assoc()['count'];
-    $stats_in_progress = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'in_progress'")->fetch_assoc()['count'];
-    $stats_pending = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'pending'")->fetch_assoc()['count'];
+    $stats_week = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date >= '$this_week'")->fetch_assoc()['count'];
+    $stats_month = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date >= '$this_month'")->fetch_assoc()['count'];
+    $stats_total = $koneksi->query("SELECT COUNT(*) as count FROM reports")->fetch_assoc()['count'];
 } else {
     $stats_today = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date = '$today' AND user_id = $current_user_id")->fetch_assoc()['count'];
-    $stats_done = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'done' AND user_id = $current_user_id")->fetch_assoc()['count'];
-    $stats_in_progress = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'in_progress' AND user_id = $current_user_id")->fetch_assoc()['count'];
-    $stats_pending = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE status = 'pending' AND user_id = $current_user_id")->fetch_assoc()['count'];
+    $stats_week = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date >= '$this_week' AND user_id = $current_user_id")->fetch_assoc()['count'];
+    $stats_month = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE date >= '$this_month' AND user_id = $current_user_id")->fetch_assoc()['count'];
+    $stats_total = $koneksi->query("SELECT COUNT(*) as count FROM reports WHERE user_id = $current_user_id")->fetch_assoc()['count'];
 }
 
 // Helper functions
@@ -289,16 +276,6 @@ function getRoleColor($role) {
 function getRoleIcon($role) {
     $icons = ['admin' => 'fas fa-crown', 'client' => 'fas fa-briefcase', 'programmer' => 'fas fa-code', 'support' => 'fas fa-headset'];
     return $icons[$role] ?? 'fas fa-user';
-}
-
-function getStatusIcon($status) {
-    $icons = ['done' => 'fas fa-check-circle', 'in_progress' => 'fas fa-clock', 'pending' => 'fas fa-pause-circle'];
-    return $icons[$status] ?? 'fas fa-question-circle';
-}
-
-function getStatusText($status) {
-    $texts = ['done' => 'Selesai', 'in_progress' => 'In Progress', 'pending' => 'Pending'];
-    return $texts[$status] ?? 'Unknown';
 }
 
 function canEditReport($report_user_id) {
@@ -353,33 +330,33 @@ function canDeleteReport($report_user_id) {
         </div>
     </div>
 
-    <div class="stat-card bg-gradient-green <?= $status_filter == 'done' ? 'active' : '' ?>" onclick="filterByStatus('done')">
+    <div class="stat-card bg-gradient-green">
         <div class="stat-icon">
-            <i class="fas fa-check-circle"></i>
+            <i class="fas fa-calendar-week"></i>
         </div>
         <div class="stat-content">
-            <h3 class="stat-number"><?= $stats_done ?></h3>
-            <p class="stat-label">Selesai</p>
+            <h3 class="stat-number"><?= $stats_week ?></h3>
+            <p class="stat-label">Minggu Ini</p>
         </div>
     </div>
 
-    <div class="stat-card bg-gradient-orange <?= $status_filter == 'in_progress' ? 'active' : '' ?>" onclick="filterByStatus('in_progress')">
+    <div class="stat-card bg-gradient-orange">
         <div class="stat-icon">
-            <i class="fas fa-clock"></i>
+            <i class="fas fa-calendar-alt"></i>
         </div>
         <div class="stat-content">
-            <h3 class="stat-number"><?= $stats_in_progress ?></h3>
-            <p class="stat-label">In Progress</p>
+            <h3 class="stat-number"><?= $stats_month ?></h3>
+            <p class="stat-label">Bulan Ini</p>
         </div>
     </div>
 
-    <div class="stat-card bg-gradient-purple <?= $status_filter == 'pending' ? 'active' : '' ?>" onclick="filterByStatus('pending')">
+    <div class="stat-card bg-gradient-purple">
         <div class="stat-icon">
-            <i class="fas fa-pause-circle"></i>
+            <i class="fas fa-chart-line"></i>
         </div>
         <div class="stat-content">
-            <h3 class="stat-number"><?= $stats_pending ?></h3>
-            <p class="stat-label">Pending</p>
+            <h3 class="stat-number"><?= $stats_total ?></h3>
+            <p class="stat-label">Total Laporan</p>
         </div>
     </div>
 </div>
@@ -429,17 +406,8 @@ function canDeleteReport($report_user_id) {
             <div class="filter-dropdown">
                 <input type="date" id="dateFilter" value="<?= htmlspecialchars($date_filter) ?>" onchange="applyFilters()">
             </div>
-
-            <div class="filter-dropdown">
-                <select id="statusFilter" onchange="applyFilters()">
-                    <option value="">Semua Status</option>
-                    <option value="pending" <?= $status_filter == 'pending' ? 'selected' : '' ?>>Pending</option>
-                    <option value="in_progress" <?= $status_filter == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
-                    <option value="done" <?= $status_filter == 'done' ? 'selected' : '' ?>>Done</option>
-                </select>
-            </div>
             
-            <?php if ($role_filter || $date_filter || $user_filter || $status_filter || $search): ?>
+            <?php if ($role_filter || $date_filter || $user_filter || $search): ?>
             <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
                 <i class="fas fa-times"></i>
             </button>
@@ -467,8 +435,6 @@ function canDeleteReport($report_user_id) {
         <?php if ($reports_result->num_rows > 0): ?>
             <?php while($report = $reports_result->fetch_assoc()): ?>
             <div class="report-list-item">
-                <div class="report-status-indicator status-<?= $report['status'] ?>"></div>
-                
                 <div class="report-user-section">
                     <div class="user-avatar" style="background: <?= getRoleColor($report['user_role']) ?>">
                         <i class="<?= getRoleIcon($report['user_role']) ?>"></i>
@@ -483,31 +449,10 @@ function canDeleteReport($report_user_id) {
                                 <?= ucfirst($report['user_role']) ?>
                             </span>
                         </div>
-                        <div class="report-status-badge">
-                            <span class="status-badge status-<?= $report['status'] ?>">
-                                <i class="<?= getStatusIcon($report['status']) ?>"></i>
-                                <?= getStatusText($report['status']) ?>
-                            </span>
-                        </div>
                     </div>
                     
                     <div class="report-activity">
-                        <p><?= htmlspecialchars(substr($report['activity'], 0, 120)) ?><?= strlen($report['activity']) > 120 ? '...' : '' ?></p>
-                    </div>
-                    
-                    <div class="report-meta-info">
-                        <?php if (!empty($report['problem'])): ?>
-                        <span class="meta-badge problem">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            Problem
-                        </span>
-                        <?php endif; ?>
-                        <?php if (!empty($report['responsible_person'])): ?>
-                        <span class="meta-badge pj">
-                            <i class="fas fa-user-shield"></i>
-                            <?= htmlspecialchars(substr($report['responsible_person'], 0, 20)) ?>
-                        </span>
-                        <?php endif; ?>
+                        <p><?= nl2br(htmlspecialchars($report['activity'])) ?></p>
                     </div>
                     
                     <div class="report-list-details">
@@ -531,7 +476,7 @@ function canDeleteReport($report_user_id) {
                 <div class="report-list-actions">
                     <?php if (canEditReport($report['user_id'])): ?>
                     <button class="action-btn-small edit" 
-                            onclick="editReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>', '<?= htmlspecialchars(addslashes($report['problem'])) ?>', '<?= $report['status'] ?>', '<?= htmlspecialchars(addslashes($report['responsible_person'] ?? '')) ?>')" 
+                            onclick="editReport(<?= $report['id'] ?>, '<?= htmlspecialchars(addslashes($report['activity'])) ?>')" 
                             title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -568,7 +513,7 @@ function canDeleteReport($report_user_id) {
         <div class="pagination-controls">
             <!-- Previous Page -->
             <?php if ($current_page > 1): ?>
-            <a href="?page=reports&role=<?= $role_filter ?>&date=<?= $date_filter ?>&user=<?= $user_filter ?>&status=<?= $status_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
+            <a href="?page=reports&role=<?= $role_filter ?>&date=<?= $date_filter ?>&user=<?= $user_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
                 <i class="fas fa-chevron-left"></i>
                 <span>Prev</span>
             </a>
@@ -585,14 +530,14 @@ function canDeleteReport($report_user_id) {
                     <?php if ($i == $current_page): ?>
                         <span class="pagination-number pagination-number-active"><?= $i ?></span>
                     <?php else: ?>
-                        <a href="?page=reports&role=<?= $role_filter ?>&date=<?= $date_filter ?>&user=<?= $user_filter ?>&status=<?= $status_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
+                        <a href="?page=reports&role=<?= $role_filter ?>&date=<?= $date_filter ?>&user=<?= $user_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
                     <?php endif; ?>
                 <?php endfor; ?>
             </div>
             
             <!-- Next Page -->
             <?php if ($current_page < $total_pages): ?>
-            <a href="?page=reports&role=<?= $role_filter ?>&date=<?= $date_filter ?>&user=<?= $user_filter ?>&status=<?= $status_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
+            <a href="?page=reports&role=<?= $role_filter ?>&date=<?= $date_filter ?>&user=<?= $user_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
                 <span>Next</span>
                 <i class="fas fa-chevron-right"></i>
             </a>
@@ -639,48 +584,9 @@ function canDeleteReport($report_user_id) {
                 </div>
                 
                 <div class="form-group">
-                    <label for="reportStatus">Status *</label>
-                    <div class="status-selector">
-                        <label class="status-option">
-                            <input type="radio" name="status" value="pending" id="statusPending">
-                            <span class="status-badge status-pending">
-                                <i class="fas fa-pause-circle"></i>
-                                Pending
-                            </span>
-                        </label>
-                        <label class="status-option">
-                            <input type="radio" name="status" value="in_progress" id="statusInProgress" checked>
-                            <span class="status-badge status-in_progress">
-                                <i class="fas fa-clock"></i>
-                                In Progress
-                            </span>
-                        </label>
-                        <label class="status-option">
-                            <input type="radio" name="status" value="done" id="statusDone">
-                            <span class="status-badge status-done">
-                                <i class="fas fa-check-circle"></i>
-                                Done
-                            </span>
-                        </label>
-                    </div>
-                </div>
-                
-                <div class="form-group">
                     <label for="reportActivity">Aktivitas *</label>
-                    <textarea id="reportActivity" name="activity" rows="4" required
+                    <textarea id="reportActivity" name="activity" rows="6" required
                               placeholder="Jelaskan aktivitas yang dilakukan..."></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label for="reportProblem">Problem/Kendala</label>
-                    <textarea id="reportProblem" name="problem" rows="3" 
-                              placeholder="Jelaskan problem atau kendala (opsional)..."></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label for="responsiblePerson">Penanggung Jawab</label>
-                    <input type="text" id="responsiblePerson" name="responsible_person" 
-                           placeholder="Nama penanggung jawab (opsional)">
                 </div>
             </form>
         </div>
@@ -839,30 +745,12 @@ function canDeleteReport($report_user_id) {
     align-items: center;
     gap: 16px;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
-    cursor: pointer;
     position: relative;
-    border: 2px solid transparent;
 }
 
 .stat-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 6px 25px rgba(0,0,0,0.15);
-}
-
-.stat-card.active {
-    border-color: rgba(255,255,255,0.8);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-}
-
-.stat-card.active::after {
-    content: '✓';
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    color: white;
-    font-size: 1.2rem;
-    font-weight: bold;
 }
 
 .bg-gradient-blue { 
@@ -1104,27 +992,6 @@ function canDeleteReport($report_user_id) {
     color: #9ca3af;
 }
 
-/* Report Status Indicator */
-.report-status-indicator {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-}
-
-.report-status-indicator.status-done {
-    background: linear-gradient(180deg, #10b981, #34d399);
-}
-
-.report-status-indicator.status-in_progress {
-    background: linear-gradient(180deg, #f59e0b, #fbbf24);
-}
-
-.report-status-indicator.status-pending {
-    background: linear-gradient(180deg, #6b7280, #9ca3af);
-}
-
 /* Report User Section */
 .report-user-section {
     display: flex;
@@ -1177,75 +1044,15 @@ function canDeleteReport($report_user_id) {
     text-transform: uppercase;
 }
 
-.report-status-badge .status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: white;
-}
-
-.status-badge.status-done {
-    background: linear-gradient(90deg, #10b981, #34d399);
-}
-
-.status-badge.status-in_progress {
-    background: linear-gradient(90deg, #f59e0b, #fbbf24);
-}
-
-.status-badge.status-pending {
-    background: linear-gradient(90deg, #6b7280, #9ca3af);
-}
-
 .report-activity {
     color: #374151;
-    font-size: 0.85rem;
-    line-height: 1.4;
+    font-size: 0.9rem;
+    line-height: 1.6;
     margin-bottom: 8px;
 }
 
 .report-activity p {
     margin: 0;
-}
-
-.report-meta-info {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-}
-
-.meta-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    border-radius: 10px;
-    font-size: 0.7rem;
-    font-weight: 500;
-}
-
-.meta-badge.problem {
-    background: #fef3c7;
-    color: #92400e;
-    border: 1px solid #fde68a;
-}
-
-.meta-badge.problem i {
-    color: #f59e0b;
-}
-
-.meta-badge.pj {
-    background: #e0f2fe;
-    color: #0c4a6e;
-    border: 1px solid #bae6fd;
-}
-
-.meta-badge.pj i {
-    color: #0ea5e9;
 }
 
 .report-list-details {
@@ -1630,7 +1437,7 @@ function canDeleteReport($report_user_id) {
 
 .form-group textarea {
     resize: vertical;
-    min-height: 80px;
+    min-height: 120px;
 }
 
 .modal-footer {
@@ -1638,52 +1445,6 @@ function canDeleteReport($report_user_id) {
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-}
-
-/* Status Selector */
-.status-selector {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.status-option {
-    cursor: pointer;
-}
-
-.status-option input[type="radio"] {
-    display: none;
-}
-
-.status-selector .status-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    border-radius: 20px;
-    border: 2px solid transparent;
-    transition: all 0.3s ease;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: white;
-}
-
-.status-selector .status-badge.status-pending {
-    background: linear-gradient(135deg, #6b7280, #9ca3af);
-}
-
-.status-selector .status-badge.status-in_progress {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-}
-
-.status-selector .status-badge.status-done {
-    background: linear-gradient(135deg, #10b981, #059669);
-}
-
-.status-option input[type="radio"]:checked + .status-badge {
-    border-color: #1f2937;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    transform: translateY(-2px);
 }
 
 /* Responsive */
@@ -1794,10 +1555,6 @@ function canDeleteReport($report_user_id) {
         margin: 12px 16px;
     }
     
-    .status-selector {
-        flex-direction: column;
-    }
-    
     .pagination-number {
         min-width: 34px;
         height: 34px;
@@ -1825,29 +1582,17 @@ function openAddReportModal() {
     document.getElementById('reportForm').reset();
     document.getElementById('reportId').value = '';
     document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('statusInProgress').checked = true;
     currentEditId = null;
     document.getElementById('reportModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
-function editReport(id, activity, problem, status, responsiblePerson) {
+function editReport(id, activity) {
     document.getElementById('modalTitle').textContent = 'Edit Laporan';
     document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Update';
     document.getElementById('submitBtn').name = 'edit_report';
     document.getElementById('reportId').value = id;
     document.getElementById('reportActivity').value = activity;
-    document.getElementById('reportProblem').value = problem;
-    document.getElementById('responsiblePerson').value = responsiblePerson;
-    
-    // Set status radio button
-    if (status === 'pending') {
-        document.getElementById('statusPending').checked = true;
-    } else if (status === 'in_progress') {
-        document.getElementById('statusInProgress').checked = true;
-    } else if (status === 'done') {
-        document.getElementById('statusDone').checked = true;
-    }
     
     currentEditId = id;
     document.getElementById('reportModal').classList.add('show');
@@ -1872,34 +1617,16 @@ function closeDeleteModal() {
     document.body.style.overflow = '';
 }
 
-function filterByStatus(status) {
-    let url = new URL(window.location);
-    const currentStatus = url.searchParams.get('status');
-    
-    if (currentStatus === status) {
-        url.searchParams.delete('status');
-    } else {
-        url.searchParams.set('status', status);
-    }
-    
-    url.searchParams.set('page', 'reports');
-    url.searchParams.set('pg', '1');
-    
-    window.location.href = url.toString();
-}
-
 function applyFilters() {
     const roleFilter = document.getElementById('roleFilter')?.value || '';
     const dateFilter = document.getElementById('dateFilter')?.value || '';
     const userFilter = document.getElementById('userFilter')?.value || '';
-    const statusFilter = document.getElementById('statusFilter')?.value || '';
     const searchValue = document.getElementById('searchInput').value;
     
     let url = new URL(window.location);
     url.searchParams.delete('role');
     url.searchParams.delete('date');
     url.searchParams.delete('user');
-    url.searchParams.delete('status');
     url.searchParams.delete('search');
     url.searchParams.set('page', 'reports');
     url.searchParams.set('pg', '1');
@@ -1907,7 +1634,6 @@ function applyFilters() {
     if (roleFilter) url.searchParams.set('role', roleFilter);
     if (dateFilter) url.searchParams.set('date', dateFilter);
     if (userFilter) url.searchParams.set('user', userFilter);
-    if (statusFilter) url.searchParams.set('status', statusFilter);
     if (searchValue) url.searchParams.set('search', searchValue);
     
     window.location.href = url.toString();
@@ -1924,7 +1650,6 @@ function clearFilters() {
     url.searchParams.delete('role');
     url.searchParams.delete('date');
     url.searchParams.delete('user');
-    url.searchParams.delete('status');
     url.searchParams.delete('search');
     url.searchParams.set('page', 'reports');
     url.searchParams.set('pg', '1');
@@ -1937,7 +1662,6 @@ function jumpToPage() {
     const roleFilter = document.getElementById('roleFilter')?.value || '';
     const dateFilter = document.getElementById('dateFilter')?.value || '';
     const userFilter = document.getElementById('userFilter')?.value || '';
-    const statusFilter = document.getElementById('statusFilter')?.value || '';
     const searchValue = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
     
     let url = new URL(window.location);
@@ -1947,7 +1671,6 @@ function jumpToPage() {
     if (roleFilter) url.searchParams.set('role', roleFilter);
     if (dateFilter) url.searchParams.set('date', dateFilter);
     if (userFilter) url.searchParams.set('user', userFilter);
-    if (statusFilter) url.searchParams.set('status', statusFilter);
     if (searchValue) url.searchParams.set('search', searchValue);
     
     window.location.href = url.toString();

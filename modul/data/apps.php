@@ -546,7 +546,7 @@ function getAppIcon($appName) {
 }
 
 .btn-todo-small {
-    background: linear-gradient(135deg, #10b981, #34d399);
+    background: linear-gradient(135deg, #6b7280, #6b7280);
     color: white;
     padding: 8px 16px;
     border-radius: 20px;
@@ -562,7 +562,7 @@ function getAppIcon($appName) {
 }
 
 .btn-todo-small:hover {
-    background: linear-gradient(135deg, #059669, #10b981);
+    background: linear-gradient(135deg, #6b7280, #6b7280);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(16,185,129,0.3);
 }
