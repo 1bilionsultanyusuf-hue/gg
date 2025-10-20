@@ -7,9 +7,13 @@ $error = '';
 if (isset($_POST['add_user'])) {
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
+    $phone_input = trim($_POST['phone']);
     $role = trim($_POST['role']);
     $password = trim($_POST['password']);
-    $gender = trim($_POST['gender']); 
+    $gender = trim($_POST['gender']);
+    
+    // Clean phone - keep +, -, and numbers, only remove spaces
+    $phone = str_replace(' ', '', $phone_input);
     
     if (!empty($name) && !empty($email) && !empty($role) && !empty($password) && !empty($gender)) {
         if (strpos($name, ' ') !== false) {
@@ -29,8 +33,8 @@ if (isset($_POST['add_user'])) {
             } else {
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                 
-                $stmt = $koneksi->prepare("INSERT INTO users (name, email, role, password, gender) VALUES (?, ?, ?, ?, ?)");
-                $stmt->bind_param("sssss", $name, $email, $role, $hashed_password, $gender);
+                $stmt = $koneksi->prepare("INSERT INTO users (name, email, phone, role, password, gender) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssssss", $name, $email, $phone, $role, $hashed_password, $gender);
                 
                 if ($stmt->execute()) {
                     $message = "Pengguna '$name' berhasil ditambahkan!";
@@ -40,7 +44,7 @@ if (isset($_POST['add_user'])) {
             }
         }
     } else {
-        $error = "Semua field harus diisi!";
+        $error = "Nama, email, role, password, dan gender harus diisi!";
     }
 }
 
@@ -49,9 +53,13 @@ if (isset($_POST['edit_user'])) {
     $id = $_POST['user_id'];
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
+    $phone_input = trim($_POST['phone']);
     $role = trim($_POST['role']);
     $password = trim($_POST['password']);
-    $gender = trim($_POST['gender']); 
+    $gender = trim($_POST['gender']);
+    
+    // Clean phone - keep +, -, and numbers, only remove spaces
+    $phone = str_replace(' ', '', $phone_input);
     
     if (!empty($name) && !empty($email) && !empty($role) && !empty($gender)) {
         if (strpos($name, ' ') !== false) {
@@ -71,11 +79,11 @@ if (isset($_POST['edit_user'])) {
             } else {
                 if (!empty($password)) {
                     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                    $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, role = ?, password = ?, gender = ? WHERE id = ?");
-                    $stmt->bind_param("sssssi", $name, $email, $role, $hashed_password, $gender, $id);
+                    $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, phone = ?, role = ?, password = ?, gender = ? WHERE id = ?");
+                    $stmt->bind_param("ssssssi", $name, $email, $phone, $role, $hashed_password, $gender, $id);
                 } else {
-                    $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, role = ?, gender = ? WHERE id = ?");
-                    $stmt->bind_param("ssssi", $name, $email, $role, $gender, $id);
+                    $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, phone = ?, role = ?, gender = ? WHERE id = ?");
+                    $stmt->bind_param("sssssi", $name, $email, $phone, $role, $gender, $id);
                 }
                 
                 if ($stmt->execute()) {
@@ -367,6 +375,12 @@ function getRoleDisplayName($role) {
                                 <i class="fas fa-envelope"></i>
                                 <?= htmlspecialchars($user['email']) ?>
                             </span>
+                            <?php if (!empty($user['phone'])): ?>
+                            <span class="detail-badge phone">
+                                <i class="fas fa-phone"></i>
+                                <?= htmlspecialchars($user['phone']) ?>
+                            </span>
+                            <?php endif; ?>
                             <span class="detail-badge gender">
                                 <i class="<?= getGenderIcon($user['gender'] ?? 'male') ?>"></i>
                                 <?= getGenderText($user['gender'] ?? 'male') ?>
@@ -377,7 +391,7 @@ function getRoleDisplayName($role) {
                 
                 <div class="user-list-actions">
                     <button class="action-btn-small edit" 
-                            onclick="editUser(<?= $user['id'] ?>,'<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>','<?= htmlspecialchars($user['email'], ENT_QUOTES) ?>','<?= $user['role'] ?>','<?= $user['gender'] ?? 'male' ?>')" 
+                            onclick="editUser(<?= $user['id'] ?>,'<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>','<?= htmlspecialchars($user['email'], ENT_QUOTES) ?>','<?= htmlspecialchars($user['phone'] ?? '', ENT_QUOTES) ?>','<?= $user['role'] ?>','<?= $user['gender'] ?? 'male' ?>')" 
                             title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -494,14 +508,8 @@ function getRoleDisplayName($role) {
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="userRole">Role *</label>
-                        <select id="userRole" name="role" required>
-                            <option value="">Pilih Role</option>
-                            <option value="admin">Administrator</option>
-                            <option value="client">Client</option>
-                            <option value="programmer">Programmer</option>
-                            <option value="support">Support</option>
-                        </select>
+                        <label for="userPhone">Nomor Telepon</label>
+                        <input type="tel" id="userPhone" name="phone" placeholder="Masukkan nomor telepon" maxlength="20">
                     </div>
                     <div class="form-group">
                         <label for="userGender">Jenis Kelamin *</label>
@@ -513,12 +521,24 @@ function getRoleDisplayName($role) {
                     </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="userPassword">Password <span id="passwordRequiredText">*</span></label>
-                    <input type="password" id="userPassword" name="password" placeholder="Masukkan password (tanpa spasi)" 
-                           oninput="validateNoSpaces(this)">
-                    <small id="passwordHelp" class="form-help" style="display:none;">Kosongkan jika tidak ingin mengubah password</small>
-                    <small class="form-help">Password tidak boleh mengandung spasi</small>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="userRole">Role *</label>
+                        <select id="userRole" name="role" required>
+                            <option value="">Pilih Role</option>
+                            <option value="admin">Administrator</option>
+                            <option value="client">Client</option>
+                            <option value="programmer">Programmer</option>
+                            <option value="support">Support</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="userPassword">Password <span id="passwordRequiredText">*</span></label>
+                        <input type="password" id="userPassword" name="password" placeholder="Masukkan password (tanpa spasi)" 
+                               oninput="validateNoSpaces(this)">
+                        <small id="passwordHelp" class="form-help" style="display:none;">Kosongkan jika tidak ingin mengubah password</small>
+                        <small class="form-help">Password tidak boleh mengandung spasi</small>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1524,6 +1544,18 @@ function validateNoSpaces(input) {
     }
 }
 
+// Phone validation - only allow numbers, +, -, space, and parentheses
+function validatePhone(input) {
+    // Remove any characters that are not numbers, +, -, space, or parentheses
+    let value = input.value;
+    let cleanValue = value.replace(/[^0-9+\-\s()]/g, '');
+    
+    // Update value if invalid characters were removed
+    if (value !== cleanValue) {
+        input.value = cleanValue;
+    }
+}
+
 function openAddUserModal() {
     document.getElementById('userModal').classList.add('show');
     document.getElementById('modalTitle').textContent = 'Tambah Pengguna Baru';
@@ -1542,12 +1574,13 @@ function openAddUserModal() {
     });
 }
 
-function editUser(id, name, email, role, gender) {
+function editUser(id, name, email, phone, role, gender) {
     document.getElementById('userModal').classList.add('show');
     document.getElementById('modalTitle').textContent = 'Edit Pengguna';
     document.getElementById('userId').value = id;
     document.getElementById('userName').value = name;
     document.getElementById('userEmail').value = email;
+    document.getElementById('userPhone').value = phone;
     document.getElementById('userRole').value = role;
     document.getElementById('userGender').value = gender;
     document.getElementById('submitBtn').name = 'edit_user';
@@ -1672,6 +1705,30 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });
+    
+    // Add phone validation to phone input
+    const phoneInput = document.getElementById('userPhone');
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function() {
+            validatePhone(this);
+        });
+        
+        // Prevent paste of invalid characters
+        phoneInput.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+            const cleanedText = pastedText.replace(/[^0-9+\-\s()]/g, '');
+            
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            const currentValue = this.value;
+            
+            this.value = currentValue.substring(0, start) + cleanedText + currentValue.substring(end);
+            
+            const newPosition = start + cleanedText.length;
+            this.setSelectionRange(newPosition, newPosition);
+        });
+    }
 });
 
 // Auto-focus first input when modal opens
@@ -1690,5 +1747,17 @@ const observer = new MutationObserver(function(mutations) {
 
 document.querySelectorAll('.modal').forEach(modal => {
     observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+});
+
+// Form submit - clean phone before submit
+document.getElementById('userForm').addEventListener('submit', function(e) {
+    const phoneInput = document.getElementById('userPhone');
+    const phone = phoneInput.value.trim();
+    
+    if (phone) {
+        // Clean phone - keep +, -, and numbers, only remove spaces
+        const cleanedPhone = phone.replace(/\s/g, '');
+        phoneInput.value = cleanedPhone;
+    }
 });
 </script>

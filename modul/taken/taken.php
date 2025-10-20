@@ -18,14 +18,14 @@ $current_user = $current_user_result->fetch_assoc();
 $current_user_role = $current_user['role'];
 $current_user_name = $current_user['name'];
 
-// CREATE - Add new taken (otomatis masuk ke user yang login)
+// CREATE - Add new taken (otomatis status in_progress dan tanggal hari ini)
 if (isset($_POST['add_taken'])) {
     $id_todos = (int)$_POST['id_todos'];
-    $status = trim($_POST['status']);
-    $date = trim($_POST['date']);
+    $status = 'in_progress'; // Otomatis in_progress
+    $date = date('Y-m-d'); // Otomatis tanggal hari ini
     $user_id = $_SESSION['user_id']; // Otomatis ambil dari session
     
-    if (!empty($id_todos) && !empty($status)) {
+    if (!empty($id_todos)) {
         $check_stmt = $koneksi->prepare("SELECT id FROM taken WHERE id_todos = ?");
         $check_stmt->bind_param("i", $id_todos);
         $check_stmt->execute();
@@ -43,7 +43,7 @@ if (isset($_POST['add_taken'])) {
             }
         }
     } else {
-        $error = "Semua field harus diisi!";
+        $error = "Pilih todo yang ingin diambil!";
     }
 }
 
@@ -299,9 +299,9 @@ $available = $koneksi->query("SELECT COUNT(*) as count FROM todos td LEFT JOIN t
 
 function getPriorityIcon($priority) {
     $icons = [
-        'high' => 'fas fa-fire',
-        'medium' => 'fas fa-equals',
-        'low' => 'fas fa-chevron-down'
+        'high' => 'fas fa-exclamation-triangle',
+        'medium' => 'fas fa-minus',
+        'low' => 'fas fa-arrow-down'
     ];
     return $icons[$priority] ?? 'fas fa-circle';
 }
@@ -568,6 +568,8 @@ function getPriorityIcon($priority) {
         <div class="modal-body">
             <form id="takenForm" method="POST" action="?page=taken">
                 <input type="hidden" id="takenId" name="taken_id">
+                
+                <!-- Pilih Todo - Hanya untuk Add -->
                 <div class="form-group" id="todoSelectGroup">
                     <label for="takenTodo">Pilih Todo *</label>
                     <select id="takenTodo" name="id_todos" required>
@@ -588,7 +590,20 @@ function getPriorityIcon($priority) {
                     </p>
                     <?php endif; ?>
                 </div>
-                <div class="form-group">
+                
+                <!-- Tanggal diambil - Tampil untuk Add -->
+                <div class="form-group" id="addDateGroup">
+                    <label for="takenAddDate">Tanggal Diambil</label>
+                    <input type="date" id="takenAddDate" name="date" 
+                           value="<?= date('Y-m-d') ?>" readonly>
+                    <p class="form-help-text">
+                        <i class="fas fa-info-circle"></i>
+                        Otomatis diisi tanggal hari ini
+                    </p>
+                </div>
+                
+                <!-- Status - Hanya untuk Edit -->
+                <div class="form-group" id="statusGroup" style="display: none;">
                     <label for="takenStatus">Status *</label>
                     <div class="status-selector">
                         <label class="status-option">
@@ -607,7 +622,9 @@ function getPriorityIcon($priority) {
                         </label>
                     </div>
                 </div>
-                <div class="form-group">
+                
+                <!-- Tanggal - Hanya untuk Edit -->
+                <div class="form-group" id="dateGroup" style="display: none;">
                     <label for="takenDate">Tanggal *</label>
                     <input type="date" id="takenDate" name="date" required 
                            value="<?= date('Y-m-d') ?>">
@@ -619,7 +636,7 @@ function getPriorityIcon($priority) {
                 Batal
             </button>
             <button type="submit" id="submitBtn" form="takenForm" name="add_taken" class="btn btn-primary">
-                <i class="fas fa-save mr-2"></i>Simpan
+                <i class="fas fa-hand-paper mr-2"></i>Ambil Todo
             </button>
         </div>
     </div>
@@ -634,7 +651,7 @@ function getPriorityIcon($priority) {
             </div>
             <h3>Tandai Selesai</h3>
             <p id="completeMessage">Apakah Anda yakin todo ini sudah selesai?</p>
-            <p class="complete-note">Status akan diubah menjadi "Done" dan tanggal akan diupdate ke hari ini.</p>
+            <p class="complete-note">Status akan diubah menjadi "Done" dan todo akan ditandai completed.</p>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="closeCompleteModal()">
@@ -1601,6 +1618,12 @@ function getPriorityIcon($priority) {
     box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
 }
 
+.form-group input[readonly] {
+    background: #f9fafb;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
 .form-help-text {
     margin-top: 8px;
     font-size: 0.8rem;
@@ -1608,6 +1631,10 @@ function getPriorityIcon($priority) {
     display: flex;
     align-items: center;
     gap: 6px;
+}
+
+.form-help-text i {
+    font-size: 0.75rem;
 }
 
 .modal-footer {
@@ -1764,13 +1791,20 @@ function getPriorityIcon($priority) {
 <script>
 function openAddTakenModal() {
     document.getElementById('modalTitle').textContent = 'Ambil Todo';
-    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Simpan';
+    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-hand-paper mr-2"></i>Ambil Todo';
     document.getElementById('submitBtn').name = 'add_taken';
     document.getElementById('takenForm').reset();
     document.getElementById('takenId').value = '';
+    
+    // Tampilkan dropdown todo dan tanggal add, sembunyikan status dan tanggal edit
     document.getElementById('todoSelectGroup').style.display = 'block';
-    document.getElementById('takenDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('statusInProgress').checked = true;
+    document.getElementById('addDateGroup').style.display = 'block';
+    document.getElementById('statusGroup').style.display = 'none';
+    document.getElementById('dateGroup').style.display = 'none';
+    
+    // Set tanggal hari ini
+    document.getElementById('takenAddDate').value = '<?= date('Y-m-d') ?>';
+    
     document.getElementById('takenModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
@@ -1781,7 +1815,12 @@ function editTaken(id, status, date) {
     document.getElementById('submitBtn').name = 'edit_taken';
     document.getElementById('takenId').value = id;
     document.getElementById('takenDate').value = date;
+    
+    // Sembunyikan dropdown todo dan tanggal add, tampilkan status dan tanggal edit
     document.getElementById('todoSelectGroup').style.display = 'none';
+    document.getElementById('addDateGroup').style.display = 'none';
+    document.getElementById('statusGroup').style.display = 'block';
+    document.getElementById('dateGroup').style.display = 'block';
     
     if (status === 'in_progress') {
         document.getElementById('statusInProgress').checked = true;

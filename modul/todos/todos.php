@@ -175,9 +175,9 @@ $low_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE prior
 
 function getPriorityIcon($priority) {
     $icons = [
-        'high' => 'fas fa-fire',
-        'medium' => 'fas fa-equals',
-        'low' => 'fas fa-chevron-down'
+        'high' => 'fas fa-exclamation-triangle',
+        'medium' => 'fas fa-minus',
+        'low' => 'fas fa-arrow-down'
     ];
     return $icons[$priority] ?? 'fas fa-circle';
 }
@@ -242,7 +242,7 @@ function getPriorityIcon($priority) {
 
     <div class="stat-card bg-gradient-red <?= $filter_priority == 'high' ? 'active' : '' ?>" onclick="filterByPriority('high')">
         <div class="stat-icon">
-            <i class="fas fa-fire"></i>
+            <i class="fas fa-exclamation-triangle"></i>
         </div>
         <div class="stat-content">
             <h3 class="stat-number"><?= $high_priority ?></h3>
@@ -488,21 +488,21 @@ function getPriorityIcon($priority) {
                         <label class="priority-option">
                             <input type="radio" name="priority" value="low" id="priorityLow">
                             <span class="priority-badge priority-low">
-                                <i class="fas fa-chevron-down"></i>
+                                <i class="fas fa-arrow-down"></i>
                                 Low
                             </span>
                         </label>
                         <label class="priority-option">
                             <input type="radio" name="priority" value="medium" id="priorityMedium" checked>
                             <span class="priority-badge priority-medium">
-                                <i class="fas fa-equals"></i>
+                                <i class="fas fa-minus"></i>
                                 Medium
                             </span>
                         </label>
                         <label class="priority-option">
                             <input type="radio" name="priority" value="high" id="priorityHigh">
                             <span class="priority-badge priority-high">
-                                <i class="fas fa-fire"></i>
+                                <i class="fas fa-exclamation-triangle"></i>
                                 High
                             </span>
                         </label>

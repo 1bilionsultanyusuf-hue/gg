@@ -74,9 +74,13 @@ if (isset($_POST['upload_photo'])) {
 if (isset($_POST['update_profile'])) {
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
+    $phone_input = trim($_POST['phone']);
     $gender = $_POST['gender'] ?? 'male';
     $current_password = trim($_POST['current_password']);
     $new_password = trim($_POST['new_password']);
+    
+    // Clean phone number - keep + and -, only remove spaces
+    $phone = str_replace(' ', '', $phone_input);
     
     // Validation
     if (empty($name)) {
@@ -91,6 +95,11 @@ if (isset($_POST['update_profile'])) {
         $errors[] = "Format email tidak valid";
     } elseif (strpos($email, ' ') !== false) {
         $errors[] = "Email tidak boleh mengandung spasi";
+    }
+    
+    // Validate phone number (only digits will be saved)
+    if (!empty($phone)) {
+        // No validation for length, just info
     }
     
     // Check if email already exists for other users
@@ -117,13 +126,13 @@ if (isset($_POST['update_profile'])) {
     if (empty($errors)) {
         // Update query
         if (!empty($new_password)) {
-            $update_query = "UPDATE users SET name = ?, email = ?, gender = ?, password = ? WHERE id = ?";
+            $update_query = "UPDATE users SET name = ?, email = ?, phone = ?, gender = ?, password = ? WHERE id = ?";
             $stmt = $koneksi->prepare($update_query);
-            $stmt->bind_param("ssssi", $name, $email, $gender, $new_password, $user_id);
+            $stmt->bind_param("sssssi", $name, $email, $phone, $gender, $new_password, $user_id);
         } else {
-            $update_query = "UPDATE users SET name = ?, email = ?, gender = ? WHERE id = ?";
+            $update_query = "UPDATE users SET name = ?, email = ?, phone = ?, gender = ? WHERE id = ?";
             $stmt = $koneksi->prepare($update_query);
-            $stmt->bind_param("sssi", $name, $email, $gender, $user_id);
+            $stmt->bind_param("ssssi", $name, $email, $phone, $gender, $user_id);
         }
         
         if ($stmt->execute()) {
@@ -132,6 +141,7 @@ if (isset($_POST['update_profile'])) {
             // Refresh user data
             $user_data['name'] = $name;
             $user_data['email'] = $email;
+            $user_data['phone'] = $phone;
             $user_data['gender'] = $gender;
             if (!empty($new_password)) {
                 $user_data['password'] = $new_password;
@@ -161,148 +171,148 @@ function getProfilePhotoUrlLocal($user_data) {
 }
 ?>
 
-<div class="main-content">
-    <div class="profile-container">
-        
+<!-- Success/Error Messages -->
+<?php if (!empty($photo_success) || !empty($profile_success)): ?>
+<div class="alert alert-success">
+    <i class="fas fa-check-circle"></i>
+    <?= !empty($photo_success) ? $photo_success : $profile_success ?>
+</div>
+<?php endif; ?>
 
+<?php if (!empty($photo_error)): ?>
+<div class="alert alert-error">
+    <i class="fas fa-exclamation-triangle"></i>
+    <?= $photo_error ?>
+</div>
+<?php endif; ?>
 
-        <!-- Photo Upload Messages -->
-        <?php if (!empty($photo_success)): ?>
-        <div class="alert alert-success">
-            <i class="fas fa-check-circle"></i>
-            <?= $photo_success ?>
+<?php if (!empty($errors)): ?>
+<div class="alert alert-error">
+    <i class="fas fa-exclamation-triangle"></i>
+    <ul style="margin: 0; padding-left: 20px;">
+        <?php foreach($errors as $error): ?>
+        <li><?= $error ?></li>
+        <?php endforeach; ?>
+    </ul>
+</div>
+<?php endif; ?>
+
+<div class="profile-container">
+    <!-- Profile Photo Section -->
+    <div class="profile-card">
+        <div class="card-header">
+            <h3>Foto Profil</h3>
+            <p>Ubah foto profil Anda</p>
         </div>
-        <?php endif; ?>
-        
-        <?php if (!empty($photo_error)): ?>
-        <div class="alert alert-error">
-            <i class="fas fa-exclamation-triangle"></i>
-            <?= $photo_error ?>
-        </div>
-        <?php endif; ?>
-
-        <!-- Profile Photo Section -->
-        <div class="profile-card">
-            <div class="card-header">
-                <h3>Foto Profil</h3>
-                <p>Ubah foto profil Anda</p>
-            </div>
-            <div class="card-content text-center">
-                <div class="profile-photo-section">
-                    <div class="profile-avatar-large">
-                        <img id="profileImage" src="<?= getProfilePhotoUrlLocal($user_data) ?>" 
-                             alt="<?= htmlspecialchars($user_data['name']) ?>"
-                             onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($user_data['name']) ?>&background=0066ff&color=fff&size=150'">
-                        <div class="avatar-edit-btn" onclick="triggerPhotoUpload()">
-                            <i class="fas fa-camera"></i>
-                        </div>
+        <div class="card-content text-center">
+            <div class="profile-photo-section">
+                <div class="profile-avatar-large">
+                    <img id="profileImage" src="<?= getProfilePhotoUrlLocal($user_data) ?>" 
+                         alt="<?= htmlspecialchars($user_data['name']) ?>"
+                         onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($user_data['name']) ?>&background=0066ff&color=fff&size=150'">
+                    <div class="avatar-edit-btn" onclick="triggerPhotoUpload()">
+                        <i class="fas fa-camera"></i>
                     </div>
-                    <div class="photo-info">
-                        <h4><?= htmlspecialchars($user_data['name']) ?></h4>
-                        <p class="text-muted"><?= htmlspecialchars($user_data['email']) ?></p>
-                        <div class="role-badge role-<?= $user_data['role'] ?>">
-                            <?= getRoleIcon($user_data['role']) ?>
-                            <?= ucfirst($user_data['role']) ?>
-                        </div>
+                </div>
+                <div class="photo-info">
+                    <h4><?= htmlspecialchars($user_data['name']) ?></h4>
+                    <p class="text-muted"><?= htmlspecialchars($user_data['email']) ?></p>
+                    <div class="role-badge role-<?= $user_data['role'] ?>">
+                        <?= getRoleIcon($user_data['role']) ?>
+                        <?= ucfirst($user_data['role']) ?>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Profile Form -->
-        <div class="profile-card">
-            <div class="card-header">
-                <h3>Informasi Profil</h3>
-                <p>Perbarui informasi pribadi Anda</p>
-            </div>
-            <div class="card-content">
-                <?php if (!empty($profile_success)): ?>
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle"></i>
-                    <?= $profile_success ?>
+    <!-- Profile Form -->
+    <div class="profile-card">
+        <div class="card-header">
+            <h3>Informasi Profil</h3>
+            <p>Perbarui informasi pribadi Anda</p>
+        </div>
+        <div class="card-content">
+            <form method="POST" class="profile-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">Username *</label>
+                        <input type="text" id="name" name="name" 
+                               value="<?= htmlspecialchars($user_data['name']) ?>" 
+                               required pattern="[^\s]+"
+                               title="Username tidak boleh mengandung spasi">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" name="email" 
+                               value="<?= htmlspecialchars($user_data['email']) ?>" 
+                               required pattern="[^\s]+"
+                               title="Email tidak boleh mengandung spasi">
+                    </div>
                 </div>
-                <?php endif; ?>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="phone">Nomor Telepon</label>
+                        <input type="tel" id="phone" name="phone" 
+                               value="<?= htmlspecialchars($user_data['phone'] ?? '') ?>" 
+                               placeholder="Masukkan nomor telepon"
+                               maxlength="20">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="gender">Jenis Kelamin</label>
+                        <select id="gender" name="gender">
+                            <option value="male" <?= ($user_data['gender'] ?? 'male') == 'male' ? 'selected' : '' ?>>Laki-laki</option>
+                            <option value="female" <?= ($user_data['gender'] ?? 'male') == 'female' ? 'selected' : '' ?>>Perempuan</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="role">Role</label>
+                        <input type="text" value="<?= ucfirst($user_data['role']) ?>" disabled class="form-disabled">
+                        <small class="form-help">Role tidak dapat diubah</small>
+                    </div>
+                    <div class="form-group">
+                        <!-- Empty for alignment -->
+                    </div>
+                </div>
                 
-                <?php if (!empty($errors)): ?>
-                <div class="alert alert-error">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <ul style="margin: 0; padding-left: 20px;">
-                        <?php foreach($errors as $error): ?>
-                        <li><?= $error ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-                <?php endif; ?>
+                <hr class="form-divider">
                 
-                <form method="POST" class="profile-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="name">Username</label>
-                            <input type="text" id="name" name="name" 
-                                   value="<?= htmlspecialchars($user_data['name']) ?>" 
-                                   required pattern="[^\s]+"
-                                   title="Username tidak boleh mengandung spasi">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="email">Email</label>
-                            <input type="email" id="email" name="email" 
-                                   value="<?= htmlspecialchars($user_data['email']) ?>" 
-                                   required pattern="[^\s]+"
-                                   title="Email tidak boleh mengandung spasi">
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="gender">Jenis Kelamin</label>
-                            <select id="gender" name="gender">
-                                <option value="male" <?= ($user_data['gender'] ?? 'male') == 'male' ? 'selected' : '' ?>>Laki-laki</option>
-                                <option value="female" <?= ($user_data['gender'] ?? 'male') == 'female' ? 'selected' : '' ?>>Perempuan</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="role">Role</label>
-                            <input type="text" value="<?= ucfirst($user_data['role']) ?>" disabled class="form-disabled">
-                            <small class="form-help">Role tidak dapat diubah</small>
-                        </div>
+                <h4 class="form-section-title">Ubah Password (Opsional)</h4>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="current_password">Password Lama</label>
+                        <input type="password" id="current_password" name="current_password" 
+                               placeholder="Masukkan password lama jika ingin mengubah">
                     </div>
                     
-                    <hr class="form-divider">
-                    
-                    <h4 class="form-section-title">Ubah Password (Opsional)</h4>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="current_password">Password Lama</label>
-                            <input type="password" id="current_password" name="current_password" 
-                                   placeholder="Masukkan password lama jika ingin mengubah">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="new_password">Password Baru</label>
-                            <input type="password" id="new_password" name="new_password" 
-                                   pattern="[^\s]+"
-                                   title="Password tidak boleh mengandung spasi"
-                                   placeholder="Masukkan password baru">
-                        </div>
+                    <div class="form-group">
+                        <label for="new_password">Password Baru</label>
+                        <input type="password" id="new_password" name="new_password" 
+                               pattern="[^\s]+"
+                               title="Password tidak boleh mengandung spasi"
+                               placeholder="Masukkan password baru">
                     </div>
-                    
-                    <div class="form-actions">
-                        <button type="submit" name="update_profile" class="btn btn-primary">
-                            <i class="fas fa-save mr-2"></i>
-                            Simpan Perubahan
-                        </button>
-                        <button type="reset" class="btn btn-secondary">
-                            <i class="fas fa-undo mr-2"></i>
-                            Reset
-                        </button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" name="update_profile" class="btn btn-primary">
+                        <i class="fas fa-save mr-2"></i>
+                        Simpan Perubahan
+                    </button>
+                    <button type="reset" class="btn btn-secondary">
+                        <i class="fas fa-undo mr-2"></i>
+                        Reset
+                    </button>
+                </div>
+            </form>
         </div>
-
     </div>
 </div>
 
@@ -351,11 +361,65 @@ function getProfilePhotoUrlLocal($user_data) {
 </div>
 
 <style>
-/* Profile Page Styles */
+/* Alert Messages */
+.alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideDown 0.3s ease;
+}
+
+.alert-success {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.alert-error {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Page Header */
+.page-header {
+    background: white;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+}
+
+.page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 4px;
+}
+
+.page-subtitle {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+/* Profile Container */
 .profile-container {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
-    padding: 20px;
 }
 
 /* Profile Cards */
@@ -363,7 +427,7 @@ function getProfilePhotoUrlLocal($user_data) {
     background: white;
     border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     overflow: hidden;
     transition: all 0.3s ease;
 }
@@ -373,7 +437,7 @@ function getProfilePhotoUrlLocal($user_data) {
 }
 
 .card-header {
-    padding: 24px 24px 16px;
+    padding: 20px 24px 16px;
     background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
 }
@@ -490,34 +554,6 @@ function getProfilePhotoUrlLocal($user_data) {
     color: white;
 }
 
-/* Alert Messages */
-.alert {
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    animation: slideDown 0.3s ease;
-}
-
-.alert-success {
-    background: linear-gradient(90deg, #dcfce7, #bbf7d0);
-    color: #166534;
-    border: 1px solid #22c55e;
-}
-
-.alert-error {
-    background: linear-gradient(90deg, #fee2e2, #fecaca);
-    color: #dc2626;
-    border: 1px solid #ef4444;
-}
-
-@keyframes slideDown {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
 /* Form Styles */
 .profile-form {
     max-width: 100%;
@@ -531,7 +567,7 @@ function getProfilePhotoUrlLocal($user_data) {
 }
 
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 .form-group label {
@@ -539,6 +575,7 @@ function getProfilePhotoUrlLocal($user_data) {
     font-weight: 500;
     color: #374151;
     margin-bottom: 8px;
+    font-size: 0.9rem;
 }
 
 .form-group input,
@@ -551,6 +588,7 @@ function getProfilePhotoUrlLocal($user_data) {
     font-size: 0.95rem;
     transition: all 0.3s ease;
     background: white;
+    box-sizing: border-box;
 }
 
 .form-group input:focus,
@@ -559,12 +597,6 @@ function getProfilePhotoUrlLocal($user_data) {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-/* Email validation styling */
-.form-group input[type="email"]:invalid {
-    border-color: #ef4444;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
 .form-disabled {
@@ -616,13 +648,13 @@ function getProfilePhotoUrlLocal($user_data) {
 }
 
 .btn-primary {
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: linear-gradient(90deg, #0066ff, #33ccff);
     color: white;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .btn-primary:hover {
-    background: linear-gradient(90deg, #5a67d8, #6b46c1);
+    background: linear-gradient(90deg, #0044cc, #00aaff);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
@@ -776,11 +808,6 @@ function getProfilePhotoUrlLocal($user_data) {
     100% { transform: rotate(360deg); }
 }
 
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
 /* Success animation */
 .upload-success {
     animation: successPulse 0.6s ease-in-out;
@@ -795,21 +822,16 @@ function getProfilePhotoUrlLocal($user_data) {
 /* Responsive Design */
 @media (max-width: 768px) {
     .profile-container {
-        padding: 12px;
+        max-width: 100%;
     }
     
-    .profile-header {
-        padding: 20px;
-        text-align: left;
-    }
-    
-    .profile-header h1 {
-        font-size: 1.6rem;
+    .page-header {
+        padding: 16px 20px;
     }
     
     .form-row {
         grid-template-columns: 1fr;
-        gap: 0;
+        gap: 20px;
     }
     
     .form-actions {
@@ -837,10 +859,6 @@ function getProfilePhotoUrlLocal($user_data) {
 }
 
 @media (max-width: 480px) {
-    .profile-container {
-        padding: 10px;
-    }
-    
     .card-content {
         padding: 16px;
     }
@@ -849,12 +867,12 @@ function getProfilePhotoUrlLocal($user_data) {
         padding: 16px;
     }
     
-    .profile-header {
+    .page-header {
         padding: 16px;
-        margin-bottom: 20px;
+        margin-bottom: 16px;
     }
     
-    .profile-header h1 {
+    .page-title {
         font-size: 1.4rem;
     }
 }
@@ -941,15 +959,15 @@ function hideLoading() {
     document.getElementById('loadingOverlay').style.display = 'none';
 }
 
-// Email validation - prevent spaces
+// Input validation
 function validateInputs() {
     const emailInput = document.getElementById('email');
     const nameInput = document.getElementById('name');
     const passwordInput = document.getElementById('new_password');
+    const phoneInput = document.getElementById('phone');
     
-    // Email validation
+    // Email validation - prevent spaces
     emailInput.addEventListener('input', function() {
-        // Remove any spaces from email
         this.value = this.value.replace(/\s/g, '');
         
         if (this.value !== this.value.replace(/\s/g, '')) {
@@ -965,9 +983,8 @@ function validateInputs() {
         }, 10);
     });
     
-    // Username validation
+    // Username validation - prevent spaces
     nameInput.addEventListener('input', function() {
-        // Remove any spaces from username
         this.value = this.value.replace(/\s/g, '');
         
         if (this.value !== this.value.replace(/\s/g, '')) {
@@ -983,9 +1000,8 @@ function validateInputs() {
         }, 10);
     });
     
-    // Password validation
+    // Password validation - prevent spaces
     passwordInput.addEventListener('input', function() {
-        // Remove any spaces from password
         this.value = this.value.replace(/\s/g, '');
         
         if (this.value !== this.value.replace(/\s/g, '')) {
@@ -999,6 +1015,39 @@ function validateInputs() {
         setTimeout(() => {
             this.value = this.value.replace(/\s/g, '');
         }, 10);
+    });
+    
+    // Phone validation - only allow numbers, +, -, space, and parentheses
+    phoneInput.addEventListener('input', function() {
+        // Remove any characters that are not numbers, +, -, space, or parentheses
+        let value = this.value;
+        let cleanValue = value.replace(/[^0-9+\-\s()]/g, '');
+        
+        // Update value if invalid characters were removed
+        if (value !== cleanValue) {
+            this.value = cleanValue;
+        }
+        
+        // Clear custom validity
+        this.setCustomValidity('');
+    });
+    
+    // Prevent paste of invalid characters
+    phoneInput.addEventListener('paste', function(e) {
+        e.preventDefault();
+        const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+        const cleanedText = pastedText.replace(/[^0-9+\-\s()]/g, '');
+        
+        // Insert cleaned text at cursor position
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        const currentValue = this.value;
+        
+        this.value = currentValue.substring(0, start) + cleanedText + currentValue.substring(end);
+        
+        // Set cursor position after pasted text
+        const newPosition = start + cleanedText.length;
+        this.setSelectionRange(newPosition, newPosition);
     });
 }
 
@@ -1060,6 +1109,31 @@ document.addEventListener('keydown', function(e) {
     // ESC to close modal
     if (e.key === 'Escape') {
         closePhotoModal();
+    }
+});
+
+// Form validation before submit
+document.querySelector('.profile-form').addEventListener('submit', function(e) {
+    const phoneInput = document.getElementById('phone');
+    const phone = phoneInput.value.trim();
+    
+    if (phone) {
+        // Clean phone - keep +, -, and numbers, only remove spaces
+        const cleanedPhone = phone.replace(/\s/g, '');
+        
+        // Save cleaned phone (with + and - included)
+        phoneInput.value = cleanedPhone;
+    }
+    
+    // Check if changing password
+    const newPassword = document.getElementById('new_password').value;
+    const currentPassword = document.getElementById('current_password').value;
+    
+    if (newPassword && !currentPassword) {
+        e.preventDefault();
+        alert('Password lama harus diisi untuk mengubah password');
+        document.getElementById('current_password').focus();
+        return false;
     }
 });
 </script>
