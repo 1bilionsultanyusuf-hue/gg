@@ -1,4 +1,34 @@
 <?php
+// Handle Quick Take dari Dashboard
+$message = '';
+$error = '';
+
+if (isset($_POST['quick_take'])) {
+    $id_todos = (int)$_POST['id_todos'];
+    $status = 'in_progress';
+    $date = date('Y-m-d');
+    $user_id = $_SESSION['user_id'];
+    
+    if (!empty($id_todos)) {
+        $check_stmt = $koneksi->prepare("SELECT id FROM taken WHERE id_todos = ?");
+        $check_stmt->bind_param("i", $id_todos);
+        $check_stmt->execute();
+        
+        if ($check_stmt->get_result()->num_rows > 0) {
+            $error = "Todo ini sudah diambil oleh user lain!";
+        } else {
+            $stmt = $koneksi->prepare("INSERT INTO taken (id_todos, status, date, user_id) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("issi", $id_todos, $status, $date, $user_id);
+            
+            if ($stmt->execute()) {
+                $message = "Todo berhasil diambil! Silakan cek halaman 'Todo Saya' untuk melihat progress.";
+            } else {
+                $error = "Gagal mengambil todo!";
+            }
+        }
+    }
+}
+
 // Get real-time statistics from database dengan integrasi taken
 $total_apps = $koneksi->query("SELECT COUNT(*) as count FROM apps")->fetch_assoc()['count'];
 $total_users = $koneksi->query("SELECT COUNT(*) as count FROM users")->fetch_assoc()['count'];
@@ -66,6 +96,21 @@ function getPriorityIcon($priority) {
 ?>
 
 <div class="dashboard-container">
+    <!-- Success/Error Messages -->
+    <?php if ($message): ?>
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        <?= htmlspecialchars($message) ?>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($error): ?>
+    <div class="alert alert-error">
+        <i class="fas fa-exclamation-triangle"></i>
+        <?= htmlspecialchars($error) ?>
+    </div>
+    <?php endif; ?>
+
     <!-- Simple Notification Bar (Only if there are NEW tasks) -->
     <?php if ($new_tasks_count > 0): ?>
     <div class="notification-simple">
@@ -138,10 +183,13 @@ function getPriorityIcon($priority) {
                     </div>
                     
                     <div class="todo-list-actions">
-                        <span class="status-available">
-                            <i class="fas fa-hand-paper"></i>
-                            Available
-                        </span>
+                        <form method="POST" action="" style="display: inline;" onsubmit="return confirmTake('<?= htmlspecialchars($todo['title'], ENT_QUOTES) ?>')">
+                            <input type="hidden" name="id_todos" value="<?= $todo['id'] ?>">
+                            <button type="submit" name="quick_take" class="btn-take">
+                                <i class="fas fa-hand-paper"></i>
+                                Ambil
+                            </button>
+                        </form>
                     </div>
                 </div>
                 <?php endwhile; ?>
@@ -220,6 +268,30 @@ function getPriorityIcon($priority) {
 </div>
 
 <style>
+/* Alert Messages */
+.alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    animation: slideDown 0.3s ease;
+}
+
+.alert-success {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.alert-error {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
 /* Base Styles */
 .dashboard-container {
     max-width: 1400px;
@@ -472,17 +544,30 @@ function getPriorityIcon($priority) {
     flex-shrink: 0;
 }
 
-.status-available {
+.btn-take {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
     color: white;
-    background: linear-gradient(90deg, #6b7280, #9ca3af);
-    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.2);
+    background: linear-gradient(135deg, #6b7280, #4b5563); /* abu tua ke abu sedang */
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+}
+
+.btn-take:hover {
+    background: linear-gradient(135deg, #4b5563, #374151); /* sedikit lebih gelap saat hover */
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-take:active {
+    transform: translateY(0);
 }
 
 /* Empty State */
@@ -709,7 +794,7 @@ function getPriorityIcon($priority) {
         margin-left: 0;
     }
     
-    .status-available {
+    .btn-take {
         width: 100%;
         justify-content: center;
     }
@@ -776,8 +861,23 @@ function getPriorityIcon($priority) {
 </style>
 
 <script>
-// Add smooth scroll animation to task items
+// Confirmation before taking task
+function confirmTake(title) {
+    return confirm(`Ambil tugas: "${title}"?\n\nTugas akan ditambahkan ke daftar Todo Saya dengan status "In Progress".`);
+}
+
+// Auto hide alerts after 5 seconds
 document.addEventListener('DOMContentLoaded', function() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-20px)';
+            setTimeout(() => alert.remove(), 300);
+        }, 5000);
+    });
+    
+    // Add smooth scroll animation to task items
     const taskItems = document.querySelectorAll('.todo-list-item');
     
     const observerOptions = {
@@ -792,28 +892,4 @@ document.addEventListener('DOMContentLoaded', function() {
                 entry.target.style.transform = 'translateY(20px)';
                 
                 setTimeout(() => {
-                    entry.target.style.transition = 'all 0.4s ease';
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
-                }, 50);
-                
-                observer.unobserve(entry.target);
-            }
-        });
-    }, observerOptions);
-    
-    taskItems.forEach(item => {
-        observer.observe(item);
-    });
-});
-
-// Quick jump to page function
-function jumpToPage() {
-    const select = document.getElementById('pageJumpSelect');
-    const page = parseInt(select.value);
-    
-    if (page >= 1) {
-        window.location.href = '?pg=' + page;
-    }
-}
-</script>
+                    entry.target.style.transition = '

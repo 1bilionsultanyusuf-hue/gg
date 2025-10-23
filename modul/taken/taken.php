@@ -47,41 +47,6 @@ if (isset($_POST['add_taken'])) {
     }
 }
 
-// UPDATE - Edit taken (hanya milik user sendiri)
-if (isset($_POST['edit_taken'])) {
-    $id = (int)$_POST['taken_id'];
-    $status = trim($_POST['status']);
-    $date = trim($_POST['date']);
-    
-    // Cek apakah taken ini milik user yang login
-    $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
-    $check_owner->bind_param("i", $id);
-    $check_owner->execute();
-    $owner_result = $check_owner->get_result();
-    
-    if ($owner_result->num_rows > 0) {
-        $owner = $owner_result->fetch_assoc();
-        if ($owner['user_id'] == $current_user_id) {
-            if (!empty($status)) {
-                $stmt = $koneksi->prepare("UPDATE taken SET status = ?, date = ? WHERE id = ?");
-                $stmt->bind_param("ssi", $status, $date, $id);
-                
-                if ($stmt->execute()) {
-                    $message = "Status berhasil diperbarui!";
-                } else {
-                    $error = "Gagal memperbarui status!";
-                }
-            } else {
-                $error = "Status harus diisi!";
-            }
-        } else {
-            $error = "Anda tidak memiliki akses untuk mengedit taken ini!";
-        }
-    } else {
-        $error = "Taken tidak ditemukan!";
-    }
-}
-
 // DELETE - Remove taken (hanya milik user sendiri)
 if (isset($_POST['delete_taken'])) {
     $id = (int)$_POST['taken_id'];
@@ -433,10 +398,11 @@ function getPriorityIcon($priority) {
                 
                 <div class="taken-list-content">
                     <div class="taken-list-main">
-                        <h3 class="taken-list-title"><?= htmlspecialchars($taken['todo_title']) ?></h3>
+                        <div class="taken-title-row">
+                            <h3 class="taken-list-title"><?= htmlspecialchars($taken['todo_title']) ?></h3>
+                        </div>
                         <p class="taken-list-description">
-                            <?= htmlspecialchars(substr($taken['todo_description'], 0, 80)) ?>
-                            <?= strlen($taken['todo_description']) > 80 ? '...' : '' ?>
+                            <?= htmlspecialchars($taken['todo_description']) ?>
                         </p>
                         <div class="taken-list-details">
                             <span class="detail-badge app">
@@ -451,34 +417,30 @@ function getPriorityIcon($priority) {
                                 <i class="fas fa-calendar"></i>
                                 <?= date('d/m/Y', strtotime($taken['date'])) ?>
                             </span>
+                            <span class="detail-badge status status-<?= $taken['status'] ?>">
+                                <i class="fas fa-<?= $taken['status'] == 'done' ? 'check-circle' : 'clock' ?>"></i>
+                                <?= $taken['status'] == 'done' ? 'Selesai' : 'In Progress' ?>
+                            </span>
                         </div>
                     </div>
                 </div>
                 
-                <div class="taken-status-container">
-                    <div class="status-badge status-<?= $taken['status'] ?>">
-                        <i class="fas fa-<?= $taken['status'] == 'done' ? 'check-circle' : 'clock' ?>"></i>
-                        <?= $taken['status'] == 'done' ? 'Completed' : 'In Progress' ?>
-                    </div>
-                </div>
-                
                 <div class="taken-list-actions">
-                    <?php if ($taken['status'] == 'in_progress'): ?>
-                    <button class="action-btn-small complete" 
-                            onclick="completeTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')" 
-                            title="Tandai Selesai">
-                        <i class="fas fa-check"></i>
+                    <button class="action-btn preview" 
+                            onclick="viewTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>', '<?= htmlspecialchars($taken['todo_description'], ENT_QUOTES) ?>', '<?= htmlspecialchars($taken['app_name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($taken['todo_creator_name'], ENT_QUOTES) ?>', '<?= $taken['todo_priority'] ?>', '<?= $taken['status'] ?>', '<?= date('d/m/Y', strtotime($taken['date'])) ?>')">
+                        <i class="fas fa-eye"></i>
                     </button>
-                    <?php endif; ?>
-                    <button class="action-btn-small edit" 
-                            onclick="editTaken(<?= $taken['id'] ?>, '<?= $taken['status'] ?>', '<?= $taken['date'] ?>')" 
-                            title="Edit">
-                        <i class="fas fa-edit"></i>
+                    <button class="action-btn complete" 
+                            onclick="completeTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')">
+                        Selesai
                     </button>
-                    <button class="action-btn-small release" 
-                            onclick="releaseTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')" 
-                            title="Lepas Tugas">
-                        <i class="fas fa-sign-out-alt"></i>
+                    <button class="action-btn release" 
+                            onclick="releaseTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')">
+                        Lepas Tugas
+                    </button>
+                    <button class="action-btn delete" 
+                            onclick="deleteTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')">
+                        Hapus
                     </button>
                 </div>
             </div>
@@ -556,7 +518,7 @@ function getPriorityIcon($priority) {
     <?php endif; ?>
 </div>
 
-<!-- Add/Edit Taken Modal -->
+<!-- Add Taken Modal -->
 <div id="takenModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -567,10 +529,8 @@ function getPriorityIcon($priority) {
         </div>
         <div class="modal-body">
             <form id="takenForm" method="POST" action="?page=taken">
-                <input type="hidden" id="takenId" name="taken_id">
-                
-                <!-- Pilih Todo - Hanya untuk Add -->
-                <div class="form-group" id="todoSelectGroup">
+                <!-- Pilih Todo -->
+                <div class="form-group">
                     <label for="takenTodo">Pilih Todo *</label>
                     <select id="takenTodo" name="id_todos" required>
                         <option value="">Pilih Todo yang Tersedia</option>
@@ -591,8 +551,8 @@ function getPriorityIcon($priority) {
                     <?php endif; ?>
                 </div>
                 
-                <!-- Tanggal diambil - Tampil untuk Add -->
-                <div class="form-group" id="addDateGroup">
+                <!-- Tanggal diambil -->
+                <div class="form-group">
                     <label for="takenAddDate">Tanggal Diambil</label>
                     <input type="date" id="takenAddDate" name="date" 
                            value="<?= date('Y-m-d') ?>" readonly>
@@ -600,34 +560,6 @@ function getPriorityIcon($priority) {
                         <i class="fas fa-info-circle"></i>
                         Otomatis diisi tanggal hari ini
                     </p>
-                </div>
-                
-                <!-- Status - Hanya untuk Edit -->
-                <div class="form-group" id="statusGroup" style="display: none;">
-                    <label for="takenStatus">Status *</label>
-                    <div class="status-selector">
-                        <label class="status-option">
-                            <input type="radio" name="status" value="in_progress" id="statusInProgress" checked>
-                            <span class="status-badge status-in_progress">
-                                <i class="fas fa-clock"></i>
-                                In Progress
-                            </span>
-                        </label>
-                        <label class="status-option">
-                            <input type="radio" name="status" value="done" id="statusDone">
-                            <span class="status-badge status-done">
-                                <i class="fas fa-check-circle"></i>
-                                Done
-                            </span>
-                        </label>
-                    </div>
-                </div>
-                
-                <!-- Tanggal - Hanya untuk Edit -->
-                <div class="form-group" id="dateGroup" style="display: none;">
-                    <label for="takenDate">Tanggal *</label>
-                    <input type="date" id="takenDate" name="date" required 
-                           value="<?= date('Y-m-d') ?>">
                 </div>
             </form>
         </div>
@@ -638,6 +570,31 @@ function getPriorityIcon($priority) {
             <button type="submit" id="submitBtn" form="takenForm" name="add_taken" class="btn btn-primary">
                 <i class="fas fa-hand-paper mr-2"></i>Ambil Todo
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content delete-modal">
+        <div class="modal-header">
+            <div class="delete-icon">
+                <i class="fas fa-trash"></i>
+            </div>
+            <h3>Hapus Taken</h3>
+            <p id="deleteMessage">Apakah Anda yakin ingin menghapus taken ini?</p>
+            <p class="delete-note">Tindakan ini tidak dapat dibatalkan. Todo akan kembali tersedia.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
+                Batal
+            </button>
+            <form id="deleteForm" method="POST" action="?page=taken" style="display: inline;">
+                <input type="hidden" id="deleteTakenId" name="taken_id">
+                <button type="submit" name="delete_taken" class="btn btn-danger">
+                    <i class="fas fa-trash mr-2"></i>Hapus
+                </button>
+            </form>
         </div>
     </div>
 </div>
@@ -1135,17 +1092,25 @@ function getPriorityIcon($priority) {
     min-width: 0;
 }
 
+.taken-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
 .taken-list-title {
     font-size: 1rem;
     font-weight: 600;
     color: #1f2937;
-    margin: 0 0 4px 0;
+    margin: 0;
 }
 
 .taken-list-description {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: #6b7280;
     margin: 0 0 8px 0;
+    line-height: 1.5;
 }
 
 .taken-list-details {
@@ -1176,92 +1141,96 @@ function getPriorityIcon($priority) {
     color: #808080;
 }
 
-/* Taken Status Container */
-.taken-status-container {
-    margin: 0 16px;
-    flex-shrink: 0;
+.detail-badge.status {
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 10px;
 }
 
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: white;
+.detail-badge.status.status-done {
+    background: #dcfce7;
+    color: #059669;
 }
 
-.status-badge.status-done {
-    background: linear-gradient(90deg, #10b981, #34d399);
+.detail-badge.status.status-done i {
+    color: #059669;
 }
 
-.status-badge.status-in_progress {
-    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+.detail-badge.status.status-in_progress {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.detail-badge.status.status-in_progress i {
+    color: #d97706;
 }
 
 /* Taken List Actions */
 .taken-list-actions {
     display: flex;
-    gap: 6px;
-    opacity: 0;
+    gap: 8px;
+    opacity: 1;
     transition: opacity 0.3s ease;
     flex-shrink: 0;
     margin-left: auto;
 }
 
-.taken-list-item:hover .taken-list-actions {
-    opacity: 1;
-}
-
-.action-btn-small {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: none;
-    background: #f8fafc;
-    color: #64748b;
+.action-btn {
+    padding: 8px 16px;
+    height: 36px;
+    border-radius: 6px;
+    border: 1px solid transparent;
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    color: white;
+    white-space: nowrap;
+    font-weight: 500;
+    min-width: fit-content;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.action-btn-small:hover {
-    transform: scale(1.1);
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
-.action-btn-small.edit:hover {
-    background: #dbeafe;
-    color: #2563eb;
+.action-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.action-btn-small.delete:hover {
-    background: #fee2e2;
-    color: #dc2626;
+.action-btn.complete {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-color: #059669;
 }
 
-.action-btn-small.complete {
-    background: #f0fdf4;
-    color: #16a34a;
+.action-btn.complete:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
 }
 
-.action-btn-small.complete:hover {
-    background: #dcfce7;
-    color: #15803d;
+.action-btn.release {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-color: #d97706;
 }
 
-.action-btn-small.release {
-    background: #fef3c7;
-    color: #d97706;
+.action-btn.release:hover {
+    background: linear-gradient(135deg, #d97706, #b45309);
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
 }
 
-.action-btn-small.release:hover {
-    background: #fde68a;
-    color: #b45309;
+.action-btn.delete {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-color: #dc2626;
+}
+
+.action-btn.delete:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
 }
 
 /* No Data State */
@@ -1644,31 +1613,6 @@ function getPriorityIcon($priority) {
     gap: 12px;
 }
 
-/* Status Selector */
-.status-selector {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.status-option {
-    cursor: pointer;
-}
-
-.status-option input[type="radio"] {
-    display: none;
-}
-
-.status-selector .status-badge {
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.status-option input[type="radio"]:checked + .status-badge {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
 /* Responsive */
 @media (max-width: 1024px) {
     .stats-grid {
@@ -1693,11 +1637,6 @@ function getPriorityIcon($priority) {
     
     .taken-list-item {
         flex-wrap: wrap;
-    }
-    
-    .taken-status-container {
-        width: 100%;
-        margin: 8px 0 0 0;
     }
     
     .taken-list-actions {
@@ -1794,41 +1733,15 @@ function openAddTakenModal() {
     document.getElementById('submitBtn').innerHTML = '<i class="fas fa-hand-paper mr-2"></i>Ambil Todo';
     document.getElementById('submitBtn').name = 'add_taken';
     document.getElementById('takenForm').reset();
-    document.getElementById('takenId').value = '';
-    
-    // Tampilkan dropdown todo dan tanggal add, sembunyikan status dan tanggal edit
-    document.getElementById('todoSelectGroup').style.display = 'block';
-    document.getElementById('addDateGroup').style.display = 'block';
-    document.getElementById('statusGroup').style.display = 'none';
-    document.getElementById('dateGroup').style.display = 'none';
-    
-    // Set tanggal hari ini
     document.getElementById('takenAddDate').value = '<?= date('Y-m-d') ?>';
-    
     document.getElementById('takenModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
-function editTaken(id, status, date) {
-    document.getElementById('modalTitle').textContent = 'Edit Status';
-    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Update';
-    document.getElementById('submitBtn').name = 'edit_taken';
-    document.getElementById('takenId').value = id;
-    document.getElementById('takenDate').value = date;
-    
-    // Sembunyikan dropdown todo dan tanggal add, tampilkan status dan tanggal edit
-    document.getElementById('todoSelectGroup').style.display = 'none';
-    document.getElementById('addDateGroup').style.display = 'none';
-    document.getElementById('statusGroup').style.display = 'block';
-    document.getElementById('dateGroup').style.display = 'block';
-    
-    if (status === 'in_progress') {
-        document.getElementById('statusInProgress').checked = true;
-    } else if (status === 'done') {
-        document.getElementById('statusDone').checked = true;
-    }
-    
-    document.getElementById('takenModal').classList.add('show');
+function deleteTaken(id, title) {
+    document.getElementById('deleteMessage').textContent = `Hapus taken "${title}"?`;
+    document.getElementById('deleteTakenId').value = id;
+    document.getElementById('deleteModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
@@ -1848,6 +1761,11 @@ function releaseTaken(id, title) {
 
 function closeTakenModal() {
     document.getElementById('takenModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('show');
     document.body.style.overflow = '';
 }
 
@@ -1933,6 +1851,7 @@ function jumpToPage() {
 document.addEventListener('click', function(e) {
     if(e.target.classList.contains('modal')) {
         closeTakenModal();
+        closeDeleteModal();
         closeCompleteModal();
         closeReleaseModal();
     }
@@ -1941,6 +1860,7 @@ document.addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeTakenModal();
+        closeDeleteModal();
         closeCompleteModal();
         closeReleaseModal();
     }
