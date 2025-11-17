@@ -3,99 +3,10 @@
 $message = '';
 $error = '';
 
-// CREATE - Add new user
-if (isset($_POST['add_user'])) {
-    $name = trim($_POST['name']);
-    $email = trim($_POST['email']);
-    $phone_input = trim($_POST['phone']);
-    $role = trim($_POST['role']);
-    $password = trim($_POST['password']);
-    $gender = trim($_POST['gender']);
-    
-    // Clean phone - keep +, -, and numbers, only remove spaces
-    $phone = str_replace(' ', '', $phone_input);
-    
-    if (!empty($name) && !empty($email) && !empty($role) && !empty($password) && !empty($gender)) {
-        if (strpos($name, ' ') !== false) {
-            $error = "Username tidak boleh mengandung spasi!";
-        } elseif (strpos($email, ' ') !== false) {
-            $error = "Email tidak boleh mengandung spasi!";
-        } elseif (strpos($password, ' ') !== false) {
-            $error = "Password tidak boleh mengandung spasi!";
-        } else {
-            $check_email = $koneksi->prepare("SELECT id FROM users WHERE email = ?");
-            $check_email->bind_param("s", $email);
-            $check_email->execute();
-            $result = $check_email->get_result();
-            
-            if ($result->num_rows > 0) {
-                $error = "Email sudah terdaftar!";
-            } else {
-                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                
-                $stmt = $koneksi->prepare("INSERT INTO users (name, email, phone, role, password, gender) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("ssssss", $name, $email, $phone, $role, $hashed_password, $gender);
-                
-                if ($stmt->execute()) {
-                    $message = "Pengguna '$name' berhasil ditambahkan!";
-                } else {
-                    $error = "Gagal menambahkan pengguna: " . $stmt->error;
-                }
-            }
-        }
-    } else {
-        $error = "Nama, email, role, password, dan gender harus diisi!";
-    }
-}
-
-// UPDATE - Edit user
-if (isset($_POST['edit_user'])) {
-    $id = $_POST['user_id'];
-    $name = trim($_POST['name']);
-    $email = trim($_POST['email']);
-    $phone_input = trim($_POST['phone']);
-    $role = trim($_POST['role']);
-    $password = trim($_POST['password']);
-    $gender = trim($_POST['gender']);
-    
-    // Clean phone - keep +, -, and numbers, only remove spaces
-    $phone = str_replace(' ', '', $phone_input);
-    
-    if (!empty($name) && !empty($email) && !empty($role) && !empty($gender)) {
-        if (strpos($name, ' ') !== false) {
-            $error = "Username tidak boleh mengandung spasi!";
-        } elseif (strpos($email, ' ') !== false) {
-            $error = "Email tidak boleh mengandung spasi!";
-        } elseif (!empty($password) && strpos($password, ' ') !== false) {
-            $error = "Password tidak boleh mengandung spasi!";
-        } else {
-            $check_email = $koneksi->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
-            $check_email->bind_param("si", $email, $id);
-            $check_email->execute();
-            $result = $check_email->get_result();
-            
-            if ($result->num_rows > 0) {
-                $error = "Email sudah digunakan pengguna lain!";
-            } else {
-                if (!empty($password)) {
-                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                    $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, phone = ?, role = ?, password = ?, gender = ? WHERE id = ?");
-                    $stmt->bind_param("ssssssi", $name, $email, $phone, $role, $hashed_password, $gender, $id);
-                } else {
-                    $stmt = $koneksi->prepare("UPDATE users SET name = ?, email = ?, phone = ?, role = ?, gender = ? WHERE id = ?");
-                    $stmt->bind_param("sssssi", $name, $email, $phone, $role, $gender, $id);
-                }
-                
-                if ($stmt->execute()) {
-                    $message = "Pengguna berhasil diperbarui!";
-                } else {
-                    $error = "Gagal memperbarui pengguna: " . $stmt->error;
-                }
-            }
-        }
-    } else {
-        $error = "Nama, email, role, dan gender harus diisi!";
-    }
+// Check for success message from redirect
+if (isset($_SESSION['success_message'])) {
+    $message = $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
 }
 
 // DELETE - Remove user
@@ -140,8 +51,8 @@ if (!empty($search)) {
 
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
-// PAGINATION SETUP - 5 ITEMS PER PAGE
-$items_per_page = 5;
+// PAGINATION SETUP - 10 ITEMS PER PAGE
+$items_per_page = 10;
 $current_page = isset($_GET['pg']) ? max(1, intval($_GET['pg'])) : 1;
 $offset = ($current_page - 1) * $items_per_page;
 
@@ -178,31 +89,14 @@ if (!empty($params)) {
     $users_result = $koneksi->query($users_query);
 }
 
-// Get user statistics (for stat cards)
-$admin_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'admin'")->fetch_assoc()['count'];
-$client_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'client'")->fetch_assoc()['count'];
-$programmer_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'programmer'")->fetch_assoc()['count'];
-$support_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'support'")->fetch_assoc()['count'];
-
 // Helper functions
 function getRoleColor($role) {
     $colors = [
         'admin' => '#dc2626',
-        'client' => '#7c3aed',
-        'programmer' => '#0066ff',
-        'support' => '#10b981'
+        'programmer' => '#2196f3',
+        'support' => '#27ae60'
     ];
     return $colors[$role] ?? '#6b7280';
-}
-
-function getRoleIcon($role) {
-    $icons = [
-        'admin' => 'fas fa-crown',
-        'client' => 'fas fa-briefcase',
-        'programmer' => 'fas fa-code',
-        'support' => 'fas fa-headset'
-    ];
-    return $icons[$role] ?? 'fas fa-user';
 }
 
 function getProfilePhoto($user) {
@@ -228,7 +122,6 @@ function getGenderText($gender) {
 function getRoleDisplayName($role) {
     $names = [
         'admin' => 'Administrator',
-        'client' => 'Client',
         'programmer' => 'Programmer',
         'support' => 'Support'
     ];
@@ -236,530 +129,107 @@ function getRoleDisplayName($role) {
 }
 ?>
 
-<!-- Alert Messages -->
-<?php if ($message): ?>
-<div class="alert alert-success">
-    <i class="fas fa-check-circle"></i> 
-    <?= htmlspecialchars($message) ?>
-</div>
-<?php endif; ?>
-
-<?php if ($error): ?>
-<div class="alert alert-error">
-    <i class="fas fa-exclamation-triangle"></i> 
-    <?= htmlspecialchars($error) ?>
-</div>
-<?php endif; ?>
-
-<!-- Page Header -->
-<div class="page-header">
-    <div class="header-content">
-        <h1 class="page-title">Manajemen Pengguna</h1>
-        <p class="page-subtitle">Kelola data pengguna dan hak akses sistem</p>
-    </div>
-</div>
-
-<!-- Statistics Cards -->
-<div class="stats-grid">
-    <div class="stat-card bg-gradient-red <?= $role_filter == 'admin' ? 'active' : '' ?>" onclick="filterByRole('admin')">
-        <div class="stat-icon">
-            <i class="fas fa-user-shield"></i>
-        </div>
-        <div class="stat-content">
-            <h3 class="stat-number"><?= $admin_count ?></h3>
-            <p class="stat-label">Administrator</p>
-        </div>
-    </div>
-
-    <div class="stat-card bg-gradient-purple <?= $role_filter == 'client' ? 'active' : '' ?>" onclick="filterByRole('client')">
-        <div class="stat-icon">
-            <i class="fas fa-briefcase"></i>
-        </div>
-        <div class="stat-content">
-            <h3 class="stat-number"><?= $client_count ?></h3>
-            <p class="stat-label">Client</p>
-        </div>
-    </div>
-
-    <div class="stat-card bg-gradient-blue <?= $role_filter == 'programmer' ? 'active' : '' ?>" onclick="filterByRole('programmer')">
-        <div class="stat-icon">
-            <i class="fas fa-code"></i>
-        </div>
-        <div class="stat-content">
-            <h3 class="stat-number"><?= $programmer_count ?></h3>
-            <p class="stat-label">Programmer</p>
-        </div>
-    </div>
-
-    <div class="stat-card bg-gradient-orange <?= $role_filter == 'support' ? 'active' : '' ?>" onclick="filterByRole('support')">
-        <div class="stat-icon">
-            <i class="fas fa-headset"></i>
-        </div>
-        <div class="stat-content">
-            <h3 class="stat-number"><?= $support_count ?></h3>
-            <p class="stat-label">Support</p>
-        </div>
-    </div>
-</div>
-
-<!-- Users Container -->
-<div class="users-container">
-    <div class="section-header">
-        <div class="section-title-wrapper">
-            <h2 class="section-title">Daftar Pengguna</h2>
-            <span class="section-count"><?= $total_users ?> pengguna</span>
-        </div>
-        
-        <!-- Filters -->
-        <div class="filters-container">
-            <div class="search-box">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="searchInput" placeholder="Cari nama atau email..." 
-                       value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
-            </div>
-            
-            <div class="filter-dropdown">
-                <select id="roleFilter" onchange="applyFilters()">
-                    <option value="">Semua Role</option>
-                    <option value="admin" <?= $role_filter == 'admin' ? 'selected' : '' ?>>Administrator</option>
-                    <option value="client" <?= $role_filter == 'client' ? 'selected' : '' ?>>Client</option>
-                    <option value="programmer" <?= $role_filter == 'programmer' ? 'selected' : '' ?>>Programmer</option>
-                    <option value="support" <?= $role_filter == 'support' ? 'selected' : '' ?>>Support</option>
-                </select>
-            </div>
-            
-            <?php if ($role_filter || $search): ?>
-            <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
-                <i class="fas fa-times"></i>
-            </button>
-            <?php endif; ?>
-        </div>
-    </div>
-    
-    <!-- Add New User Button -->
-    <div class="user-list-item add-new-item" onclick="openAddUserModal()">
-        <div class="add-new-content">
-            <div class="add-new-icon">
-                <i class="fas fa-user-plus"></i>
-            </div>
-            <div class="add-new-text">
-                <h3>Tambah Pengguna Baru</h3>
-                <p>Klik untuk menambahkan pengguna baru</p>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Users List -->
-    <div class="users-list">
-        <?php if ($users_result->num_rows > 0): ?>
-            <?php while($user = $users_result->fetch_assoc()): ?>
-            <div class="user-list-item" data-user-id="<?= $user['id'] ?>">
-                <div class="user-avatar-container">
-                    <img src="<?= getProfilePhoto($user) ?>" 
-                         alt="<?= htmlspecialchars($user['name']) ?>"
-                         class="user-avatar-list"
-                         onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($user['name']) ?>&background=<?= substr(getRoleColor($user['role']), 1) ?>&color=fff&size=80'">
-                    <div class="user-role-badge-small role-<?= $user['role'] ?>">
-                        <i class="<?= getRoleIcon($user['role']) ?>"></i>
-                    </div>
-                </div>
-                
-                <div class="user-list-content">
-                    <div class="user-list-main">
-                        <div class="user-name-section">
-                            <h3 class="user-list-name"><?= htmlspecialchars($user['name']) ?></h3>
-                            <span class="user-role-text role-badge-<?= $user['role'] ?>"><?= getRoleDisplayName($user['role']) ?></span>
-                        </div>
-                        <div class="user-list-details">
-                            <span class="detail-badge email">
-                                <i class="fas fa-envelope"></i>
-                                <?= htmlspecialchars($user['email']) ?>
-                            </span>
-                            <?php if (!empty($user['phone'])): ?>
-                            <span class="detail-badge phone">
-                                <i class="fas fa-phone"></i>
-                                <?= htmlspecialchars($user['phone']) ?>
-                            </span>
-                            <?php endif; ?>
-                            <span class="detail-badge gender">
-                                <i class="<?= getGenderIcon($user['gender'] ?? 'male') ?>"></i>
-                                <?= getGenderText($user['gender'] ?? 'male') ?>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="user-list-actions">
-                    <button class="action-btn-small edit" 
-                            onclick="editUser(<?= $user['id'] ?>,'<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>','<?= htmlspecialchars($user['email'], ENT_QUOTES) ?>','<?= htmlspecialchars($user['phone'] ?? '', ENT_QUOTES) ?>','<?= $user['role'] ?>','<?= $user['gender'] ?? 'male' ?>')" 
-                            title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <?php if($_SESSION['user_role'] == 'admin' && $user['id'] != $_SESSION['user_id']): ?>
-                    <button class="action-btn-small delete" 
-                            onclick="deleteUser(<?= $user['id'] ?>,'<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>')" 
-                            title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <div class="no-data">
-                <div class="no-data-icon">
-                    <i class="fas fa-user-slash"></i>
-                </div>
-                <h3>Tidak ada pengguna ditemukan</h3>
-                <p>Tidak ada pengguna yang sesuai dengan filter yang diterapkan.</p>
-            </div>
-        <?php endif; ?>
-    </div>
-
-    <!-- Pagination -->
-    <?php if ($total_users > 0): ?>
-    <div class="pagination-container">
-        <div class="pagination-info">
-            <span class="pagination-current">Halaman <?= $current_page ?> dari <?= $total_pages ?></span>
-            <span class="pagination-total">Menampilkan <?= min($items_per_page, $total_users - $offset) ?> dari <?= min($total_items, $total_users) ?> pengguna</span>
-        </div>
-        
-        <div class="pagination-controls">
-            <!-- Previous Page -->
-            <?php if ($current_page > 1): ?>
-            <a href="?page=users&role=<?= $role_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
-                <i class="fas fa-chevron-left"></i>
-                <span>Prev</span>
-            </a>
-            <?php else: ?>
-            <span class="pagination-btn pagination-btn-prev pagination-btn-disabled">
-                <i class="fas fa-chevron-left"></i>
-                <span>Prev</span>
-            </span>
-            <?php endif; ?>
-            
-            <!-- Page Numbers 1-10 -->
-            <div class="pagination-numbers">
-                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                    <?php if ($i == $current_page): ?>
-                        <span class="pagination-number pagination-number-active"><?= $i ?></span>
-                    <?php else: ?>
-                        <a href="?page=users&role=<?= $role_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
-                    <?php endif; ?>
-                <?php endfor; ?>
-            </div>
-            
-            <!-- Next Page -->
-            <?php if ($current_page < $total_pages): ?>
-            <a href="?page=users&role=<?= $role_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
-                <span>Next</span>
-                <i class="fas fa-chevron-right"></i>
-            </a>
-            <?php else: ?>
-            <span class="pagination-btn pagination-btn-next pagination-btn-disabled">
-                <span>Next</span>
-                <i class="fas fa-chevron-right"></i>
-            </span>
-            <?php endif; ?>
-        </div>
-        
-        <!-- Quick Jump -->
-        <div class="pagination-jump">
-            <span>Ke halaman:</span>
-            <select id="pageJumpSelect" class="pagination-jump-select" onchange="jumpToPage()">
-                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                <option value="<?= $i ?>" <?= $i == $current_page ? 'selected' : '' ?>>
-                    Halaman <?= $i ?>
-                </option>
-                <?php endfor; ?>
-            </select>
-        </div>
-    </div>
-    <?php endif; ?>
-</div>
-
-<!-- Modal Tambah/Edit User -->
-<div id="userModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="modalTitle">Tambah Pengguna Baru</h3>
-            <button class="modal-close" onclick="closeUserModal()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <form id="userForm" method="POST">
-                <input type="hidden" id="userId" name="user_id">
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="userName">Username *</label>
-                        <input type="text" id="userName" name="name" required placeholder="Masukkan username (tanpa spasi)" 
-                               oninput="validateNoSpaces(this)">
-                        <small class="form-help">Username tidak boleh mengandung spasi</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="userEmail">Email *</label>
-                        <input type="email" id="userEmail" name="email" required placeholder="user@example.com" 
-                               oninput="validateNoSpaces(this)">
-                        <small class="form-help">Email tidak boleh mengandung spasi</small>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="userPhone">Nomor Telepon</label>
-                        <input type="tel" id="userPhone" name="phone" placeholder="Masukkan nomor telepon" maxlength="20">
-                    </div>
-                    <div class="form-group">
-                        <label for="userGender">Jenis Kelamin *</label>
-                        <select id="userGender" name="gender" required>
-                            <option value="">Pilih Jenis Kelamin</option>
-                            <option value="male">Laki-laki</option>
-                            <option value="female">Perempuan</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="userRole">Role *</label>
-                        <select id="userRole" name="role" required>
-                            <option value="">Pilih Role</option>
-                            <option value="admin">Administrator</option>
-                            <option value="client">Client</option>
-                            <option value="programmer">Programmer</option>
-                            <option value="support">Support</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="userPassword">Password <span id="passwordRequiredText">*</span></label>
-                        <input type="password" id="userPassword" name="password" placeholder="Masukkan password (tanpa spasi)" 
-                               oninput="validateNoSpaces(this)">
-                        <small id="passwordHelp" class="form-help" style="display:none;">Kosongkan jika tidak ingin mengubah password</small>
-                        <small class="form-help">Password tidak boleh mengandung spasi</small>
-                    </div>
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeUserModal()">
-                Batal
-            </button>
-            <button type="submit" id="submitBtn" form="userForm" name="add_user" class="btn btn-primary">
-                <i class="fas fa-save mr-2"></i>Simpan
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Hapus -->
-<div id="deleteModal" class="modal">
-    <div class="modal-content delete-modal">
-        <div class="modal-header">
-            <div class="delete-icon">
-                <i class="fas fa-trash-alt"></i>
-            </div>
-            <h3>Konfirmasi Hapus</h3>
-            <p id="deleteMessage">Apakah Anda yakin ingin menghapus pengguna ini?</p>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
-                Batal
-            </button>
-            <form id="deleteForm" method="POST" style="display:inline;">
-                <input type="hidden" id="deleteUserId" name="user_id">
-                <button type="submit" name="delete_user" class="btn btn-danger">
-                    <i class="fas fa-trash mr-2"></i>Hapus
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-
 <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f6fa;
+    color: #2c3e50;
+}
+
+.container {
+    max-width: 100%;
+    margin: 0;
+    padding: 20px 30px;
+    background: #f5f6fa;
+}
+
 /* Alert Messages */
 .alert {
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 16px;
+    padding: 11px 17px;
+    border-radius: 6px;
+    margin-bottom: 14px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 10px;
-    animation: slideDown 0.3s ease;
+    gap: 8px;
+    font-size: 0.88rem;
 }
 
 .alert-success {
-    background: #dcfce7;
-    color: #166534;
-    border: 1px solid #bbf7d0;
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
 }
 
 .alert-error {
-    background: #fee2e2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
-}
-
-@keyframes slideDown {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
 }
 
 /* Page Header */
 .page-header {
-    background: white;
-    border-radius: 16px;
-    padding: 20px 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    margin-bottom: 16px;
+    padding: 8px 30px;
+    background: #f5f6fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .page-title {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin-bottom: 4px;
+    font-size: 2.1rem;
+    font-weight: 600;
+    color: #0d8af5;
+    margin-bottom: 8px;
 }
 
 .page-subtitle {
     color: #6b7280;
-    font-size: 0.95rem;
-    margin: 0;
+    font-size: 0.9rem;
 }
 
-/* Buttons */
-.btn {
-    padding: 12px 24px;
-    border-radius: 8px;
-    border: none;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: inline-flex;
-    align-items: center;
-}
-
-.btn-primary {
-    background: linear-gradient(90deg, #0066ff, #33ccff);
-    color: white;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(90deg, #0044cc, #00aaff);
-    transform: translateY(-2px);
-}
-
-.btn-secondary {
-    background: #f8fafc;
-    color: #64748b;
-    border: 1px solid #e2e8f0;
-}
-
-.btn-secondary:hover {
-    background: #e2e8f0;
-}
-
-.btn-danger {
-    background: linear-gradient(90deg, #ef4444, #dc2626);
-    color: white;
-}
-
-.btn-danger:hover {
-    background: linear-gradient(90deg, #dc2626, #b91c1c);
-    transform: translateY(-2px);
-}
-
-.mr-2 {
-    margin-right: 8px;
-}
-
-/* Statistics Grid */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 20px;
-}
-
-.stat-card {
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+.btn-add-user {
     display: flex;
     align-items: center;
-    gap: 16px;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    cursor: pointer;
-    position: relative;
-    border: 2px solid transparent;
-}
-
-.stat-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 6px 25px rgba(0,0,0,0.15);
-}
-
-.stat-card.active {
-    border-color: rgba(255,255,255,0.8);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-}
-
-.stat-card.active::after {
-    content: '✓';
-    position: absolute;
-    top: 12px;
-    right: 12px;
+    gap: 8px;
+    padding: 10px 20px;
+    background: #0d8af5;
     color: white;
-    font-size: 1.2rem;
-    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
 }
 
-.bg-gradient-red { background: linear-gradient(135deg, #dc2626, #ef4444); color: white; }
-.bg-gradient-purple { background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; }
-.bg-gradient-blue { background: linear-gradient(135deg, #0066ff, #33ccff); color: white; }
-.bg-gradient-orange { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
-
-.stat-icon {
-    font-size: 2rem;
-    opacity: 0.8;
+.btn-add-user:hover {
+    background: #0b7ad6;
 }
 
-.stat-content .stat-number {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 2px;
-}
-
-.stat-content .stat-label {
-    font-size: 0.85rem;
-    opacity: 0.9;
-}
-
-/* Users Container */
-.users-container {
+/* Content Box */
+.content-box {
     background: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    overflow: hidden;
+    border-radius: 0;
+    padding: 26px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
+/* Section Header */
 .section-header {
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid #f3f4f6;
+    margin-bottom: 18px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 20px;
     flex-wrap: wrap;
-    gap: 16px;
 }
 
 .section-title-wrapper {
@@ -769,31 +239,30 @@ function getRoleDisplayName($role) {
 }
 
 .section-title {
-    font-size: 1.3rem;
+    font-size: 1.125rem;
     font-weight: 600;
-    color: #1f2937;
-    margin: 0;
+    color: #111827;
 }
 
 .section-count {
-    color: #6b7280;
-    font-size: 0.85rem;
-    background: #f3f4f6;
+    background: #e3f2fd;
+    color: #0d8af5;
     padding: 4px 12px;
-    border-radius: 20px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
 }
 
-/* Filters Container */
+/* Filters */
 .filters-container {
     display: flex;
-    align-items: center;
     gap: 12px;
     flex-wrap: wrap;
 }
 
 .search-box {
     position: relative;
-    min-width: 200px;
+    min-width: 270px;
 }
 
 .search-icon {
@@ -802,466 +271,322 @@ function getRoleDisplayName($role) {
     top: 50%;
     transform: translateY(-50%);
     color: #9ca3af;
-    font-size: 0.9rem;
 }
 
 .search-box input {
     width: 100%;
-    padding: 10px 12px 10px 36px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
+    padding: 11px 16px 11px 36px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.96rem;
 }
 
 .search-box input:focus {
     outline: none;
-    border-color: #0066ff;
-    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+    border-color: #0d8af5;
 }
 
 .filter-dropdown select {
-    padding: 10px 16px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.9rem;
+    padding: 11px 16px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.96rem;
+    min-width: 170px;
     background: white;
     cursor: pointer;
-    min-width: 140px;
-    transition: all 0.3s ease;
 }
 
 .filter-dropdown select:focus {
     outline: none;
-    border-color: #0066ff;
-    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+    border-color: #0d8af5;
 }
 
 .btn-clear-filter {
-    width: 36px;
-    height: 36px;
-    border: 1px solid #dc2626;
-    background: #fee2e2;
-    color: #dc2626;
-    border-radius: 8px;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    font-size: 0.9rem;
 }
 
 .btn-clear-filter:hover {
-    background: #fecaca;
-    transform: scale(1.1);
+    background: #c0392b;
 }
 
-/* Users List */
-.users-list {
-    max-height: 500px;
-    overflow-y: auto;
+/* Table Container */
+.table-container {
+    background: white;
+    border-radius: 0;
+    overflow: hidden;
+    border: 1px solid #ddd;
+    margin-bottom: 0;
 }
 
-.users-list::-webkit-scrollbar {
-    width: 6px;
+/* Table */
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: none;
+    table-layout: fixed;
 }
 
-.users-list::-webkit-scrollbar-track {
-    background: #f1f5f9;
+.users-table thead {
+    background: linear-gradient(135deg, #0d8af5 0%, #0b7ad6 100%);
+    color: white;
 }
 
-.users-list::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
+.users-table th {
+    padding: 16px 20px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 1.02rem;
+    text-transform: capitalize;
+    border-right: 2px solid rgba(255, 255, 255, 0.3);
+    border-bottom: 2px solid #0b7ad6;
 }
 
-.users-list::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+.users-table th:last-child {
+    border-right: none;
 }
 
-.user-list-item {
-    display: flex;
-    align-items: center;
-    padding: 14px 24px;
-    border-bottom: 1px solid #f3f4f6;
+.users-table th:first-child {
+    width: 70px;
+    text-align: center;
+}
+
+.users-table th:nth-child(2) { /* Pengguna */
+    width: 250px;
+}
+
+.users-table th:nth-child(3) { /* Email */
+    width: 220px;
+}
+
+.users-table th:nth-child(4) { /* Telepon */
+    width: 150px;
+}
+
+.users-table th:nth-child(5) { /* Role */
+    width: 140px;
+}
+
+.users-table th:nth-child(6) { /* Gender */
+    width: 130px;
+}
+
+.users-table th:last-child { /* Aksi */
+    width: 100px;
+    text-align: center;
+}
+
+.users-table tbody tr {
+    border-bottom: 2px solid #e0e0e0;
     transition: all 0.3s ease;
     cursor: pointer;
-    gap: 16px;
-    min-height: 80px;
 }
 
-.user-list-item:hover {
-    background: #f8fafc;
+.users-table tbody tr:hover {
+    background: #e8eef5 !important;
+    transform: scale(1.005);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
-.user-list-item:last-child {
-    border-bottom: none;
+.users-table td {
+    padding: 15px 20px;
+    font-size: 0.96rem;
+    color: #555;
+    border-right: 2px solid #e0e0e0;
+    background: white;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.add-new-item {
-    border: 2px dashed #d1d5db !important;
-    background: #f9fafb !important;
-    margin: 16px 24px;
-    border-radius: 12px;
-    justify-content: center;
+.users-table td:last-child {
+    border-right: none;
 }
 
-.add-new-item:hover {
-    border-color: #0066ff !important;
-    background: #eff6ff !important;
+.users-table td:first-child {
+    text-align: center;
+    font-weight: 600;
+    color: #777;
+    background: white;
 }
 
-.add-new-content {
+/* Truncate text in table cells */
+.truncate-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    max-width: 100%;
+}
+
+/* User Info */
+.user-info {
     display: flex;
     align-items: center;
-    gap: 16px;
-    color: #6b7280;
+    gap: 12px;
 }
 
-.add-new-icon {
+.user-avatar {
     width: 40px;
     height: 40px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #0066ff, #33ccff);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-}
-
-.add-new-text h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    margin: 0 0 4px 0;
-    color: #374151;
-}
-
-.add-new-text p {
-    font-size: 0.8rem;
-    margin: 0;
-    color: #9ca3af;
-}
-
-/* User Avatar Container */
-.user-avatar-container {
-    position: relative;
-    margin-right: 16px;
-    flex-shrink: 0;
-}
-
-.user-avatar-list {
-    width: 50px;
-    height: 50px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #f8fafc;
-}
-
-.user-role-badge-small {
-    position: absolute;
-    bottom: -2px;
-    right: -2px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.6rem;
-    color: white;
-    border: 2px solid white;
-}
-
-.role-admin { background: linear-gradient(90deg, #dc2626, #ef4444); }
-.role-client { background: linear-gradient(90deg, #7c3aed, #a855f7); }
-.role-programmer { background: linear-gradient(90deg, #0066ff, #33ccff); }
-.role-support { background: linear-gradient(90deg, #10b981, #34d399); }
-
-/* User List Content */
-.user-list-content {
-    flex: 1;
-    min-width: 0;
-}
-
-.user-list-main {
-    flex: 1;
-    min-width: 0;
-}
-
-.user-name-section {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-}
-
-.user-list-name {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0;
-}
-
-.user-role-text {
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: white;
-    padding: 3px 8px;
-    border-radius: 10px;
-    text-transform: uppercase;
-}
-
-.role-badge-admin { background: #dc2626; }
-.role-badge-client { background: #7c3aed; }
-.role-badge-programmer { background: #0066ff; }
-.role-badge-support { background: #10b981; }
-
-.user-list-details {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.detail-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.75rem;
-    color: #6b7280;
-}
-
-.detail-badge i {
-    width: 14px;
-    font-size: 0.7rem;
-}
-
-.user-list-actions {
-    display: flex;
-    gap: 6px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
     flex-shrink: 0;
-    margin-left: auto;
 }
 
-.user-list-item:hover .user-list-actions {
-    opacity: 1;
+.user-name {
+    font-weight: 500;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.action-btn-small {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: none;
-    background: #f8fafc;
-    color: #64748b;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* Contact Info */
+.contact-email {
+    color: #555;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.contact-phone {
+    color: #6b7280;
     font-size: 0.85rem;
 }
 
-.action-btn-small:hover {
-    transform: scale(1.1);
+/* Role Badge */
+.role-badge {
+    display: inline-block;
+    padding: 5px 13px;
+    border-radius: 20px;
+    font-size: 0.86rem;
+    font-weight: 500;
+    color: white;
 }
 
-.action-btn-small.edit:hover {
-    background: #dbeafe;
-    color: #2563eb;
-}
+.role-admin { background: #dc2626; }
+.role-programmer { background: #2196f3; }
+.role-support { background: #27ae60; }
 
-.action-btn-small.delete:hover {
-    background: #fee2e2;
-    color: #dc2626;
-}
-
-/* No Data State */
-.no-data {
-    text-align: center;
-    padding: 60px 24px;
-    color: #6b7280;
-}
-
-.no-data-icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: #f3f4f6;
-    margin: 0 auto 20px;
+/* Gender */
+.gender-text {
     display: flex;
     align-items: center;
+    gap: 6px;
+    color: #555;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 7px;
     justify-content: center;
-    font-size: 2rem;
-    color: #9ca3af;
+}
+
+.btn-action {
+    width: 37px;
+    height: 37px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-size: 0.96rem;
+    text-decoration: none;
+}
+
+.btn-edit {
+    background: #e3f2fd;
+    color: #2196f3;
+}
+
+.btn-edit:hover {
+    background: #2196f3;
+    color: white;
+}
+
+.btn-delete {
+    background: #ffebee;
+    color: #e74c3c;
+}
+
+.btn-delete:hover {
+    background: #e74c3c;
+    color: white;
+}
+
+/* No Data */
+.no-data {
+    text-align: center;
+    padding: 50px 20px;
+    color: #999;
+    border: none !important;
+}
+
+.no-data i {
+    font-size: 2.8rem;
+    margin-bottom: 12px;
+    color: #ddd;
 }
 
 .no-data h3 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 8px;
+    font-size: 1.15rem;
+    margin-bottom: 6px;
 }
 
 .no-data p {
-    font-size: 0.9rem;
-    margin: 0;
+    font-size: 0.92rem;
 }
 
-/* Pagination Styles */
-.pagination-container {
-    padding: 20px 24px;
-    border-top: 2px solid #f1f5f9;
-    background: linear-gradient(180deg, #ffffff, #f8fafc);
+/* Pagination */
+.pagination {
     display: flex;
-    flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    padding: 22px 0;
+    gap: 7px;
+    background: transparent;
 }
 
-.pagination-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.85rem;
-}
-
-.pagination-current {
-    font-weight: 700;
-    color: #1f2937;
-    font-size: 0.9rem;
-}
-
-.pagination-total {
-    color: #6b7280;
-    font-size: 0.8rem;
-}
-
-.pagination-controls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.pagination-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
+.page-btn {
+    min-width: 39px;
+    height: 39px;
+    border: 2px solid #ddd;
     background: white;
-    color: #6b7280;
+    color: #555;
+    border-radius: 50%;
     cursor: pointer;
-    transition: all 0.2s ease;
-    text-decoration: none;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.pagination-btn:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
-    color: #1f2937;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.pagination-btn-prev,
-.pagination-btn-next {
-    background: linear-gradient(135deg, #f8fafc, #ffffff);
-}
-
-.pagination-btn-disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
-.pagination-numbers {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.pagination-number {
-    min-width: 38px;
-    height: 38px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0 8px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: white;
-    color: #6b7280;
-    cursor: pointer;
     transition: all 0.2s ease;
     text-decoration: none;
-    font-size: 0.85rem;
+    font-size: 0.96rem;
     font-weight: 500;
 }
 
-.pagination-number:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
-    color: #1f2937;
-    transform: translateY(-1px);
+.page-btn:hover {
+    border-color: #0d8af5;
+    color: #0d8af5;
+    background: #e3f2fd;
 }
 
-.pagination-number-active {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    border-color: #2563eb;
+.page-btn.active {
+    background: #0d8af5;
     color: white;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+    border-color: #0d8af5;
 }
 
-.pagination-number-active:hover {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-}
-
-.pagination-jump {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: #6b7280;
-}
-
-.pagination-jump-select {
-    height: 38px;
-    padding: 0 32px 0 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
-    background-size: 12px;
-    font-size: 0.85rem;
-    color: #1f2937;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-}
-
-.pagination-jump-select:hover {
-    border-color: #d1d5db;
-    background-color: #f9fafb;
-}
-
-.pagination-jump-select:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-/* Modal Styles */
+/* Modal */
 .modal {
     display: none;
     position: fixed;
@@ -1271,346 +596,345 @@ function getRoleDisplayName($role) {
     bottom: 0;
     background: rgba(0,0,0,0.5);
     z-index: 1000;
-    padding: 20px;
-    overflow-y: auto;
+    align-items: center;
+    justify-content: center;
 }
 
 .modal.show {
     display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .modal-content {
     background: white;
-    border-radius: 16px;
-    width: 100%;
-    max-width: 600px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    animation: slideUp 0.3s ease;
-}
-
-.delete-modal {
+    border-radius: 8px;
+    width: 90%;
     max-width: 400px;
-    text-align: center;
-}
-
-.delete-icon {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    border-radius: 50%;
-    margin: 0 auto 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.5rem;
 }
 
 .modal-header {
-    padding: 24px 24px 0;
+    padding: 18px 20px;
+    border-bottom: 1px solid #eee;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-}
-
-.modal-header h3 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0;
-}
-
-.delete-modal .modal-header {
-    flex-direction: column;
-    text-align: center;
     align-items: center;
 }
 
-.delete-modal .modal-header p {
-    margin: 8px 0 0 0;
-    color: #6b7280;
+.modal-header h3 {
+    font-size: 1.2rem;
+    color: #333;
 }
 
 .modal-close {
     background: none;
     border: none;
-    font-size: 1.2rem;
-    color: #9ca3af;
+    font-size: 1.4rem;
+    color: #999;
     cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: all 0.3s ease;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
 }
 
 .modal-close:hover {
-    background: #f3f4f6;
-    color: #374151;
+    background: #f5f5f5;
+    color: #666;
 }
 
 .modal-body {
-    padding: 24px;
+    padding: 20px;
+}
+
+.modal-body p {
+    color: #6b7280;
+    line-height: 1.5;
 }
 
 .modal-footer {
-    padding: 0 24px 24px;
+    padding: 14px 20px;
+    border-top: 1px solid #eee;
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
+    gap: 8px;
 }
 
-/* Form Styles */
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-}
-
-.form-group {
-    margin-bottom: 16px;
-}
-
-.form-group label {
-    display: block;
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
     font-weight: 500;
-    color: #374151;
-    margin-bottom: 6px;
-    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-.form-group input,
-.form-group select {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
+.btn-primary {
+    background: #0d8af5;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0b7ad6;
+}
+
+.btn-secondary {
+    padding: 9px 18px;
+    border: 1px solid #ddd;
     background: white;
-    box-sizing: border-box;
+    color: #666;
 }
 
-.form-group input:focus,
-.form-group select:focus {
-    outline: none;
-    border-color: #0066ff;
-    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+.btn-secondary:hover {
+    background: #f5f5f5;
 }
 
-.form-help {
-    display: block;
-    font-size: 0.75rem;
-    color: #6b7280;
-    margin-top: 4px;
+.btn-danger {
+    background: #e74c3c;
+    color: white;
 }
 
-.form-group input.error {
-    border-color: #dc2626 !important;
-    background-color: #fee2e2 !important;
+.btn-danger:hover {
+    background: #c0392b;
 }
 
 /* Responsive */
-@media (max-width: 1024px) {
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .pagination-container {
-        justify-content: center;
-    }
-    
-    .pagination-info {
-        width: 100%;
-        text-align: center;
-        align-items: center;
-    }
-}
-
 @media (max-width: 768px) {
     .page-header {
-        padding: 16px 20px;
+        flex-direction: column;
+        align-items: flex-start;
     }
-    
-    .stats-grid {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
-    
+
     .section-header {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .filters-container {
-        justify-content: stretch;
         width: 100%;
+        flex-direction: column;
     }
-    
+
     .search-box {
         min-width: auto;
-        flex: 1;
     }
-    
-    .filter-dropdown select {
-        min-width: auto;
-        flex: 1;
-    }
-    
-    .user-list-item {
-        flex-wrap: wrap;
-    }
-    
-    .user-list-actions {
-        opacity: 1;
-    }
-    
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-    
-    .users-list {
-        max-height: none;
-    }
-    
-    .pagination-container {
-        flex-direction: column;
-        gap: 12px;
-    }
-    
-    .pagination-controls {
-        flex-wrap: wrap;
-        justify-content: center;
-        width: 100%;
-    }
-    
-    .pagination-numbers {
-        order: 1;
-        flex-wrap: wrap;
-    }
-    
-    .pagination-btn span {
-        display: none;
-    }
-    
-    .pagination-btn {
-        padding: 8px 12px;
-    }
-    
-    .pagination-jump {
-        width: 100%;
-        justify-content: center;
-    }
-}
 
-@media (max-width: 480px) {
-    .user-list-item {
-        padding: 12px 16px;
+    .filter-dropdown select {
+        width: 100%;
     }
-    
-    .section-header {
-        padding: 16px 20px 12px;
+
+    .table-container {
+        overflow-x: auto;
     }
-    
-    .add-new-item {
-        margin: 12px 16px;
-    }
-    
-    .pagination-number {
-        min-width: 34px;
-        height: 34px;
-        font-size: 0.8rem;
-    }
-    
-    .pagination-btn {
-        height: 34px;
-    }
-    
-    .pagination-jump-select {
-        height: 34px;
-        font-size: 0.8rem;
+
+    .users-table {
+        min-width: 1000px;
     }
 }
 </style>
 
+<!-- Alerts -->
+<?php if ($message): ?>
+<div class="container">
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        <?= htmlspecialchars($message) ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($error): ?>
+<div class="container">
+    <div class="alert alert-error">
+        <i class="fas fa-exclamation-triangle"></i>
+        <?= htmlspecialchars($error) ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="header-content">
+        <h1 class="page-title">Manajemen Pengguna</h1>
+    </div>
+</div>
+
+<div class="container">
+    <div class="content-box">
+        <!-- Section Header -->
+        <div class="section-header">
+            <div class="section-title-wrapper">
+                <h2 class="section-title">Daftar Pengguna</h2>
+                <span class="section-count"><?= $total_users ?> pengguna</span>
+            </div>
+            
+            <!-- Filters -->
+            <div class="filters-container">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Cari nama atau email..." 
+                           value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
+                </div>
+                
+                <div class="filter-dropdown">
+                    <select id="roleFilter" onchange="applyFilters()">
+                        <option value="">Semua Role</option>
+                        <option value="admin" <?= $role_filter == 'admin' ? 'selected' : '' ?>>Administrator</option>
+                        <option value="programmer" <?= $role_filter == 'programmer' ? 'selected' : '' ?>>Programmer</option>
+                        <option value="support" <?= $role_filter == 'support' ? 'selected' : '' ?>>Support</option>
+                    </select>
+                </div>
+                
+                <?php if ($role_filter || $search): ?>
+                <button class="btn-clear-filter" onclick="clearFilters()">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+                <?php endif; ?>
+                
+                <a href="?page=tambah_users" class="btn-add-user">
+                    <i class="fas fa-plus"></i>
+                    <span>Tambah Pengguna</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Pengguna</th>
+                        <th>Email</th>
+                        <th>Telepon</th>
+                        <th>Role</th>
+                        <th>Gender</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($users_result && $users_result->num_rows > 0): ?>
+                        <?php 
+                        $no = $offset + 1;
+                        while($user = $users_result->fetch_assoc()): 
+                        ?>
+                        <tr>
+                            <td><?= $no++ ?></td>
+                            <td>
+                                <div class="user-info">
+                                    <img src="<?= getProfilePhoto($user) ?>" 
+                                         alt="<?= htmlspecialchars($user['name']) ?>"
+                                         class="user-avatar"
+                                         onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($user['name']) ?>&background=<?= substr(getRoleColor($user['role']), 1) ?>&color=fff&size=80'">
+                                    <strong class="user-name truncate-text" title="<?= htmlspecialchars($user['name']) ?>">
+                                        <?= htmlspecialchars($user['name']) ?>
+                                    </strong>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="contact-email truncate-text" title="<?= htmlspecialchars($user['email']) ?>">
+                                    <?= htmlspecialchars($user['email']) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <?php if (!empty($user['phone'])): ?>
+                                    <span class="contact-phone"><?= htmlspecialchars($user['phone']) ?></span>
+                                <?php else: ?>
+                                    <span class="contact-phone" style="color: #999; font-style: italic;">-</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="role-badge role-<?= $user['role'] ?>">
+                                    <?= getRoleDisplayName($user['role']) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="gender-text">
+                                    <i class="<?= getGenderIcon($user['gender'] ?? 'male') ?>"></i>
+                                    <?= getGenderText($user['gender'] ?? 'male') ?>
+                                </span>
+                            </td>
+                            <td onclick="event.stopPropagation()">
+                                <div class="action-buttons">
+                                    <a href="?page=tambah_users&action=edit&id=<?= $user['id'] ?>" 
+                                       class="btn-action btn-edit" 
+                                       title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <?php if($_SESSION['user_role'] == 'admin' && $user['id'] != $_SESSION['user_id']): ?>
+                                    <button class="btn-action btn-delete" 
+                                            onclick="deleteUser(<?= $user['id'] ?>,'<?= htmlspecialchars($user['name'], ENT_QUOTES) ?>')" 
+                                            title="Hapus">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="7" class="no-data">
+                                <i class="fas fa-inbox"></i>
+                                <h3>Belum ada data</h3>
+                                <p>Tidak ada pengguna yang sesuai dengan pencarian</p>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <?php if ($total_users > $items_per_page): ?>
+        <div class="pagination">
+            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                <a href="?page=users&role=<?= $role_filter ?>&search=<?= urlencode($search) ?>&pg=<?= $i ?>" 
+                   class="page-btn <?= $i == $current_page ? 'active' : '' ?>">
+                    <?= $i ?>
+                </a>
+            <?php endfor; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- Modal Hapus -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Konfirmasi Hapus</h3>
+            <button class="modal-close" onclick="closeDeleteModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 12px;">Apakah Anda yakin ingin menghapus pengguna:</p>
+            <p style="font-weight: 600; color: #e74c3c;" id="deleteUserName"></p>
+            <form id="deleteForm" method="POST" action="?page=users">
+                <input type="hidden" id="deleteUserId" name="user_id">
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
+                Batal
+            </button>
+            <button type="submit" form="deleteForm" name="delete_user" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Hapus
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
-function validateNoSpaces(input) {
-    if (input.value.includes(' ')) {
-        input.setCustomValidity('Field ini tidak boleh mengandung spasi');
-        input.classList.add('error');
-    } else {
-        input.setCustomValidity('');
-        input.classList.remove('error');
-    }
-}
-
-// Phone validation - only allow numbers, +, -, space, and parentheses
-function validatePhone(input) {
-    // Remove any characters that are not numbers, +, -, space, or parentheses
-    let value = input.value;
-    let cleanValue = value.replace(/[^0-9+\-\s()]/g, '');
-    
-    // Update value if invalid characters were removed
-    if (value !== cleanValue) {
-        input.value = cleanValue;
-    }
-}
-
-function openAddUserModal() {
-    document.getElementById('userModal').classList.add('show');
-    document.getElementById('modalTitle').textContent = 'Tambah Pengguna Baru';
-    document.getElementById('userForm').reset();
-    document.getElementById('userId').value = '';
-    document.getElementById('submitBtn').name = 'add_user';
-    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Simpan';
-    document.getElementById('passwordRequiredText').style.display = 'inline';
-    document.getElementById('passwordHelp').style.display = 'none';
-    document.getElementById('userPassword').required = true;
-    document.body.style.overflow = 'hidden';
-    
-    document.querySelectorAll('#userForm input').forEach(input => {
-        input.classList.remove('error');
-        input.setCustomValidity('');
-    });
-}
-
-function editUser(id, name, email, phone, role, gender) {
-    document.getElementById('userModal').classList.add('show');
-    document.getElementById('modalTitle').textContent = 'Edit Pengguna';
-    document.getElementById('userId').value = id;
-    document.getElementById('userName').value = name;
-    document.getElementById('userEmail').value = email;
-    document.getElementById('userPhone').value = phone;
-    document.getElementById('userRole').value = role;
-    document.getElementById('userGender').value = gender;
-    document.getElementById('submitBtn').name = 'edit_user';
-    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-save mr-2"></i>Perbarui';
-    document.getElementById('passwordRequiredText').style.display = 'none';
-    document.getElementById('passwordHelp').style.display = 'block';
-    document.getElementById('userPassword').required = false;
-    document.getElementById('userPassword').value = '';
-    document.body.style.overflow = 'hidden';
-    
-    document.querySelectorAll('#userForm input').forEach(input => {
-        input.classList.remove('error');
-        input.setCustomValidity('');
-    });
-}
-
-function closeUserModal() {
-    document.getElementById('userModal').classList.remove('show');
-    document.getElementById('userForm').reset();
-    document.body.style.overflow = '';
-    
-    document.querySelectorAll('#userForm input').forEach(input => {
-        input.classList.remove('error');
-        input.setCustomValidity('');
-    });
-}
-
 function deleteUser(id, name) {
     document.getElementById('deleteModal').classList.add('show');
-    document.getElementById('deleteMessage').textContent = `Apakah Anda yakin ingin menghapus pengguna "${name}"?`;
+    document.getElementById('deleteUserName').textContent = name;
     document.getElementById('deleteUserId').value = id;
     document.body.style.overflow = 'hidden';
 }
@@ -1620,144 +944,48 @@ function closeDeleteModal() {
     document.body.style.overflow = '';
 }
 
-function filterByRole(role) {
-    let url = new URL(window.location);
-    const currentRole = url.searchParams.get('role');
-    
-    if (currentRole === role) {
-        url.searchParams.delete('role');
+// Search functionality
+let searchTimeout;
+function handleSearch(event) {
+    if (event.key === 'Enter') {
+        applyFilters();
     } else {
-        url.searchParams.set('role', role);
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            applyFilters();
+        }, 500);
     }
-    
-    url.searchParams.delete('search');
-    url.searchParams.set('pg', '1');
-    window.location.href = url.toString();
 }
 
 function applyFilters() {
     const roleFilter = document.getElementById('roleFilter').value;
     const searchValue = document.getElementById('searchInput').value;
     
-    let url = new URL(window.location);
-    url.searchParams.delete('role');
-    url.searchParams.delete('search');
-    url.searchParams.set('pg', '1');
+    let url = '?page=users';
+    if (roleFilter) url += '&role=' + roleFilter;
+    if (searchValue) url += '&search=' + encodeURIComponent(searchValue);
+    url += '&pg=1';
     
-    if (roleFilter) url.searchParams.set('role', roleFilter);
-    if (searchValue) url.searchParams.set('search', searchValue);
-    
-    window.location.href = url.toString();
-}
-
-function handleSearch(event) {
-    if (event.key === 'Enter') {
-        applyFilters();
-    }
+    window.location.href = url;
 }
 
 function clearFilters() {
-    let url = new URL(window.location);
-    url.searchParams.delete('role');
-    url.searchParams.delete('search');
-    url.searchParams.set('pg', '1');
-    window.location.href = url.toString();
-}
-
-function jumpToPage() {
-    const select = document.getElementById('pageJumpSelect');
-    const page = parseInt(select.value);
-    const roleFilter = document.getElementById('roleFilter') ? document.getElementById('roleFilter').value : '';
-    const searchValue = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
-    
-    let url = new URL(window.location);
-    url.searchParams.set('pg', page);
-    
-    if (roleFilter) url.searchParams.set('role', roleFilter);
-    if (searchValue) url.searchParams.set('search', searchValue);
-    
-    window.location.href = url.toString();
+    window.location.href = '?page=users&pg=1';
 }
 
 // Close modal when clicking outside
-document.addEventListener('click', function(e) {
-    if(e.target.classList.contains('modal')) {
-        closeUserModal();
+window.onclick = function(event) {
+    const deleteModal = document.getElementById('deleteModal');
+    
+    if (event.target == deleteModal) {
         closeDeleteModal();
     }
-});
+}
 
 // Close modal with Escape key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-        closeUserModal();
         closeDeleteModal();
-    }
-});
-
-// Auto-hide alerts
-document.addEventListener('DOMContentLoaded', function() {
-    const alerts = document.querySelectorAll('.alert');
-    alerts.forEach(alert => {
-        setTimeout(() => {
-            alert.style.opacity = '0';
-            alert.style.transform = 'translateY(-20px)';
-            setTimeout(() => alert.remove(), 300);
-        }, 5000);
-    });
-    
-    // Add phone validation to phone input
-    const phoneInput = document.getElementById('userPhone');
-    if (phoneInput) {
-        phoneInput.addEventListener('input', function() {
-            validatePhone(this);
-        });
-        
-        // Prevent paste of invalid characters
-        phoneInput.addEventListener('paste', function(e) {
-            e.preventDefault();
-            const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-            const cleanedText = pastedText.replace(/[^0-9+\-\s()]/g, '');
-            
-            const start = this.selectionStart;
-            const end = this.selectionEnd;
-            const currentValue = this.value;
-            
-            this.value = currentValue.substring(0, start) + cleanedText + currentValue.substring(end);
-            
-            const newPosition = start + cleanedText.length;
-            this.setSelectionRange(newPosition, newPosition);
-        });
-    }
-});
-
-// Auto-focus first input when modal opens
-const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-        if (mutation.target.classList.contains('modal') && mutation.target.classList.contains('show')) {
-            setTimeout(() => {
-                const firstInput = mutation.target.querySelector('input[type="text"]');
-                if (firstInput && firstInput.offsetParent !== null) {
-                    firstInput.focus();
-                }
-            }, 300);
-        }
-    });
-});
-
-document.querySelectorAll('.modal').forEach(modal => {
-    observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
-});
-
-// Form submit - clean phone before submit
-document.getElementById('userForm').addEventListener('submit', function(e) {
-    const phoneInput = document.getElementById('userPhone');
-    const phone = phoneInput.value.trim();
-    
-    if (phone) {
-        // Clean phone - keep +, -, and numbers, only remove spaces
-        const cleanedPhone = phone.replace(/\s/g, '');
-        phoneInput.value = cleanedPhone;
     }
 });
 </script>

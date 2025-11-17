@@ -1,5 +1,5 @@
 <?php
-// index.php - With settings feature added back
+// index.php - Without client role
 session_start();
 
 // Handle logout
@@ -28,20 +28,24 @@ require_once 'config.php';
 // ==========================
 $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 
-// Role-based page access control - WITH SETTINGS
+// Role-based page access control - WITHOUT CLIENT
 $role_access = [
     'dashboard' => ['admin'],           // Dashboard khusus admin
-    'dashboard_client' => ['client'], // Dashboard khusus manager 
     'dashboard_pr' => ['programmer'],   // Dashboard khusus programmer
     'dashboard_support' => ['support'], // Dashboard khusus support
-    'apps' => ['admin', 'programmer', 'support', 'client'],
+    'apps' => ['admin', 'programmer', 'support'],
     'users' => ['admin'],
-    'todos' => ['admin', 'programmer', 'client', 'support'],
-    'profile' => ['admin', 'manager', 'programmer', 'support'],
+    'todos' => ['admin', 'programmer', 'support'],
+    'profile' => ['admin', 'programmer', 'support'],
     'taken' => ['admin', 'programmer', 'support'],
-    'reports' => ['admin', 'client', 'programmer', 'support'],
-    'logout' => ['admin', 'client', 'programmer', 'support'],
-    'profile' => ['admin', 'client', 'programmer', 'support'],            // Settings hanya untuk admin
+    'reports' => ['admin', 'programmer', 'support'],
+    'logout' => ['admin', 'programmer', 'support'],
+    'detail_todos' =>['admin', 'programmer', 'support'],
+    'detail_taken' =>['admin', 'programmer', 'support'],
+    'detail_apps' =>['admin', 'programmer', 'support'],
+    'tambah_apps' =>['admin', 'programmer', 'support'],
+    'tambah_users' =>['admin', 'programmer', 'support'],
+    'edit_todos' =>['admin', 'programmer', 'support'],
 ];
 
 // Get user role and determine default dashboard
@@ -52,9 +56,6 @@ if($page == 'dashboard') {
     switch($user_role) {
         case 'admin':
             $page = 'dashboard';
-            break;
-        case 'client':
-            $page = 'dashboard_client';
             break;
         case 'programmer':
             $page = 'dashboard_pr';
@@ -82,9 +83,6 @@ if (isset($role_access[$page]) && !in_array($user_role, $role_access[$page])) {
         case 'admin':
             header('Location: index.php?page=dashboard');
             break;
-        case 'client':
-            header('Location: index.php?page=dashboard_client');
-            break;
         case 'programmer':
             header('Location: index.php?page=dashboard_pr');
             break;
@@ -101,9 +99,6 @@ if(!in_array($page, $allowed_pages)) {
     switch($user_role) {
         case 'admin':
             $page = 'dashboard';
-            break;
-        case 'client':
-            $page = 'dashboard_client';
             break;
         case 'programmer':
             $page = 'dashboard_pr';
@@ -145,7 +140,7 @@ include 'modul/layouts/header.php';
             unset($_SESSION['access_error']);
         endif;
         
-        // Include appropriate page based on role and access - WITH SETTINGS
+        // Include appropriate page based on role and access
         switch($page){
             case 'apps': 
                 include "modul/data/apps.php"; 
@@ -165,17 +160,29 @@ include 'modul/layouts/header.php';
             case 'reports':
                 include "modul/reports/reports.php";
                 break;
-            case 'profile':
-                include "modul/profile/profile.php"; 
-                break;
             case 'logout':
                 include "modul/auth/logout.php";
                 break;
+            case 'detail_todos':
+                include "modul/todos/detail_todos.php";
+                break;
+            case 'detail_taken':
+                include "modul/taken/detail_taken.php";
+                break;
+            case 'detail_apps':
+                include "modul/data/detail_apps.php";
+                break;
+            case 'tambah_apps':
+                include "modul/data/tambah_apps.php";
+                break;
+            case 'tambah_users':
+                include "modul/data/tambah_users.php";
+                break;
+            case 'edit_todos':
+                include "modul/todos/edit_todos.php";
+                break;
             case 'dashboard':
                 include "modul/dashboard/dashboard.php"; // Dashboard khusus admin
-                break;
-            case 'dashboard_client':
-                include "modul/dashboard/dashboard_client.php"; // Dashboard khusus manager
                 break;
             case 'dashboard_pr':
                 include "modul/dashboard/dashboard_pr.php"; // Dashboard khusus programmer
@@ -188,9 +195,6 @@ include 'modul/layouts/header.php';
                 switch($user_role) {
                     case 'admin':
                         include "modul/dashboard/dashboard.php";
-                        break;
-                    case 'client':
-                        include "modul/dashboard/dashboard_client.php";
                         break;
                     case 'programmer':
                         include "modul/dashboard/dashboard_pr.php";

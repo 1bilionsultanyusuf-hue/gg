@@ -17,7 +17,6 @@ $errors = [];
 if (isset($_POST['upload_photo'])) {
     $upload_dir = 'uploads/profiles/';
     
-    // Create directory if it doesn't exist
     if (!is_dir($upload_dir)) {
         mkdir($upload_dir, 0777, true);
     }
@@ -28,28 +27,22 @@ if (isset($_POST['upload_photo'])) {
     if (isset($_FILES['profile_photo']) && $_FILES['profile_photo']['error'] == 0) {
         $file = $_FILES['profile_photo'];
         
-        // Validate file type
         if (!in_array($file['type'], $allowed_types)) {
             $photo_error = "Hanya file JPG, PNG, dan GIF yang diizinkan";
         }
-        // Validate file size
         elseif ($file['size'] > $max_size) {
             $photo_error = "Ukuran file maksimal 5MB";
         }
         else {
-            // Generate unique filename
             $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
             $new_filename = 'profile_' . $user_id . '_' . time() . '.' . $extension;
             $upload_path = $upload_dir . $new_filename;
             
-            // Delete old photo if exists
             if (!empty($user_data['profile_photo']) && file_exists($user_data['profile_photo'])) {
                 unlink($user_data['profile_photo']);
             }
             
-            // Move uploaded file
             if (move_uploaded_file($file['tmp_name'], $upload_path)) {
-                // Update database
                 $update_photo = "UPDATE users SET profile_photo = ? WHERE id = ?";
                 $stmt = $koneksi->prepare($update_photo);
                 $stmt->bind_param("si", $upload_path, $user_id);
@@ -59,7 +52,7 @@ if (isset($_POST['upload_photo'])) {
                     $user_data['profile_photo'] = $upload_path;
                 } else {
                     $photo_error = "Gagal menyimpan foto ke database";
-                    unlink($upload_path); // Delete uploaded file
+                    unlink($upload_path);
                 }
             } else {
                 $photo_error = "Gagal mengupload file";
@@ -74,15 +67,10 @@ if (isset($_POST['upload_photo'])) {
 if (isset($_POST['update_profile'])) {
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
-    $phone_input = trim($_POST['phone']);
     $gender = $_POST['gender'] ?? 'male';
     $current_password = trim($_POST['current_password']);
     $new_password = trim($_POST['new_password']);
     
-    // Clean phone number - keep + and -, only remove spaces
-    $phone = str_replace(' ', '', $phone_input);
-    
-    // Validation
     if (empty($name)) {
         $errors[] = "Nama tidak boleh kosong";
     } elseif (strpos($name, ' ') !== false) {
@@ -97,12 +85,6 @@ if (isset($_POST['update_profile'])) {
         $errors[] = "Email tidak boleh mengandung spasi";
     }
     
-    // Validate phone number (only digits will be saved)
-    if (!empty($phone)) {
-        // No validation for length, just info
-    }
-    
-    // Check if email already exists for other users
     $check_email = $koneksi->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
     $check_email->bind_param("si", $email, $user_id);
     $check_email->execute();
@@ -112,7 +94,6 @@ if (isset($_POST['update_profile'])) {
         $errors[] = "Email sudah digunakan pengguna lain";
     }
     
-    // Check if current password is correct (only if changing password)
     if (!empty($new_password)) {
         if (empty($current_password)) {
             $errors[] = "Password lama harus diisi untuk mengubah password";
@@ -124,24 +105,21 @@ if (isset($_POST['update_profile'])) {
     }
     
     if (empty($errors)) {
-        // Update query
         if (!empty($new_password)) {
-            $update_query = "UPDATE users SET name = ?, email = ?, phone = ?, gender = ?, password = ? WHERE id = ?";
+            $update_query = "UPDATE users SET name = ?, email = ?, gender = ?, password = ? WHERE id = ?";
             $stmt = $koneksi->prepare($update_query);
-            $stmt->bind_param("sssssi", $name, $email, $phone, $gender, $new_password, $user_id);
+            $stmt->bind_param("ssssi", $name, $email, $gender, $new_password, $user_id);
         } else {
-            $update_query = "UPDATE users SET name = ?, email = ?, phone = ?, gender = ? WHERE id = ?";
+            $update_query = "UPDATE users SET name = ?, email = ?, gender = ? WHERE id = ?";
             $stmt = $koneksi->prepare($update_query);
-            $stmt->bind_param("ssssi", $name, $email, $phone, $gender, $user_id);
+            $stmt->bind_param("sssi", $name, $email, $gender, $user_id);
         }
         
         if ($stmt->execute()) {
             $_SESSION['user_name'] = $name;
             $profile_success = "Profil berhasil diperbarui!";
-            // Refresh user data
             $user_data['name'] = $name;
             $user_data['email'] = $email;
-            $user_data['phone'] = $phone;
             $user_data['gender'] = $gender;
             if (!empty($new_password)) {
                 $user_data['password'] = $new_password;
@@ -150,6 +128,13 @@ if (isset($_POST['update_profile'])) {
             $errors[] = "Gagal memperbarui profil";
         }
     }
+}
+
+function getProfilePhotoUrlLocal($user_data) {
+    if (!empty($user_data['profile_photo']) && file_exists($user_data['profile_photo'])) {
+        return $user_data['profile_photo'] . '?v=' . time();
+    }
+    return "https://ui-avatars.com/api/?name=" . urlencode($user_data['name']) . "&background=0066ff&color=fff&size=200";
 }
 
 function getRoleIcon($role) {
@@ -161,154 +146,676 @@ function getRoleIcon($role) {
     ];
     return $icons[$role] ?? '<i class="fas fa-user"></i>';
 }
-
-// Get profile photo URL - Local function untuk profile page
-function getProfilePhotoUrlLocal($user_data) {
-    if (!empty($user_data['profile_photo']) && file_exists($user_data['profile_photo'])) {
-        return $user_data['profile_photo'] . '?v=' . time();
-    }
-    return "https://ui-avatars.com/api/?name=" . urlencode($user_data['name']) . "&background=0066ff&color=fff&size=150";
-}
 ?>
 
-<!-- Success/Error Messages -->
-<?php if (!empty($photo_success) || !empty($profile_success)): ?>
-<div class="alert alert-success">
-    <i class="fas fa-check-circle"></i>
-    <?= !empty($photo_success) ? $photo_success : $profile_success ?>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f6fa;
+    color: #2c3e50;
+}
+
+/* Container - Match apps.php and users.php */
+.container {
+    max-width: 100%;
+    margin: 0;
+    padding: 20px 30px;
+    background: #f5f6fa;
+}
+
+/* Alert Messages */
+.alert {
+    padding: 11px 17px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+    animation: slideDown 0.3s ease;
+}
+
+.alert-success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.alert-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Page Header - Match apps.php and users.php */
+.page-header {
+    margin-bottom: 16px;
+    padding: 8px 30px;
+    background: #f5f6fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.page-title {
+    font-size: 2.1rem;
+    font-weight: 600;
+    color: #0d8af5;
+    margin-bottom: 8px;
+}
+
+/* Profile Layout */
+.profile-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+}
+
+/* Left Side */
+.profile-left {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.profile-photo-card {
+    background: white;
+    border-radius: 0;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.profile-picture-wrapper {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    border: 4px solid #0066ff;
+    overflow: hidden;
+}
+
+.profile-picture-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.edit-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 102, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+    cursor: pointer;
+}
+
+.profile-picture-wrapper:hover .edit-overlay {
+    opacity: 1;
+}
+
+.edit-overlay i {
+    font-size: 2rem;
+    color: white;
+}
+
+.btn-change-photo {
+    width: 100%;
+    padding: 12px;
+    background: #0066ff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 0.9rem;
+}
+
+.btn-change-photo:hover {
+    background: #0052cc;
+    transform: translateY(-2px);
+}
+
+.profile-info-card {
+    background: white;
+    border-radius: 0;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.profile-info-card h3 {
+    font-size: 1.3rem;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+}
+
+.user-id {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin: 0 0 12px 0;
+}
+
+.role-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.role-admin { 
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.role-manager { 
+    background: #ede9fe;
+    color: #7c3aed;
+}
+
+.role-programmer { 
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.role-support { 
+    background: #d1fae5;
+    color: #059669;
+}
+
+.btn-edit-account {
+    width: 100%;
+    padding: 12px;
+    background: #f97316;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 0.9rem;
+}
+
+.btn-edit-account:hover {
+    background: #ea580c;
+    transform: translateY(-2px);
+}
+
+/* Right Side - Match content-box style */
+.profile-right {
+    background: white;
+    border-radius: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.info-header {
+    background: linear-gradient(135deg, #0d8af5 0%, #0b7ad6 100%);
+    color: white;
+    padding: 16px 24px;
+    font-weight: 600;
+    font-size: 1.125rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.info-form {
+    padding: 26px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-size: 0.9rem;
+    color: #555;
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group select {
+    padding: 9px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: #f9fafb;
+    transition: all 0.3s;
+}
+
+.form-group input:disabled,
+.form-group select:disabled {
+    background: #f3f4f6;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+.form-group input:not(:disabled):focus,
+.form-group select:not(:disabled):focus {
+    outline: none;
+    border-color: #0d8af5;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+}
+
+/* Password Section */
+.password-section {
+    margin-top: 24px;
+    animation: slideDown 0.3s ease;
+}
+
+.section-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 24px 0;
+}
+
+.section-title {
+    font-size: 1.1rem;
+    color: #1f2937;
+    margin: 0 0 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Form Actions */
+.form-actions {
+    margin-top: 24px;
+    display: flex;
+    justify-content: flex-end;
+    animation: slideDown 0.3s ease;
+}
+
+.btn-save {
+    padding: 10px 24px;
+    background: #22d3ee;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.btn-save:hover {
+    background: #06b6d4;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+}
+
+/* Modal */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal-box {
+    background: white;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+.modal-header {
+    padding: 18px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+    font-size: 1.2rem;
+    color: #1f2937;
+    margin: 0;
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 4px;
+    transition: all 0.3s;
+}
+
+.btn-close:hover {
+    color: #374151;
+}
+
+.modal-body {
+    padding: 24px;
+    text-align: center;
+}
+
+.photo-preview {
+    margin-bottom: 16px;
+}
+
+.photo-preview img {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 50%;
+    border: 3px solid #0066ff;
+}
+
+.file-info {
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.confirm-text {
+    color: #374151;
+    margin: 16px 0 0 0;
+}
+
+.modal-footer {
+    padding: 14px 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.btn-cancel,
+.btn-confirm {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 0.9rem;
+}
+
+.btn-cancel {
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #ddd;
+}
+
+.btn-cancel:hover {
+    background: #e5e7eb;
+}
+
+.btn-confirm {
+    background: #0066ff;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-confirm:hover {
+    background: #0052cc;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: white;
+}
+
+.loading-overlay.show {
+    display: flex;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #0066ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .profile-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 12px;
+    }
+    
+    .page-header {
+        padding: 8px 12px;
+    }
+    
+    .page-title {
+        font-size: 1.5rem;
+    }
+    
+    .profile-picture-wrapper {
+        width: 150px;
+        height: 150px;
+    }
+    
+    .info-form {
+        padding: 20px;
+    }
+}
+</style>
+
+<!-- Alerts -->
+<?php if (!empty($photo_success)): ?>
+<div class="container">
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        <?= $photo_success ?>
+    </div>
 </div>
 <?php endif; ?>
 
 <?php if (!empty($photo_error)): ?>
-<div class="alert alert-error">
-    <i class="fas fa-exclamation-triangle"></i>
-    <?= $photo_error ?>
+<div class="container">
+    <div class="alert alert-error">
+        <i class="fas fa-exclamation-triangle"></i>
+        <?= $photo_error ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($profile_success)): ?>
+<div class="container">
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        <?= $profile_success ?>
+    </div>
 </div>
 <?php endif; ?>
 
 <?php if (!empty($errors)): ?>
-<div class="alert alert-error">
-    <i class="fas fa-exclamation-triangle"></i>
-    <ul style="margin: 0; padding-left: 20px;">
-        <?php foreach($errors as $error): ?>
-        <li><?= $error ?></li>
-        <?php endforeach; ?>
-    </ul>
+<div class="container">
+    <div class="alert alert-error">
+        <i class="fas fa-exclamation-triangle"></i>
+        <ul style="margin: 0; padding-left: 20px;">
+            <?php foreach($errors as $error): ?>
+            <li><?= $error ?></li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
 </div>
 <?php endif; ?>
 
-<div class="profile-container">
-    <!-- Profile Photo Section -->
-    <div class="profile-card">
-        <div class="card-header">
-            <h3>Foto Profil</h3>
-            <p>Ubah foto profil Anda</p>
-        </div>
-        <div class="card-content text-center">
-            <div class="profile-photo-section">
-                <div class="profile-avatar-large">
+<!-- Page Header -->
+<div class="page-header">
+    <div class="header-content">
+        <h1 class="page-title">Profil Siswa</h1>
+    </div>
+</div>
+
+<div class="container">
+    <div class="profile-layout">
+        <!-- Left Side - Profile Photo -->
+        <div class="profile-left">
+            <div class="profile-photo-card">
+                <div class="profile-picture-wrapper">
                     <img id="profileImage" src="<?= getProfilePhotoUrlLocal($user_data) ?>" 
                          alt="<?= htmlspecialchars($user_data['name']) ?>"
-                         onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($user_data['name']) ?>&background=0066ff&color=fff&size=150'">
-                    <div class="avatar-edit-btn" onclick="triggerPhotoUpload()">
+                         onerror="this.src='https://ui-avatars.com/api/?name=<?= urlencode($user_data['name']) ?>&background=0066ff&color=fff&size=200'">
+                    <div class="edit-overlay" onclick="triggerPhotoUpload()">
                         <i class="fas fa-camera"></i>
                     </div>
                 </div>
-                <div class="photo-info">
-                    <h4><?= htmlspecialchars($user_data['name']) ?></h4>
-                    <p class="text-muted"><?= htmlspecialchars($user_data['email']) ?></p>
-                    <div class="role-badge role-<?= $user_data['role'] ?>">
-                        <?= getRoleIcon($user_data['role']) ?>
-                        <?= ucfirst($user_data['role']) ?>
-                    </div>
+                <button type="button" class="btn-change-photo" onclick="triggerPhotoUpload()">
+                    <i class="fas fa-camera"></i> Ganti Foto
+                </button>
+            </div>
+            
+            <div class="profile-info-card">
+                <h3><?= htmlspecialchars($user_data['name']) ?></h3>
+                <p class="user-id"><?= htmlspecialchars($user_data['id']) ?></p>
+                <div class="role-tag role-<?= $user_data['role'] ?>">
+                    <?= getRoleIcon($user_data['role']) ?>
+                    <?= ucfirst($user_data['role']) ?>
                 </div>
             </div>
+            
+            <button type="button" class="btn-edit-account" onclick="togglePasswordForm()">
+                <i class="fas fa-edit"></i> EDIT AKUN
+            </button>
         </div>
-    </div>
 
-    <!-- Profile Form -->
-    <div class="profile-card">
-        <div class="card-header">
-            <h3>Informasi Profil</h3>
-            <p>Perbarui informasi pribadi Anda</p>
-        </div>
-        <div class="card-content">
-            <form method="POST" class="profile-form">
-                <div class="form-row">
+        <!-- Right Side - Information -->
+        <div class="profile-right">
+            <div class="info-header">
+                <i class="fas fa-info-circle"></i> Informasi Profil
+            </div>
+            
+            <form method="POST" class="info-form">
+                <div class="form-grid">
                     <div class="form-group">
-                        <label for="name">Username *</label>
-                        <input type="text" id="name" name="name" 
-                               value="<?= htmlspecialchars($user_data['name']) ?>" 
-                               required pattern="[^\s]+"
-                               title="Username tidak boleh mengandung spasi">
+                        <label>Username</label>
+                        <input type="text" name="name" value="<?= htmlspecialchars($user_data['name']) ?>" 
+                               required pattern="[^\s]+" disabled id="input_name">
                     </div>
                     
                     <div class="form-group">
-                        <label for="email">Email *</label>
-                        <input type="email" id="email" name="email" 
-                               value="<?= htmlspecialchars($user_data['email']) ?>" 
-                               required pattern="[^\s]+"
-                               title="Email tidak boleh mengandung spasi">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="phone">Nomor Telepon</label>
-                        <input type="tel" id="phone" name="phone" 
-                               value="<?= htmlspecialchars($user_data['phone'] ?? '') ?>" 
-                               placeholder="Masukkan nomor telepon"
-                               maxlength="20">
+                        <label>Email</label>
+                        <input type="email" name="email" value="<?= htmlspecialchars($user_data['email']) ?>" 
+                               required pattern="[^\s]+" disabled id="input_email">
                     </div>
                     
                     <div class="form-group">
-                        <label for="gender">Jenis Kelamin</label>
-                        <select id="gender" name="gender">
+                        <label>Jenis Kelamin</label>
+                        <select name="gender" disabled id="input_gender">
                             <option value="male" <?= ($user_data['gender'] ?? 'male') == 'male' ? 'selected' : '' ?>>Laki-laki</option>
                             <option value="female" <?= ($user_data['gender'] ?? 'male') == 'female' ? 'selected' : '' ?>>Perempuan</option>
                         </select>
                     </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="role">Role</label>
-                        <input type="text" value="<?= ucfirst($user_data['role']) ?>" disabled class="form-disabled">
-                        <small class="form-help">Role tidak dapat diubah</small>
-                    </div>
-                    <div class="form-group">
-                        <!-- Empty for alignment -->
-                    </div>
-                </div>
-                
-                <hr class="form-divider">
-                
-                <h4 class="form-section-title">Ubah Password (Opsional)</h4>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="current_password">Password Lama</label>
-                        <input type="password" id="current_password" name="current_password" 
-                               placeholder="Masukkan password lama jika ingin mengubah">
-                    </div>
                     
                     <div class="form-group">
-                        <label for="new_password">Password Baru</label>
-                        <input type="password" id="new_password" name="new_password" 
-                               pattern="[^\s]+"
-                               title="Password tidak boleh mengandung spasi"
-                               placeholder="Masukkan password baru">
+                        <label>Role</label>
+                        <input type="text" value="<?= ucfirst($user_data['role']) ?>" disabled>
                     </div>
                 </div>
                 
-                <div class="form-actions">
-                    <button type="submit" name="update_profile" class="btn btn-primary">
-                        <i class="fas fa-save mr-2"></i>
-                        Simpan Perubahan
-                    </button>
-                    <button type="reset" class="btn btn-secondary">
-                        <i class="fas fa-undo mr-2"></i>
-                        Reset
+                <!-- Password Section (Hidden by default) -->
+                <div id="passwordSection" class="password-section" style="display: none;">
+                    <div class="section-divider"></div>
+                    <h4 class="section-title">
+                        <i class="fas fa-lock"></i> Ubah Password
+                    </h4>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Password Lama</label>
+                            <input type="password" name="current_password" id="input_current_password" 
+                                   placeholder="Masukkan password lama">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Password Baru</label>
+                            <input type="password" name="new_password" id="input_new_password" 
+                                   pattern="[^\s]+" placeholder="Masukkan password baru">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions" id="formActions" style="display: none;">
+                    <button type="submit" name="update_profile" class="btn-save">
+                        <i class="fas fa-save"></i> Simpan Perubahan
                     </button>
                 </div>
             </form>
@@ -322,567 +829,41 @@ function getProfilePhotoUrlLocal($user_data) {
     <input type="hidden" name="upload_photo" value="1">
 </form>
 
-<!-- Photo Upload Modal -->
-<div id="photoModal" class="modal">
-    <div class="modal-content">
+<!-- Photo Preview Modal -->
+<div id="photoModal" class="modal-overlay">
+    <div class="modal-box">
         <div class="modal-header">
             <h3>Preview Foto Profil</h3>
-            <button type="button" class="modal-close" onclick="closePhotoModal()">
+            <button type="button" class="btn-close" onclick="closePhotoModal()">
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div class="modal-body text-center">
+        <div class="modal-body">
             <div class="photo-preview">
                 <img id="previewImage" src="" alt="Preview">
             </div>
-            <div class="file-info">
-                <p id="fileInfo"></p>
-            </div>
-            <p class="mt-3">Apakah Anda ingin menggunakan foto ini sebagai foto profil?</p>
+            <p id="fileInfo" class="file-info"></p>
+            <p class="confirm-text">Gunakan foto ini sebagai foto profil?</p>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closePhotoModal()">
-                Batal
-            </button>
-            <button type="button" class="btn btn-primary" onclick="confirmPhotoUpload()">
-                <i class="fas fa-check mr-2"></i>
-                Gunakan Foto Ini
+            <button type="button" class="btn-cancel" onclick="closePhotoModal()">Batal</button>
+            <button type="button" class="btn-confirm" onclick="confirmPhotoUpload()">
+                <i class="fas fa-check"></i> Ya, Gunakan Foto Ini
             </button>
         </div>
     </div>
 </div>
 
-<!-- Loading overlay -->
-<div id="loadingOverlay" class="loading-overlay" style="display: none;">
-    <div class="loading-content">
-        <div class="loading-spinner"></div>
-        <p>Mengupload foto...</p>
-    </div>
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Mengupload foto...</p>
 </div>
 
-<style>
-/* Alert Messages */
-.alert {
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    animation: slideDown 0.3s ease;
-}
-
-.alert-success {
-    background: #dcfce7;
-    color: #166534;
-    border: 1px solid #bbf7d0;
-}
-
-.alert-error {
-    background: #fee2e2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
-}
-
-@keyframes slideDown {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Page Header */
-.page-header {
-    background: white;
-    border-radius: 16px;
-    padding: 20px 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-}
-
-.page-title {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin-bottom: 4px;
-}
-
-.page-subtitle {
-    color: #6b7280;
-    font-size: 0.95rem;
-    margin: 0;
-}
-
-/* Profile Container */
-.profile-container {
-    max-width: 900px;
-    margin: 0 auto;
-}
-
-/* Profile Cards */
-.profile-card {
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    margin-bottom: 20px;
-    overflow: hidden;
-    transition: all 0.3s ease;
-}
-
-.profile-card:hover {
-    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-}
-
-.card-header {
-    padding: 20px 24px 16px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.card-header h3 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0 0 4px 0;
-}
-
-.card-header p {
-    color: #64748b;
-    margin: 0;
-    font-size: 0.95rem;
-}
-
-.card-content {
-    padding: 24px;
-}
-
-/* Profile Photo Section */
-.profile-photo-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-}
-
-.profile-avatar-large {
-    position: relative;
-    flex-shrink: 0;
-}
-
-.profile-avatar-large img {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    border: 4px solid #e2e8f0;
-    object-fit: cover;
-    transition: all 0.3s ease;
-}
-
-.profile-avatar-large:hover img {
-    transform: scale(1.05);
-    border-color: #667eea;
-}
-
-.avatar-edit-btn {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    width: 40px;
-    height: 40px;
-    background: linear-gradient(135deg, #0066ff, #33ccff);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 1rem;
-    box-shadow: 0 2px 8px rgba(0,102,255,0.3);
-}
-
-.avatar-edit-btn:hover {
-    background: linear-gradient(135deg, #0044cc, #00aaff);
-    transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(0,102,255,0.4);
-}
-
-.photo-info h4 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0 0 4px 0;
-}
-
-.text-muted {
-    color: #64748b !important;
-    font-size: 0.95rem;
-}
-
-/* Role Badge */
-.role-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    margin-top: 8px;
-}
-
-.role-admin { 
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    color: white;
-}
-
-.role-manager { 
-    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-    color: white;
-}
-
-.role-programmer { 
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-    color: white;
-}
-
-.role-support { 
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: white;
-}
-
-/* Form Styles */
-.profile-form {
-    max-width: 100%;
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 20px;
-}
-
-.form-group {
-    margin-bottom: 0;
-}
-
-.form-group label {
-    display: block;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 8px;
-    font-size: 0.9rem;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
-    background: white;
-    box-sizing: border-box;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-disabled {
-    background: #f3f4f6 !important;
-    color: #9ca3af !important;
-    cursor: not-allowed;
-}
-
-.form-help {
-    font-size: 0.8rem;
-    color: #9ca3af;
-    margin-top: 4px;
-    display: block;
-}
-
-.form-divider {
-    border: 0;
-    height: 1px;
-    background: #e5e7eb;
-    margin: 32px 0 24px 0;
-}
-
-.form-section-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 16px;
-}
-
-.form-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-start;
-    margin-top: 24px;
-}
-
-/* Buttons */
-.btn {
-    padding: 12px 24px;
-    border-radius: 8px;
-    border: none;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    font-size: 0.95rem;
-}
-
-.btn-primary {
-    background: linear-gradient(90deg, #0066ff, #33ccff);
-    color: white;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-}
-
-.btn-primary:hover {
-    background: linear-gradient(90deg, #0044cc, #00aaff);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.btn-secondary {
-    background: #f8fafc;
-    color: #64748b;
-    border: 1px solid #e2e8f0;
-}
-
-.btn-secondary:hover {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
-}
-
-.mr-2 {
-    margin-right: 8px;
-}
-
-.mt-3 {
-    margin-top: 16px;
-}
-
-.text-center {
-    text-align: center;
-}
-
-/* Modal Styles */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 1000;
-    padding: 20px;
-    overflow-y: auto;
-}
-
-.modal.show {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-content {
-    background: white;
-    border-radius: 16px;
-    width: 100%;
-    max-width: 500px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    animation: slideUp 0.3s ease;
-}
-
-.modal-header {
-    padding: 24px 24px 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-header h3 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    color: #9ca3af;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-}
-
-.modal-close:hover {
-    background: #f3f4f6;
-    color: #374151;
-}
-
-.modal-body {
-    padding: 24px;
-}
-
-.modal-footer {
-    padding: 0 24px 24px;
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-}
-
-.photo-preview {
-    padding: 20px;
-    border: 2px dashed #e5e7eb;
-    border-radius: 12px;
-    background: #f9fafb;
-    margin-bottom: 16px;
-}
-
-.photo-preview img {
-    max-width: 200px;
-    max-height: 200px;
-    border-radius: 50%;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    border: 3px solid #fff;
-}
-
-.file-info {
-    font-size: 0.9rem;
-    color: #6b7280;
-    margin-bottom: 8px;
-}
-
-/* Loading overlay */
-.loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-}
-
-.loading-content {
-    text-align: center;
-    color: white;
-}
-
-.loading-spinner {
-    width: 50px;
-    height: 50px;
-    border: 4px solid rgba(255,255,255,0.3);
-    border-top: 4px solid #667eea;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 16px;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Success animation */
-.upload-success {
-    animation: successPulse 0.6s ease-in-out;
-}
-
-@keyframes successPulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .profile-container {
-        max-width: 100%;
-    }
-    
-    .page-header {
-        padding: 16px 20px;
-    }
-    
-    .form-row {
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
-    
-    .form-actions {
-        flex-direction: column;
-    }
-    
-    .card-content {
-        padding: 20px;
-    }
-    
-    .card-header {
-        padding: 20px 20px 12px;
-    }
-    
-    .profile-avatar-large img {
-        width: 100px;
-        height: 100px;
-    }
-    
-    .avatar-edit-btn {
-        width: 35px;
-        height: 35px;
-        font-size: 0.9rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .card-content {
-        padding: 16px;
-    }
-    
-    .card-header {
-        padding: 16px;
-    }
-    
-    .page-header {
-        padding: 16px;
-        margin-bottom: 16px;
-    }
-    
-    .page-title {
-        font-size: 1.4rem;
-    }
-}
-</style>
-
 <script>
-// Profile Page JavaScript
 let selectedFile = null;
+let isEditMode = false;
 
-// Photo upload functions
 function triggerPhotoUpload() {
     document.getElementById('photoInput').click();
 }
@@ -892,14 +873,12 @@ function handleFileSelect() {
     const file = input.files[0];
     
     if (file) {
-        // Validate file size (5MB)
         if (file.size > 5 * 1024 * 1024) {
             alert('Ukuran file maksimal 5MB');
             input.value = '';
             return;
         }
         
-        // Validate file type
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
         if (!allowedTypes.includes(file.type)) {
             alert('Hanya file JPG, PNG, dan GIF yang diizinkan');
@@ -909,16 +888,13 @@ function handleFileSelect() {
         
         selectedFile = file;
         
-        // Create preview
         const reader = new FileReader();
         reader.onload = function(e) {
             document.getElementById('previewImage').src = e.target.result;
             
-            // Show file info
             const fileSize = (file.size / 1024 / 1024).toFixed(2) + ' MB';
             document.getElementById('fileInfo').textContent = `${file.name} (${fileSize})`;
             
-            // Show modal
             showPhotoModal();
         };
         reader.readAsDataURL(file);
@@ -927,10 +903,7 @@ function handleFileSelect() {
 
 function confirmPhotoUpload() {
     if (selectedFile) {
-        // Show loading overlay
         showLoading();
-        
-        // Submit form
         document.getElementById('photoUploadForm').submit();
     }
 }
@@ -946,109 +919,87 @@ function closePhotoModal() {
     modal.classList.remove('show');
     document.body.style.overflow = '';
     selectedFile = null;
-    
-    // Reset file input
     document.getElementById('photoInput').value = '';
 }
 
 function showLoading() {
-    document.getElementById('loadingOverlay').style.display = 'flex';
+    document.getElementById('loadingOverlay').classList.add('show');
 }
 
 function hideLoading() {
-    document.getElementById('loadingOverlay').style.display = 'none';
+    document.getElementById('loadingOverlay').classList.remove('show');
+}
+
+function togglePasswordForm() {
+    isEditMode = !isEditMode;
+    
+    const passwordSection = document.getElementById('passwordSection');
+    const formActions = document.getElementById('formActions');
+    const nameInput = document.getElementById('input_name');
+    const emailInput = document.getElementById('input_email');
+    const genderInput = document.getElementById('input_gender');
+    const currentPasswordInput = document.getElementById('input_current_password');
+    const newPasswordInput = document.getElementById('input_new_password');
+    const editBtn = document.querySelector('.btn-edit-account');
+    
+    if (isEditMode) {
+        passwordSection.style.display = 'block';
+        formActions.style.display = 'flex';
+        
+        nameInput.disabled = false;
+        emailInput.disabled = false;
+        genderInput.disabled = false;
+        
+        nameInput.style.background = 'white';
+        emailInput.style.background = 'white';
+        genderInput.style.background = 'white';
+        
+        editBtn.innerHTML = '<i class="fas fa-edit"></i> EDIT AKUN';
+        editBtn.style.background = '#f97316';
+    }
 }
 
 // Input validation
 function validateInputs() {
-    const emailInput = document.getElementById('email');
-    const nameInput = document.getElementById('name');
-    const passwordInput = document.getElementById('new_password');
-    const phoneInput = document.getElementById('phone');
+    const emailInput = document.getElementById('input_email');
+    const nameInput = document.getElementById('input_name');
+    const passwordInput = document.getElementById('input_new_password');
     
-    // Email validation - prevent spaces
-    emailInput.addEventListener('input', function() {
-        this.value = this.value.replace(/\s/g, '');
-        
-        if (this.value !== this.value.replace(/\s/g, '')) {
-            this.setCustomValidity('Email tidak boleh mengandung spasi');
-        } else {
-            this.setCustomValidity('');
-        }
-    });
-    
-    emailInput.addEventListener('paste', function(e) {
-        setTimeout(() => {
+    if (emailInput) {
+        emailInput.addEventListener('input', function() {
             this.value = this.value.replace(/\s/g, '');
-        }, 10);
-    });
-    
-    // Username validation - prevent spaces
-    nameInput.addEventListener('input', function() {
-        this.value = this.value.replace(/\s/g, '');
+        });
         
-        if (this.value !== this.value.replace(/\s/g, '')) {
-            this.setCustomValidity('Username tidak boleh mengandung spasi');
-        } else {
-            this.setCustomValidity('');
-        }
-    });
+        emailInput.addEventListener('paste', function(e) {
+            setTimeout(() => {
+                this.value = this.value.replace(/\s/g, '');
+            }, 10);
+        });
+    }
     
-    nameInput.addEventListener('paste', function(e) {
-        setTimeout(() => {
+    if (nameInput) {
+        nameInput.addEventListener('input', function() {
             this.value = this.value.replace(/\s/g, '');
-        }, 10);
-    });
-    
-    // Password validation - prevent spaces
-    passwordInput.addEventListener('input', function() {
-        this.value = this.value.replace(/\s/g, '');
+        });
         
-        if (this.value !== this.value.replace(/\s/g, '')) {
-            this.setCustomValidity('Password tidak boleh mengandung spasi');
-        } else {
-            this.setCustomValidity('');
-        }
-    });
+        nameInput.addEventListener('paste', function(e) {
+            setTimeout(() => {
+                this.value = this.value.replace(/\s/g, '');
+            }, 10);
+        });
+    }
     
-    passwordInput.addEventListener('paste', function(e) {
-        setTimeout(() => {
+    if (passwordInput) {
+        passwordInput.addEventListener('input', function() {
             this.value = this.value.replace(/\s/g, '');
-        }, 10);
-    });
-    
-    // Phone validation - only allow numbers, +, -, space, and parentheses
-    phoneInput.addEventListener('input', function() {
-        // Remove any characters that are not numbers, +, -, space, or parentheses
-        let value = this.value;
-        let cleanValue = value.replace(/[^0-9+\-\s()]/g, '');
+        });
         
-        // Update value if invalid characters were removed
-        if (value !== cleanValue) {
-            this.value = cleanValue;
-        }
-        
-        // Clear custom validity
-        this.setCustomValidity('');
-    });
-    
-    // Prevent paste of invalid characters
-    phoneInput.addEventListener('paste', function(e) {
-        e.preventDefault();
-        const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-        const cleanedText = pastedText.replace(/[^0-9+\-\s()]/g, '');
-        
-        // Insert cleaned text at cursor position
-        const start = this.selectionStart;
-        const end = this.selectionEnd;
-        const currentValue = this.value;
-        
-        this.value = currentValue.substring(0, start) + cleanedText + currentValue.substring(end);
-        
-        // Set cursor position after pasted text
-        const newPosition = start + cleanedText.length;
-        this.setSelectionRange(newPosition, newPosition);
-    });
+        passwordInput.addEventListener('paste', function(e) {
+            setTimeout(() => {
+                this.value = this.value.replace(/\s/g, '');
+            }, 10);
+        });
+    }
 }
 
 // Auto-hide alerts
@@ -1067,73 +1018,45 @@ function autoHideAlerts() {
     });
 }
 
-// Initialize page
+// Initialize
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-hide alerts
     autoHideAlerts();
-    
-    // Initialize input validation
     validateInputs();
+    hideLoading();
     
-    // Add success animation if photo was uploaded
+    // Success animation for profile image
     <?php if (!empty($photo_success)): ?>
     const profileImage = document.getElementById('profileImage');
     if (profileImage) {
-        profileImage.classList.add('upload-success');
+        profileImage.style.animation = 'successPulse 0.6s ease-in-out';
         setTimeout(() => {
-            profileImage.classList.remove('upload-success');
+            profileImage.style.animation = '';
         }, 600);
     }
     <?php endif; ?>
     
-    // Close modal when clicking outside
+    // Close modal on outside click
     document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('modal')) {
+        if (e.target.classList.contains('modal-overlay')) {
             closePhotoModal();
         }
     });
-    
-    // Hide loading on page load
-    hideLoading();
-});
-
-// Handle window resize
-window.addEventListener('resize', function() {
-    if (window.innerWidth > 1024) {
-        closePhotoModal();
-    }
 });
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
-    // ESC to close modal
     if (e.key === 'Escape') {
         closePhotoModal();
+        if (isEditMode) {
+            togglePasswordForm();
+        }
     }
 });
 
-// Form validation before submit
-document.querySelector('.profile-form').addEventListener('submit', function(e) {
-    const phoneInput = document.getElementById('phone');
-    const phone = phoneInput.value.trim();
-    
-    if (phone) {
-        // Clean phone - keep +, -, and numbers, only remove spaces
-        const cleanedPhone = phone.replace(/\s/g, '');
-        
-        // Save cleaned phone (with + and - included)
-        phoneInput.value = cleanedPhone;
-    }
-    
-    // Check if changing password
-    const newPassword = document.getElementById('new_password').value;
-    const currentPassword = document.getElementById('current_password').value;
-    
-    if (newPassword && !currentPassword) {
+// Prevent form submission on Enter key (except in textarea)
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.type !== 'submit') {
         e.preventDefault();
-        alert('Password lama harus diisi untuk mengubah password');
-        document.getElementById('current_password').focus();
-        return false;
     }
 });
 </script>

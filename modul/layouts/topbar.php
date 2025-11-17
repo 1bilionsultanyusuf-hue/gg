@@ -1,6 +1,3 @@
-<?php
-// modul/layouts/topbar.php - Without hamburger button
-?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -25,7 +22,7 @@
 </header>
 
 <style>
-/* Header styling updates */
+/* Header styling - SYNCHRONIZED with sidebar height 60px */
 .site-header {
     position: fixed;
     top: 0;
@@ -34,14 +31,14 @@
     z-index: 1000;
     background: linear-gradient(135deg, #0066ff, #33ccff);
     color: #fff;
-    padding: 12px 20px;
+    padding: 0 20px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    height: 55px;
+    height: 60px; /* SAMA dengan height di sidebar calculation */
 }
 
 .header-container {
-    max-width: 1050px;
-    margin: auto;
+    max-width: 1400px;
+    margin: 0 auto;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -56,6 +53,7 @@
     transition: all 0.3s ease;
     cursor: pointer;
     margin: 0;
+    gap: 8px;
 }
 
 /* Logo styling */
@@ -64,23 +62,24 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    font-size: 1.6rem;
-    font-weight: bold;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    font-size: 1.75rem;
+    font-weight: 800;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    letter-spacing: 0.5px;
 }
 
 .logo-sep {
-    color: rgba(255, 255, 255, 0.8);
-    font-weight: 200;
-    margin: 0 6px;
-    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 300;
+    font-size: 1.5rem;
 }
 
 .logo-core {
-    font-weight: bold;
-    font-size: 1.4rem;
+    font-weight: 800;
+    font-size: 1.5rem;
     color: #fff;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    letter-spacing: 1px;
 }
 
 /* Saturn O effect */
@@ -88,6 +87,7 @@
     position: relative;
     display: inline-block;
     color: #ffcc00;
+    text-shadow: 0 0 10px rgba(255,204,0,0.4);
 }
 
 .saturn-o::before {
@@ -95,12 +95,12 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 1.6em;
-    height: 0.35em;
-    border: 2px solid #ffcc00;
+    width: 1.7em;
+    height: 0.4em;
+    border: 2.5px solid #ffcc00;
     border-radius: 50%;
     transform: translate(-50%, -50%) rotate(-25deg);
-    box-shadow: 0 0 8px rgba(255,204,0,0.3);
+    box-shadow: 0 0 10px rgba(255,204,0,0.4);
 }
 
 /* Hover effects for logo */
@@ -118,38 +118,81 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .site-header {
-        height: 55px;
-        padding: 8px 15px;
+        height: 60px;
+        padding: 0 16px;
     }
     
     .logo-it {
-        font-size: 1.3rem;
+        font-size: 1.6rem;
     }
     
     .logo-core {
-        font-size: 1.1rem;
+        font-size: 1.35rem;
     }
     
     .logo-sep {
-        font-size: 1rem;
-        margin: 0 4px;
+        font-size: 1.35rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .site-header {
+        height: 55px;
+        padding: 0 15px;
+    }
+    
+    .logo-it {
+        font-size: 1.4rem;
+    }
+    
+    .logo-core {
+        font-size: 1.2rem;
+    }
+    
+    .logo-sep {
+        font-size: 1.2rem;
+    }
+    
+    .saturn-o::before {
+        width: 1.6em;
+        height: 0.35em;
+        border-width: 2px;
     }
 }
 
 @media (max-width: 480px) {
+    .site-header {
+        height: 55px;
+    }
+    
     .logo-it {
-        font-size: 1.1rem;
+        font-size: 1.2rem;
     }
     
     .logo-core {
-        font-size: 0.95rem;
+        font-size: 1rem;
+    }
+    
+    .logo-sep {
+        font-size: 1rem;
     }
     
     .saturn-o::before {
-        width: 1.3em;
+        width: 1.4em;
         height: 0.3em;
+    }
+}
+
+/* Body padding untuk accommodate fixed header */
+body {
+    padding-top: 60px;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding-top: 55px;
     }
 }
 </style>

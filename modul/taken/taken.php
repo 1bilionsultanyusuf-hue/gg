@@ -18,12 +18,12 @@ $current_user = $current_user_result->fetch_assoc();
 $current_user_role = $current_user['role'];
 $current_user_name = $current_user['name'];
 
-// CREATE - Add new taken (otomatis status in_progress dan tanggal hari ini)
+// CREATE - Add new taken
 if (isset($_POST['add_taken'])) {
     $id_todos = (int)$_POST['id_todos'];
-    $status = 'in_progress'; // Otomatis in_progress
-    $date = date('Y-m-d'); // Otomatis tanggal hari ini
-    $user_id = $_SESSION['user_id']; // Otomatis ambil dari session
+    $status = 'in_progress';
+    $date = date('Y-m-d');
+    $user_id = $_SESSION['user_id'];
     
     if (!empty($id_todos)) {
         $check_stmt = $koneksi->prepare("SELECT id FROM taken WHERE id_todos = ?");
@@ -47,11 +47,10 @@ if (isset($_POST['add_taken'])) {
     }
 }
 
-// DELETE - Remove taken (hanya milik user sendiri)
-if (isset($_POST['delete_taken'])) {
+// PENDING - Mark taken as pending
+if (isset($_POST['pending_taken'])) {
     $id = (int)$_POST['taken_id'];
     
-    // Cek apakah taken ini milik user yang login
     $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
     $check_owner->bind_param("i", $id);
     $check_owner->execute();
@@ -60,27 +59,58 @@ if (isset($_POST['delete_taken'])) {
     if ($owner_result->num_rows > 0) {
         $owner = $owner_result->fetch_assoc();
         if ($owner['user_id'] == $current_user_id) {
-            $stmt = $koneksi->prepare("DELETE FROM taken WHERE id = ?");
-            $stmt->bind_param("i", $id);
+            $status = 'pending';
+            $date = date('Y-m-d');
+            $stmt = $koneksi->prepare("UPDATE taken SET status = ?, date = ? WHERE id = ?");
+            $stmt->bind_param("ssi", $status, $date, $id);
             
             if ($stmt->execute()) {
-                $message = "Taken berhasil dihapus! Todo kembali tersedia.";
+                $message = "Todo berhasil ditandai pending!";
             } else {
-                $error = "Gagal menghapus taken!";
+                $error = "Gagal menandai todo pending!";
             }
         } else {
-            $error = "Anda tidak memiliki akses untuk menghapus taken ini!";
+            $error = "Anda tidak memiliki akses untuk mem-pending taken ini!";
         }
     } else {
         $error = "Taken tidak ditemukan!";
     }
 }
 
-// COMPLETE - Tandai taken sebagai selesai (quick action)
+// RESUME - Resume from pending to in_progress
+if (isset($_POST['resume_taken'])) {
+    $id = (int)$_POST['taken_id'];
+    
+    $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
+    $check_owner->bind_param("i", $id);
+    $check_owner->execute();
+    $owner_result = $check_owner->get_result();
+    
+    if ($owner_result->num_rows > 0) {
+        $owner = $owner_result->fetch_assoc();
+        if ($owner['user_id'] == $current_user_id) {
+            $status = 'in_progress';
+            $date = date('Y-m-d');
+            $stmt = $koneksi->prepare("UPDATE taken SET status = ?, date = ? WHERE id = ?");
+            $stmt->bind_param("ssi", $status, $date, $id);
+            
+            if ($stmt->execute()) {
+                $message = "Todo berhasil dilanjutkan!";
+            } else {
+                $error = "Gagal melanjutkan todo!";
+            }
+        } else {
+            $error = "Anda tidak memiliki akses untuk melanjutkan taken ini!";
+        }
+    } else {
+        $error = "Taken tidak ditemukan!";
+    }
+}
+
+// COMPLETE - Mark as done
 if (isset($_POST['complete_taken'])) {
     $id = (int)$_POST['taken_id'];
     
-    // Cek apakah taken ini milik user yang login
     $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
     $check_owner->bind_param("i", $id);
     $check_owner->execute();
@@ -107,11 +137,10 @@ if (isset($_POST['complete_taken'])) {
     }
 }
 
-// RELEASE - Lepas taken (mengembalikan todo agar tersedia lagi)
-if (isset($_POST['release_taken'])) {
+// CANCEL - Cancel taken
+if (isset($_POST['cancel_taken'])) {
     $id = (int)$_POST['taken_id'];
     
-    // Cek apakah taken ini milik user yang login
     $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
     $check_owner->bind_param("i", $id);
     $check_owner->execute();
@@ -124,12 +153,12 @@ if (isset($_POST['release_taken'])) {
             $stmt->bind_param("i", $id);
             
             if ($stmt->execute()) {
-                $message = "Todo berhasil dilepas dan kembali tersedia untuk user lain!";
+                $message = "Todo berhasil dibatalkan dan kembali tersedia untuk user lain!";
             } else {
-                $error = "Gagal melepas todo!";
+                $error = "Gagal membatalkan todo!";
             }
         } else {
-            $error = "Anda tidak memiliki akses untuk melepas taken ini!";
+            $error = "Anda tidak memiliki akses untuk membatalkan taken ini!";
         }
     } else {
         $error = "Taken tidak ditemukan!";
@@ -139,13 +168,13 @@ if (isset($_POST['release_taken'])) {
 // Search functionality
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $filter_status = isset($_GET['status']) ? trim($_GET['status']) : '';
+$filter_priority = isset($_GET['priority']) ? trim($_GET['priority']) : '';
 
-// Build WHERE clause - HANYA MILIK USER YANG LOGIN
+// Build WHERE clause
 $where_conditions = [];
 $params = [];
 $param_types = '';
 
-// Semua user (termasuk admin) hanya lihat taken miliknya sendiri
 $where_conditions[] = "tk.user_id = ?";
 $params[] = $current_user_id;
 $param_types .= 'i';
@@ -157,15 +186,21 @@ if (!empty($search)) {
     $param_types .= 'ss';
 }
 
-if (!empty($filter_status) && in_array($filter_status, ['in_progress', 'done'])) {
+if (!empty($filter_status) && in_array($filter_status, ['in_progress', 'done', 'pending'])) {
     $where_conditions[] = "tk.status = ?";
     $params[] = $filter_status;
     $param_types .= 's';
 }
 
+if (!empty($filter_priority) && in_array($filter_priority, ['high', 'medium', 'low'])) {
+    $where_conditions[] = "td.priority = ?";
+    $params[] = $filter_priority;
+    $param_types .= 's';
+}
+
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
-// PAGINATION SETUP - 5 ITEMS PER PAGE
+// PAGINATION SETUP
 $items_per_page = 5;
 $current_page = isset($_GET['pg']) ? max(1, intval($_GET['pg'])) : 1;
 $offset = ($current_page - 1) * $items_per_page;
@@ -193,12 +228,9 @@ if (!empty($params)) {
     $total_taken = $koneksi->query($count_query)->fetch_assoc()['total'];
 }
 
-// Calculate total pages
-$max_pages = 10;
-$total_items = min($total_taken, $max_pages * $items_per_page);
-$total_pages = $total_taken > 0 ? min(ceil($total_taken / $items_per_page), $max_pages) : 1;
+$total_pages = $total_taken > 0 ? ceil($total_taken / $items_per_page) : 1;
 
-// Get taken data with PAGINATION - TAMBAHKAN INFO PEMBUAT TODO
+// Get taken data with PAGINATION
 $taken_query = "
     SELECT tk.*, 
            td.title as todo_title,
@@ -226,7 +258,7 @@ if (!empty($params)) {
     $taken_result = $koneksi->query($taken_query);
 }
 
-// Get available todos (yang belum diambil siapapun) - TAMBAHKAN INFO PEMBUAT
+// Get available todos
 $available_todos_query = "
     SELECT td.id, td.title, td.priority, a.name as app_name, u.name as creator_name
     FROM todos td
@@ -238,1186 +270,436 @@ $available_todos_query = "
 ";
 $available_todos_result = $koneksi->query($available_todos_query);
 
-// Get statistics - UNTUK USER YANG LOGIN SAJA (dengan error handling)
-$stat_stmt = $koneksi->prepare("SELECT COUNT(*) as count FROM taken WHERE user_id = ?");
-$stat_stmt->bind_param("i", $current_user_id);
-$stat_stmt->execute();
-$stat_result = $stat_stmt->get_result();
-$total_taken_stat = $stat_result ? $stat_result->fetch_assoc()['count'] : 0;
-$stat_stmt->close();
-
-$stat_stmt = $koneksi->prepare("SELECT COUNT(*) as count FROM taken WHERE status = 'in_progress' AND user_id = ?");
-$stat_stmt->bind_param("i", $current_user_id);
-$stat_stmt->execute();
-$stat_result = $stat_stmt->get_result();
-$in_progress = $stat_result ? $stat_result->fetch_assoc()['count'] : 0;
-$stat_stmt->close();
-
-$stat_stmt = $koneksi->prepare("SELECT COUNT(*) as count FROM taken WHERE status = 'done' AND user_id = ?");
-$stat_stmt->bind_param("i", $current_user_id);
-$stat_stmt->execute();
-$stat_result = $stat_stmt->get_result();
-$done = $stat_result ? $stat_result->fetch_assoc()['count'] : 0;
-$stat_stmt->close();
-
-$available = $koneksi->query("SELECT COUNT(*) as count FROM todos td LEFT JOIN taken tk ON td.id = tk.id_todos WHERE tk.id IS NULL")->fetch_assoc()['count'];
-
-function getPriorityIcon($priority) {
-    $icons = [
-        'high' => 'fas fa-exclamation-triangle',
-        'medium' => 'fas fa-minus',
-        'low' => 'fas fa-arrow-down'
+function getPriorityBadgeTaken($priority) {
+    $badges = [
+        'high' => '<span class="priority-badge badge-high">High</span>',
+        'medium' => '<span class="priority-badge badge-medium">Medium</span>',
+        'low' => '<span class="priority-badge badge-low">Low</span>'
     ];
-    return $icons[$priority] ?? 'fas fa-circle';
+    return $badges[$priority] ?? '<span class="priority-badge">-</span>';
+}
+
+function getStatusBadgeTaken($status) {
+    $badges = [
+        'done' => '<span class="status-badge badge-done">Completed</span>',
+        'pending' => '<span class="status-badge badge-pending">Pending</span>',
+        'in_progress' => '<span class="status-badge badge-progress">In Progress</span>'
+    ];
+    return $badges[$status] ?? '<span class="status-badge">-</span>';
 }
 ?>
 
-<!-- Success/Error Messages -->
-<?php if ($message): ?>
-<div class="alert alert-success">
-    <i class="fas fa-check-circle"></i>
-    <?= htmlspecialchars($message) ?>
-</div>
-<?php endif; ?>
-
-<?php if ($error): ?>
-<div class="alert alert-error">
-    <i class="fas fa-exclamation-triangle"></i>
-    <?= htmlspecialchars($error) ?>
-</div>
-<?php endif; ?>
-
-<!-- Page Header -->
-<div class="page-header">
-    <div class="header-content">
-        <h1 class="page-title">Todo Saya</h1>
-        <p class="page-subtitle">
-            Kelola dan monitor todo yang sudah Anda ambil
-        </p>
-    </div>
-</div>
-
-<!-- Statistics Cards -->
-<div class="stats-grid">
-    <div class="stat-card bg-gradient-blue">
-        <div class="stat-icon">
-            <i class="fas fa-hand-paper"></i>
-        </div>
-        <div class="stat-content">
-            <h3 class="stat-number"><?= $total_taken_stat ?></h3>
-            <p class="stat-label">Todo Saya</p>
-        </div>
-    </div>
-
-    <div class="stat-card bg-gradient-orange <?= $filter_status == 'in_progress' ? 'active' : '' ?>" onclick="filterByStatus('in_progress')">
-        <div class="stat-icon">
-            <i class="fas fa-clock"></i>
-        </div>
-        <div class="stat-content">
-            <h3 class="stat-number"><?= $in_progress ?></h3>
-            <p class="stat-label">In Progress</p>
-        </div>
-    </div>
-
-    <div class="stat-card bg-gradient-green <?= $filter_status == 'done' ? 'active' : '' ?>" onclick="filterByStatus('done')">
-        <div class="stat-icon">
-            <i class="fas fa-check-circle"></i>
-        </div>
-        <div class="stat-content">
-            <h3 class="stat-number"><?= $done ?></h3>
-            <p class="stat-label">Selesai</p>
-        </div>
-    </div>
-
-    <div class="stat-card bg-gradient-purple">
-        <div class="stat-icon">
-            <i class="fas fa-clipboard-list"></i>
-        </div>
-        <div class="stat-content">
-            <h3 class="stat-number"><?= $available ?></h3>
-            <p class="stat-label">Tersedia</p>
-        </div>
-    </div>
-</div>
-
-<!-- Taken Container -->
-<div class="taken-container">
-    <div class="section-header">
-        <div class="section-title-wrapper">
-            <h2 class="section-title">Daftar Todo</h2>
-            <span class="section-count"><?= $total_taken ?> taken</span>
-        </div>
-        
-        <!-- Filters -->
-        <div class="filters-container">
-            <div class="search-box">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="searchInput" placeholder="Cari judul todo..." 
-                       value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearch(event)">
-            </div>
-            
-            <div class="filter-dropdown">
-                <select id="statusFilter" onchange="applyFilters()">
-                    <option value="">Semua Status</option>
-                    <option value="in_progress" <?= $filter_status == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
-                    <option value="done" <?= $filter_status == 'done' ? 'selected' : '' ?>>Done</option>
-                </select>
-            </div>
-            
-            <?php if ($filter_status || $search): ?>
-            <button class="btn-clear-filter" onclick="clearFilters()" title="Hapus Filter">
-                <i class="fas fa-times"></i>
-            </button>
-            <?php endif; ?>
-        </div>
-    </div>
-    
-    <!-- Add New Taken Button -->
-    <div class="taken-list-item add-new-item" onclick="openAddTakenModal()">
-        <div class="add-new-content">
-            <div class="add-new-icon">
-                <i class="fas fa-plus"></i>
-            </div>
-            <div class="add-new-text">
-                <h3>Ambil Todo Baru</h3>
-                <p>Klik untuk mengambil todo yang tersedia</p>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Taken List -->
-    <div class="taken-list">
-        <?php if ($taken_result->num_rows > 0): ?>
-            <?php while($taken = $taken_result->fetch_assoc()): ?>
-            <div class="taken-list-item" data-taken-id="<?= $taken['id'] ?>">
-                <div class="taken-priority-container">
-                    <div class="taken-priority-badge priority-<?= $taken['todo_priority'] ?>">
-                        <i class="<?= getPriorityIcon($taken['todo_priority']) ?>"></i>
-                    </div>
-                </div>
-                
-                <div class="taken-list-content">
-                    <div class="taken-list-main">
-                        <div class="taken-title-row">
-                            <h3 class="taken-list-title"><?= htmlspecialchars($taken['todo_title']) ?></h3>
-                        </div>
-                        <p class="taken-list-description">
-                            <?= htmlspecialchars($taken['todo_description']) ?>
-                        </p>
-                        <div class="taken-list-details">
-                            <span class="detail-badge app">
-                                <i class="fas fa-cube"></i>
-                                <?= htmlspecialchars($taken['app_name']) ?>
-                            </span>
-                            <span class="detail-badge creator">
-                                <i class="fas fa-user-tag"></i>
-                                Dibuat: <?= htmlspecialchars($taken['todo_creator_name']) ?>
-                            </span>
-                            <span class="detail-badge date">
-                                <i class="fas fa-calendar"></i>
-                                <?= date('d/m/Y', strtotime($taken['date'])) ?>
-                            </span>
-                            <span class="detail-badge status status-<?= $taken['status'] ?>">
-                                <i class="fas fa-<?= $taken['status'] == 'done' ? 'check-circle' : 'clock' ?>"></i>
-                                <?= $taken['status'] == 'done' ? 'Selesai' : 'In Progress' ?>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="taken-list-actions">
-                    <button class="action-btn preview" 
-                            onclick="viewTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>', '<?= htmlspecialchars($taken['todo_description'], ENT_QUOTES) ?>', '<?= htmlspecialchars($taken['app_name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($taken['todo_creator_name'], ENT_QUOTES) ?>', '<?= $taken['todo_priority'] ?>', '<?= $taken['status'] ?>', '<?= date('d/m/Y', strtotime($taken['date'])) ?>')">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="action-btn complete" 
-                            onclick="completeTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')">
-                        Selesai
-                    </button>
-                    <button class="action-btn release" 
-                            onclick="releaseTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')">
-                        Lepas Tugas
-                    </button>
-                    <button class="action-btn delete" 
-                            onclick="deleteTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')">
-                        Hapus
-                    </button>
-                </div>
-            </div>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <div class="no-data">
-                <div class="no-data-icon">
-                    <i class="fas fa-hand-paper"></i>
-                </div>
-                <h3>Belum ada todo yang diambil</h3>
-                <p>Anda belum mengambil todo apapun. Klik tombol di atas untuk mengambil todo!</p>
-            </div>
-        <?php endif; ?>
-    </div>
-
-    <!-- Pagination -->
-    <?php if ($total_taken > 0): ?>
-    <div class="pagination-container">
-        <div class="pagination-info">
-            <span class="pagination-current">Halaman <?= $current_page ?> dari <?= $total_pages ?></span>
-            <span class="pagination-total">Menampilkan <?= min($items_per_page, $total_taken - $offset) ?> dari <?= min($total_items, $total_taken) ?> taken</span>
-        </div>
-        
-        <div class="pagination-controls">
-            <!-- Previous Page -->
-            <?php if ($current_page > 1): ?>
-            <a href="?page=taken&status=<?= $filter_status ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page - 1 ?>" class="pagination-btn pagination-btn-prev" title="Sebelumnya">
-                <i class="fas fa-chevron-left"></i>
-                <span>Prev</span>
-            </a>
-            <?php else: ?>
-            <span class="pagination-btn pagination-btn-prev pagination-btn-disabled">
-                <i class="fas fa-chevron-left"></i>
-                <span>Prev</span>
-            </span>
-            <?php endif; ?>
-            
-            <!-- Page Numbers 1-10 -->
-            <div class="pagination-numbers">
-                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                    <?php if ($i == $current_page): ?>
-                        <span class="pagination-number pagination-number-active"><?= $i ?></span>
-                    <?php else: ?>
-                        <a href="?page=taken&status=<?= $filter_status ?>&search=<?= urlencode($search) ?>&pg=<?= $i ?>" class="pagination-number"><?= $i ?></a>
-                    <?php endif; ?>
-                <?php endfor; ?>
-            </div>
-            
-            <!-- Next Page -->
-            <?php if ($current_page < $total_pages): ?>
-            <a href="?page=taken&status=<?= $filter_status ?>&search=<?= urlencode($search) ?>&pg=<?= $current_page + 1 ?>" class="pagination-btn pagination-btn-next" title="Selanjutnya">
-                <span>Next</span>
-                <i class="fas fa-chevron-right"></i>
-            </a>
-            <?php else: ?>
-            <span class="pagination-btn pagination-btn-next pagination-btn-disabled">
-                <span>Next</span>
-                <i class="fas fa-chevron-right"></i>
-            </span>
-            <?php endif; ?>
-        </div>
-        
-        <!-- Quick Jump -->
-        <div class="pagination-jump">
-            <span>Ke halaman:</span>
-            <select id="pageJumpSelect" class="pagination-jump-select" onchange="jumpToPage()">
-                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                <option value="<?= $i ?>" <?= $i == $current_page ? 'selected' : '' ?>>
-                    Halaman <?= $i ?>
-                </option>
-                <?php endfor; ?>
-            </select>
-        </div>
-    </div>
-    <?php endif; ?>
-</div>
-
-<!-- Add Taken Modal -->
-<div id="takenModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="modalTitle">Ambil Todo</h3>
-            <button class="modal-close" onclick="closeTakenModal()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <form id="takenForm" method="POST" action="?page=taken">
-                <!-- Pilih Todo -->
-                <div class="form-group">
-                    <label for="takenTodo">Pilih Todo *</label>
-                    <select id="takenTodo" name="id_todos" required>
-                        <option value="">Pilih Todo yang Tersedia</option>
-                        <?php 
-                        $available_todos_result->data_seek(0);
-                        while($todo = $available_todos_result->fetch_assoc()): 
-                        ?>
-                        <option value="<?= $todo['id'] ?>">
-                            [<?= ucfirst($todo['priority']) ?>] <?= htmlspecialchars($todo['title']) ?> - <?= htmlspecialchars($todo['app_name']) ?> (by: <?= htmlspecialchars($todo['creator_name']) ?>)
-                        </option>
-                        <?php endwhile; ?>
-                    </select>
-                    <?php if ($available_todos_result->num_rows == 0): ?>
-                    <p class="form-help-text">
-                        <i class="fas fa-info-circle"></i>
-                        Tidak ada todo yang tersedia saat ini
-                    </p>
-                    <?php endif; ?>
-                </div>
-                
-                <!-- Tanggal diambil -->
-                <div class="form-group">
-                    <label for="takenAddDate">Tanggal Diambil</label>
-                    <input type="date" id="takenAddDate" name="date" 
-                           value="<?= date('Y-m-d') ?>" readonly>
-                    <p class="form-help-text">
-                        <i class="fas fa-info-circle"></i>
-                        Otomatis diisi tanggal hari ini
-                    </p>
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeTakenModal()">
-                Batal
-            </button>
-            <button type="submit" id="submitBtn" form="takenForm" name="add_taken" class="btn btn-primary">
-                <i class="fas fa-hand-paper mr-2"></i>Ambil Todo
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="modal">
-    <div class="modal-content delete-modal">
-        <div class="modal-header">
-            <div class="delete-icon">
-                <i class="fas fa-trash"></i>
-            </div>
-            <h3>Hapus Taken</h3>
-            <p id="deleteMessage">Apakah Anda yakin ingin menghapus taken ini?</p>
-            <p class="delete-note">Tindakan ini tidak dapat dibatalkan. Todo akan kembali tersedia.</p>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
-                Batal
-            </button>
-            <form id="deleteForm" method="POST" action="?page=taken" style="display: inline;">
-                <input type="hidden" id="deleteTakenId" name="taken_id">
-                <button type="submit" name="delete_taken" class="btn btn-danger">
-                    <i class="fas fa-trash mr-2"></i>Hapus
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Complete Confirmation Modal -->
-<div id="completeModal" class="modal">
-    <div class="modal-content complete-modal">
-        <div class="modal-header">
-            <div class="complete-icon">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <h3>Tandai Selesai</h3>
-            <p id="completeMessage">Apakah Anda yakin todo ini sudah selesai?</p>
-            <p class="complete-note">Status akan diubah menjadi "Done" dan todo akan ditandai completed.</p>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeCompleteModal()">
-                Batal
-            </button>
-            <form id="completeForm" method="POST" action="?page=taken" style="display: inline;">
-                <input type="hidden" id="completeTakenId" name="taken_id">
-                <button type="submit" name="complete_taken" class="btn btn-success">
-                    <i class="fas fa-check mr-2"></i>Selesai
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Release Confirmation Modal -->
-<div id="releaseModal" class="modal">
-    <div class="modal-content release-modal">
-        <div class="modal-header">
-            <div class="release-icon">
-                <i class="fas fa-sign-out-alt"></i>
-            </div>
-            <h3>Lepas Tugas</h3>
-            <p id="releaseMessage">Apakah Anda yakin ingin melepas tugas ini?</p>
-            <p class="release-note">Todo akan kembali tersedia dan dapat diambil oleh user lain.</p>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeReleaseModal()">
-                Batal
-            </button>
-            <form id="releaseForm" method="POST" action="?page=taken" style="display: inline;">
-                <input type="hidden" id="releaseTakenId" name="taken_id">
-                <button type="submit" name="release_taken" class="btn btn-warning">
-                    <i class="fas fa-sign-out-alt mr-2"></i>Lepas
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-
 <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f6fa;
+    color: #2c3e50;
+}
+
+.container-taken {
+    max-width: 100%;
+    margin: 0;
+    padding: 20px 30px;
+    background: #f5f6fa;
+}
+
 /* Alert Messages */
-.alert {
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 16px;
+.alert-taken {
+    padding: 11px 17px;
+    border-radius: 6px;
+    margin-bottom: 14px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 10px;
-    animation: slideDown 0.3s ease;
+    gap: 8px;
+    font-size: 0.88rem;
 }
 
-.alert-success {
-    background: #dcfce7;
-    color: #166534;
-    border: 1px solid #bbf7d0;
+.alert-taken.alert-success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
 }
 
-.alert-error {
-    background: #fee2e2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
-}
-
-@keyframes slideDown {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
+.alert-taken.alert-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
 }
 
 /* Page Header */
-.page-header {
-    background: white;
-    border-radius: 16px;
-    padding: 20px 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-}
-
-.page-title {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin-bottom: 4px;
-}
-
-.page-subtitle {
-    color: #6b7280;
-    font-size: 0.95rem;
-    margin: 0 0 12px 0;
-}
-
-/* Buttons */
-.btn {
-    padding: 12px 24px;
-    border-radius: 8px;
-    border: none;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: inline-flex;
-    align-items: center;
-}
-
-.btn-primary {
-    background: linear-gradient(90deg, #0066ff, #33ccff);
-    color: white;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(90deg, #0044cc, #00aaff);
-    transform: translateY(-2px);
-}
-
-.btn-secondary {
-    background: #f8fafc;
-    color: #64748b;
-    border: 1px solid #e2e8f0;
-}
-
-.btn-secondary:hover {
-    background: #e2e8f0;
-}
-
-.btn-danger {
-    background: linear-gradient(90deg, #ef4444, #dc2626);
-    color: white;
-}
-
-.btn-danger:hover {
-    background: linear-gradient(90deg, #dc2626, #b91c1c);
-    transform: translateY(-2px);
-}
-
-.btn-success {
-    background: linear-gradient(90deg, #10b981, #059669);
-    color: white;
-}
-
-.btn-success:hover {
-    background: linear-gradient(90deg, #059669, #047857);
-    transform: translateY(-2px);
-}
-
-.btn-warning {
-    background: linear-gradient(90deg, #f59e0b, #d97706);
-    color: white;
-}
-
-.btn-warning:hover {
-    background: linear-gradient(90deg, #d97706, #b45309);
-    transform: translateY(-2px);
-}
-
-.mr-2 {
-    margin-right: 8px;
-}
-
-/* Statistics Grid */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 20px;
-}
-
-.stat-card {
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    cursor: pointer;
-    position: relative;
-    border: 2px solid transparent;
-}
-
-.stat-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 6px 25px rgba(0,0,0,0.15);
-}
-
-.stat-card.active {
-    border-color: rgba(255,255,255,0.8);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-}
-
-.stat-card.active::after {
-    content: '✓';
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    color: white;
-    font-size: 1.2rem;
-    font-weight: bold;
-}
-
-.bg-gradient-blue { 
-    background: linear-gradient(135deg, #0066ff, #33ccff); 
-    color: white; 
-}
-
-.bg-gradient-orange { 
-    background: linear-gradient(135deg, #f59e0b, #fbbf24); 
-    color: white; 
-}
-
-.bg-gradient-green { 
-    background: linear-gradient(135deg, #10b981, #34d399); 
-    color: white; 
-}
-
-.bg-gradient-purple { 
-    background: linear-gradient(135deg, #7c3aed, #a855f7); 
-    color: white; 
-}
-
-.stat-icon {
-    font-size: 2rem;
-    opacity: 0.8;
-}
-
-.stat-content .stat-number {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 2px;
-}
-
-.stat-content .stat-label {
-    font-size: 0.85rem;
-    opacity: 0.9;
-}
-
-/* Taken Container */
-.taken-container {
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    overflow: hidden;
-}
-
-.section-header {
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid #f3f4f6;
+.page-header-taken {
+    margin-bottom: 16px;
+    padding: 8px 30px;
+    background: #f5f6fa;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
 }
 
-.section-title-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.section-title {
-    font-size: 1.3rem;
+.page-title-taken {
+    font-size: 2.1rem;
     font-weight: 600;
-    color: #1f2937;
-    margin: 0;
-}
-
-.section-count {
-    color: #6b7280;
-    font-size: 0.85rem;
-    background: #f3f4f6;
-    padding: 4px 12px;
-    border-radius: 20px;
-}
-
-/* Filters Container */
-.filters-container {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.search-box {
-    position: relative;
-    min-width: 200px;
-}
-
-.search-icon {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #9ca3af;
-    font-size: 0.9rem;
-}
-
-.search-box input {
-    width: 100%;
-    padding: 10px 12px 10px 36px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-}
-
-.search-box input:focus {
-    outline: none;
-    border-color: #0066ff;
-    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
-}
-
-.filter-dropdown select {
-    padding: 10px 16px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    background: white;
-    cursor: pointer;
-    min-width: 140px;
-    transition: all 0.3s ease;
-}
-
-.filter-dropdown select:focus {
-    outline: none;
-    border-color: #0066ff;
-    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
-}
-
-.btn-clear-filter {
-    width: 36px;
-    height: 36px;
-    border: 1px solid #dc2626;
-    background: #fee2e2;
-    color: #dc2626;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn-clear-filter:hover {
-    background: #fecaca;
-    transform: scale(1.1);
-}
-
-/* Taken List */
-.taken-list {
-    max-height: 500px;
-    overflow-y: auto;
-}
-
-.taken-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.taken-list::-webkit-scrollbar-track {
-    background: #f1f5f9;
-}
-
-.taken-list::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
-}
-
-.taken-list::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-
-/* Taken List Items */
-.taken-list-item {
-    display: flex;
-    align-items: center;
-    padding: 14px 24px;
-    border-bottom: 1px solid #f3f4f6;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    gap: 16px;
-    min-height: 80px;
-}
-
-.taken-list-item:hover {
-    background: #f8fafc;
-}
-
-.taken-list-item:last-child {
-    border-bottom: none;
-}
-
-.add-new-item {
-    border: 2px dashed #d1d5db !important;
-    background: #f9fafb !important;
-    margin: 16px 24px;
-    border-radius: 12px;
-    justify-content: center;
-}
-
-.add-new-item:hover {
-    border-color: #0066ff !important;
-    background: #eff6ff !important;
-}
-
-.add-new-content {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    color: #6b7280;
-}
-
-.add-new-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #0066ff, #33ccff);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-}
-
-.add-new-text h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    margin: 0 0 4px 0;
-    color: #374151;
-}
-
-.add-new-text p {
-    font-size: 0.8rem;
-    margin: 0;
-    color: #9ca3af;
-}
-
-.taken-priority-container {
-    display: flex;
-    align-items: center;
-    margin-right: 16px;
-    flex-shrink: 0;
-}
-
-.taken-priority-badge {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    color: white;
-}
-
-.taken-priority-badge.priority-high {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-}
-
-.taken-priority-badge.priority-medium {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-}
-
-.taken-priority-badge.priority-low {
-    background: linear-gradient(135deg, #10b981, #059669);
-}
-
-/* Taken List Content */
-.taken-list-content {
-    flex: 1;
-    min-width: 0;
-}
-
-.taken-list-main {
-    flex: 1;
-    min-width: 0;
-}
-
-.taken-title-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 4px;
-}
-
-.taken-list-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0;
-}
-
-.taken-list-description {
-    font-size: 0.85rem;
-    color: #6b7280;
-    margin: 0 0 8px 0;
-    line-height: 1.5;
-}
-
-.taken-list-details {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.detail-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.75rem;
-    color: #6b7280;
-}
-
-.detail-badge i {
-    width: 14px;
-    font-size: 0.7rem;
-}
-
-.detail-badge.creator {
-    color: #808080;
-    font-weight: 500;
-}
-
-.detail-badge.creator i {
-    color: #808080;
-}
-
-.detail-badge.status {
-    font-weight: 600;
-    padding: 3px 8px;
-    border-radius: 10px;
-}
-
-.detail-badge.status.status-done {
-    background: #dcfce7;
-    color: #059669;
-}
-
-.detail-badge.status.status-done i {
-    color: #059669;
-}
-
-.detail-badge.status.status-in_progress {
-    background: #fef3c7;
-    color: #d97706;
-}
-
-.detail-badge.status.status-in_progress i {
-    color: #d97706;
-}
-
-/* Taken List Actions */
-.taken-list-actions {
-    display: flex;
-    gap: 8px;
-    opacity: 1;
-    transition: opacity 0.3s ease;
-    flex-shrink: 0;
-    margin-left: auto;
-}
-
-.action-btn {
-    padding: 8px 16px;
-    height: 36px;
-    border-radius: 6px;
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    color: white;
-    white-space: nowrap;
-    font-weight: 500;
-    min-width: fit-content;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.action-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-.action-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.action-btn.complete {
-    background: linear-gradient(135deg, #10b981, #059669);
-    border-color: #059669;
-}
-
-.action-btn.complete:hover {
-    background: linear-gradient(135deg, #059669, #047857);
-    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
-}
-
-.action-btn.release {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-    border-color: #d97706;
-}
-
-.action-btn.release:hover {
-    background: linear-gradient(135deg, #d97706, #b45309);
-    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
-}
-
-.action-btn.delete {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    border-color: #dc2626;
-}
-
-.action-btn.delete:hover {
-    background: linear-gradient(135deg, #dc2626, #b91c1c);
-    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
-}
-
-/* No Data State */
-.no-data {
-    text-align: center;
-    padding: 60px 24px;
-    color: #6b7280;
-}
-
-.no-data-icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: #f3f4f6;
-    margin: 0 auto 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    color: #9ca3af;
-}
-
-.no-data h3 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: #374151;
+    color: #0d8af5;
     margin-bottom: 8px;
 }
 
-.no-data p {
-    font-size: 0.9rem;
-    margin: 0;
+/* Content Box */
+.content-box-taken {
+    background: white;
+    border-radius: 0;
+    padding: 26px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
-/* Pagination Styles */
-.pagination-container {
-    padding: 20px 24px;
-    border-top: 2px solid #f1f5f9;
-    background: linear-gradient(180deg, #ffffff, #f8fafc);
+/* Filters */
+.filters-container-taken {
     display: flex;
+    gap: 12px;
+    margin-bottom: 18px;
     flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
 }
 
-.pagination-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.85rem;
+.filter-select-taken {
+    padding: 11px 16px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.96rem;
+    min-width: 170px;
+    background: white;
+    cursor: pointer;
 }
 
-.pagination-current {
-    font-weight: 700;
-    color: #1f2937;
+.search-input-taken {
+    padding: 11px 16px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.96rem;
+    min-width: 270px;
+}
+
+.btn-clear-taken {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
     font-size: 0.9rem;
 }
 
-.pagination-total {
-    color: #6b7280;
-    font-size: 0.8rem;
+.btn-clear-taken:hover {
+    background: #c0392b;
 }
 
-.pagination-controls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.pagination-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: white;
-    color: #6b7280;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-decoration: none;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.pagination-btn:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
-    color: #1f2937;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.pagination-btn-prev,
-.pagination-btn-next {
-    background: linear-gradient(135deg, #f8fafc, #ffffff);
-}
-
-.pagination-btn-disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
-.pagination-numbers {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.pagination-number {
-    min-width: 38px;
-    height: 38px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 8px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: white;
-    color: #6b7280;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-decoration: none;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.pagination-number:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
-    color: #1f2937;
-    transform: translateY(-1px);
-}
-
-.pagination-number-active {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    border-color: #2563eb;
+.btn-add-taken {
+    background: #0d8af5;
     color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.btn-add-taken:hover {
+    background: #0b7ad6;
+}
+
+/* Table Container */
+.table-container-taken {
+    background: white;
+    border-radius: 0;
+    overflow: hidden;
+    border: 1px solid #ddd;
+    margin-bottom: 0;
+}
+
+/* Table */
+.data-table-taken {
+    width: 100%;
+    border-collapse: collapse;
+    border: none;
+    table-layout: fixed;
+}
+
+.data-table-taken thead {
+    background: linear-gradient(135deg, #0d8af5 0%, #0b7ad6 100%);
+    color: white;
+}
+
+.data-table-taken th {
+    padding: 16px 20px;
+    text-align: left;
     font-weight: 600;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+    font-size: 1.02rem;
+    text-transform: capitalize;
+    border-right: 2px solid rgba(255, 255, 255, 0.3);
+    border-bottom: 2px solid #0b7ad6;
 }
 
-.pagination-number-active:hover {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+.data-table-taken th:last-child {
+    border-right: none;
 }
 
-.pagination-jump {
+.data-table-taken th:nth-child(1) { width: 60px; text-align: center; }
+.data-table-taken th:nth-child(2) { width: 200px; }
+.data-table-taken th:nth-child(3) { width: 130px; }
+.data-table-taken th:nth-child(4) { width: 120px; text-align: center; }
+.data-table-taken th:nth-child(5) { width: 130px; text-align: center; }
+.data-table-taken th:nth-child(6) { width: 130px; }
+.data-table-taken th:nth-child(7) { width: 100px; text-align: center; }
+.data-table-taken th:nth-child(8) { width: 180px; text-align: center; }
+
+.data-table-taken tbody tr {
+    border-bottom: 2px solid #e0e0e0;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.data-table-taken tbody tr:hover {
+    background: #e8eef5 !important;
+    transform: scale(1.002);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.data-table-taken td {
+    padding: 15px 20px;
+    font-size: 0.96rem;
+    color: #555;
+    border-right: 2px solid #e0e0e0;
+    background: white;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.data-table-taken td:last-child {
+    border-right: none;
+}
+
+.data-table-taken td:first-child {
+    text-align: center;
+    font-weight: 600;
+    color: #777;
+    background: white;
+}
+
+.data-table-taken td:nth-child(4),
+.data-table-taken td:nth-child(5),
+.data-table-taken td:nth-child(7) {
+    text-align: center;
+}
+
+.data-table-taken td:nth-child(8) {
+    white-space: normal;
+    text-align: center;
+}
+
+/* Truncate text */
+.truncate-text-taken {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    max-width: 100%;
+}
+
+/* User Info */
+.user-info-taken {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.85rem;
-    color: #6b7280;
 }
 
-.pagination-jump-select {
-    height: 38px;
-    padding: 0 32px 0 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E") no-repeat right 10px center;
-    background-size: 12px;
-    font-size: 0.85rem;
-    color: #1f2937;
+.user-name-taken {
+    font-weight: 500;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-empty-taken {
+    color: #999;
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+/* Badges */
+.priority-badge,
+.status-badge {
+    display: inline-block;
+    padding: 5px 13px;
+    border-radius: 20px;
+    font-size: 0.86rem;
+    font-weight: 500;
+}
+
+.badge-high {
+    background: #fee;
+    color: #e74c3c;
+}
+
+.badge-medium {
+    background: #fff4e6;
+    color: #f39c12;
+}
+
+.badge-low {
+    background: #e8f5e9;
+    color: #27ae60;
+}
+
+.badge-progress {
+    background: #fff4e6;
+    color: #f39c12;
+}
+
+.badge-done {
+    background: #e8f5e9;
+    color: #27ae60;
+}
+
+.badge-pending {
+    background: #e3f2fd;
+    color: #2196f3;
+}
+
+/* Action Buttons */
+.action-buttons-taken {
+    display: flex;
+    gap: 7px;
+    justify-content: center;
+}
+
+.btn-action-taken {
+    padding: 7px 14px;
+    border: none;
+    border-radius: 6px;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
     transition: all 0.2s ease;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
+    font-size: 0.85rem;
+    white-space: nowrap;
 }
 
-.pagination-jump-select:hover {
-    border-color: #d1d5db;
-    background-color: #f9fafb;
+.btn-complete-taken {
+    background: #e8f5e9;
+    color: #27ae60;
 }
 
-.pagination-jump-select:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+.btn-complete-taken:hover {
+    background: #27ae60;
+    color: white;
 }
 
-/* Modal Styles */
-.modal {
+.btn-pending-taken {
+    background: #e3f2fd;
+    color: #2196f3;
+}
+
+.btn-pending-taken:hover {
+    background: #2196f3;
+    color: white;
+}
+
+.btn-resume-taken {
+    background: #fff9e6;
+    color: #ff9800;
+}
+
+.btn-resume-taken:hover {
+    background: #ff9800;
+    color: white;
+}
+
+.btn-cancel-taken {
+    background: #fff4e6;
+    color: #f39c12;
+}
+
+.btn-cancel-taken:hover {
+    background: #f39c12;
+    color: white;
+}
+
+/* Pagination */
+.pagination-taken {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 22px 0;
+    gap: 7px;
+    background: transparent;
+}
+
+.page-btn-taken {
+    min-width: 39px;
+    height: 39px;
+    border: 2px solid #ddd;
+    background: white;
+    color: #555;
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 0.96rem;
+    font-weight: 500;
+}
+
+.page-btn-taken:hover {
+    border-color: #0d8af5;
+    color: #0d8af5;
+    background: #e3f2fd;
+}
+
+.page-btn-taken.active {
+    background: #0d8af5;
+    color: white;
+    border-color: #0d8af5;
+}
+
+/* No Data */
+.no-data-taken {
+    text-align: center;
+    padding: 50px 20px;
+    color: #999;
+    border: none !important;
+}
+
+.no-data-taken i {
+    font-size: 2.8rem;
+    margin-bottom: 12px;
+    color: #ddd;
+}
+
+.no-data-taken h3 {
+    font-size: 1.15rem;
+    margin-bottom: 6px;
+}
+
+.no-data-taken p {
+    font-size: 0.92rem;
+}
+
+/* Modal */
+.modal-taken {
     display: none;
     position: fixed;
     top: 0;
@@ -1426,377 +708,582 @@ function getPriorityIcon($priority) {
     bottom: 0;
     background: rgba(0,0,0,0.5);
     z-index: 1000;
-    padding: 20px;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-taken.show {
+    display: flex;
+}
+
+.modal-content-taken {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
     overflow-y: auto;
 }
 
-.modal.show {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-content {
-    background: white;
-    border-radius: 16px;
-    width: 100%;
-    max-width: 500px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    animation: slideUp 0.3s ease;
-}
-
-.delete-modal, .complete-modal, .release-modal {
-    max-width: 400px;
-    text-align: center;
-}
-
-.delete-icon {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    border-radius: 50%;
-    margin: 0 auto 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.5rem;
-}
-
-.complete-icon {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #10b981, #059669);
-    border-radius: 50%;
-    margin: 0 auto 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.5rem;
-}
-
-.release-icon {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-    border-radius: 50%;
-    margin: 0 auto 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.5rem;
-}
-
-.modal-header {
-    padding: 24px 24px 0;
+.modal-header-taken {
+    padding: 18px 20px;
+    border-bottom: 1px solid #eee;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-}
-
-.modal-header h3 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0;
-}
-
-.delete-modal .modal-header,
-.complete-modal .modal-header,
-.release-modal .modal-header {
-    flex-direction: column;
-    text-align: center;
     align-items: center;
 }
 
-.delete-modal .modal-header p,
-.complete-modal .modal-header p,
-.release-modal .modal-header p {
-    margin: 8px 0 0 0;
-    color: #6b7280;
+.modal-header-taken h3 {
+    font-size: 1.2rem;
+    color: #333;
 }
 
-.delete-note {
-    font-size: 0.8rem !important;
-    color: #f59e0b !important;
-    font-weight: 500;
-}
-
-.complete-note {
-    font-size: 0.8rem !important;
-    color: #10b981 !important;
-    font-weight: 500;
-}
-
-.release-note {
-    font-size: 0.8rem !important;
-    color: #f59e0b !important;
-    font-weight: 500;
-}
-
-.modal-close {
+.modal-close-taken {
     background: none;
     border: none;
-    font-size: 1.2rem;
-    color: #9ca3af;
+    font-size: 1.4rem;
+    color: #999;
     cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: all 0.3s ease;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
 }
 
-.modal-close:hover {
-    background: #f3f4f6;
-    color: #374151;
+.modal-close-taken:hover {
+    background: #f5f5f5;
+    color: #666;
 }
 
-.modal-body {
-    padding: 24px;
+.modal-body-taken {
+    padding: 20px;
 }
 
-.form-group {
-    margin-bottom: 20px;
+.form-group-taken {
+    margin-bottom: 16px;
 }
 
-.form-group label {
+.form-group-taken label {
     display: block;
-    font-weight: 500;
-    color: #374151;
     margin-bottom: 6px;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
+    font-weight: 500;
+    color: #555;
     font-size: 0.9rem;
-    transition: border-color 0.3s ease;
-    box-sizing: border-box;
 }
 
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    outline: none;
-    border-color: #0066ff;
-    box-shadow: 0 0 0 3px rgba(0,102,255,0.1);
+.form-group-taken input,
+.form-group-taken select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
 }
 
-.form-group input[readonly] {
+.form-group-taken input[readonly] {
     background: #f9fafb;
     color: #6b7280;
     cursor: not-allowed;
 }
 
-.form-help-text {
-    margin-top: 8px;
-    font-size: 0.8rem;
-    color: #f59e0b;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.form-help-text i {
-    font-size: 0.75rem;
-}
-
-.modal-footer {
-    padding: 0 24px 24px;
+.modal-footer-taken {
+    padding: 14px 20px;
+    border-top: 1px solid #eee;
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
+    gap: 8px;
+}
+
+.btn-secondary-taken {
+    padding: 9px 18px;
+    border: 1px solid #ddd;
+    background: white;
+    color: #666;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-secondary-taken:hover {
+    background: #f5f5f5;
+}
+
+.btn-primary-taken {
+    padding: 9px 18px;
+    border: none;
+    background: #0d8af5;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-primary-taken:hover {
+    background: #0b7ad6;
+}
+
+/* Confirmation Modal */
+.confirm-modal-taken .modal-content-taken {
+    max-width: 400px;
+    text-align: center;
+}
+
+.confirm-icon-taken {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: white;
+}
+
+.confirm-icon-taken.complete {
+    background: #27ae60;
+}
+
+.confirm-icon-taken.pending {
+    background: #2196f3;
+}
+
+.confirm-icon-taken.resume {
+    background: #ff9800;
+}
+
+.confirm-icon-taken.cancel {
+    background: #f39c12;
+}
+
+.confirm-message-taken {
+    font-size: 1rem;
+    color: #555;
+    margin-bottom: 8px;
+}
+
+.confirm-note-taken {
+    font-size: 0.85rem;
+    color: #999;
 }
 
 /* Responsive */
-@media (max-width: 1024px) {
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+@media (max-width: 1200px) {
+    .data-table-taken {
+        font-size: 0.88rem;
     }
     
-    .pagination-container {
-        justify-content: center;
-    }
-    
-    .pagination-info {
-        width: 100%;
-        text-align: center;
-        align-items: center;
+    .data-table-taken th,
+    .data-table-taken td {
+        padding: 12px 14px;
     }
 }
 
 @media (max-width: 768px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .taken-list-item {
-        flex-wrap: wrap;
-    }
-    
-    .taken-list-actions {
-        opacity: 1;
-    }
-    
-    .section-header {
+    .filters-container-taken {
         flex-direction: column;
-        align-items: stretch;
     }
     
-    .filters-container {
-        justify-content: stretch;
+    .filter-select-taken,
+    .search-input-taken,
+    .btn-add-taken {
         width: 100%;
+        margin-left: 0;
     }
     
-    .search-box {
-        min-width: auto;
-        flex: 1;
+    .table-container-taken {
+        overflow-x: auto;
     }
     
-    .filter-dropdown select {
-        min-width: auto;
-        flex: 1;
-    }
-    
-    .taken-list {
-        max-height: none;
-    }
-    
-    .pagination-container {
-        flex-direction: column;
-        gap: 12px;
-    }
-    
-    .pagination-controls {
-        flex-wrap: wrap;
-        justify-content: center;
-        width: 100%;
-    }
-    
-    .pagination-numbers {
-        order: 1;
-        flex-wrap: wrap;
-    }
-    
-    .pagination-btn span {
-        display: none;
-    }
-    
-    .pagination-btn {
-        padding: 8px 12px;
-    }
-    
-    .pagination-jump {
-        width: 100%;
-        justify-content: center;
-    }
-}
-
-@media (max-width: 480px) {
-    .taken-list-item {
-        padding: 12px 16px;
-    }
-    
-    .section-header {
-        padding: 16px 20px 12px;
-    }
-    
-    .add-new-item {
-        margin: 12px 16px;
-    }
-    
-    .pagination-number {
-        min-width: 34px;
-        height: 34px;
-        font-size: 0.8rem;
-    }
-    
-    .pagination-btn {
-        height: 34px;
-    }
-    
-    .pagination-jump-select {
-        height: 34px;
-        font-size: 0.8rem;
+    .data-table-taken {
+        min-width: 1200px;
     }
 }
 </style>
 
+<div class="container-taken">
+    <!-- Alerts -->
+    <?php if ($message): ?>
+    <div class="alert-taken alert-success">
+        <i class="fas fa-check-circle"></i>
+        <?= $message ?>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($error): ?>
+    <div class="alert-taken alert-error">
+        <i class="fas fa-exclamation-triangle"></i>
+        <?= $error ?>
+    </div>
+    <?php endif; ?>
+</div>
+
+<!-- Page Header -->
+<div class="page-header-taken">
+    <h1 class="page-title-taken">Todo Saya - Daftar Tugas</h1>
+</div>
+
+<div class="container-taken">
+    <!-- Main Content Container -->
+    <div class="content-box-taken">
+        <!-- Filters -->
+        <div class="filters-container-taken">
+            <input type="text" class="search-input-taken" id="searchInputTaken" placeholder="Cari todo..." 
+                   value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearchTaken(event)">
+            
+            <select class="filter-select-taken" id="statusFilterTaken" onchange="applyFiltersTaken()">
+                <option value="">Semua Status</option>
+                <option value="in_progress" <?= $filter_status == 'in_progress' ? 'selected' : '' ?>>In Progress</option>
+                <option value="done" <?= $filter_status == 'done' ? 'selected' : '' ?>>Completed</option>
+                <option value="pending" <?= $filter_status == 'pending' ? 'selected' : '' ?>>Pending</option>
+            </select>
+
+            <select class="filter-select-taken" id="priorityFilterTaken" onchange="applyFiltersTaken()">
+                <option value="">Semua Prioritas</option>
+                <option value="high" <?= $filter_priority == 'high' ? 'selected' : '' ?>>High Priority</option>
+                <option value="medium" <?= $filter_priority == 'medium' ? 'selected' : '' ?>>Medium Priority</option>
+                <option value="low" <?= $filter_priority == 'low' ? 'selected' : '' ?>>Low Priority</option>
+            </select>
+            
+            <?php if ($filter_priority || $search || $filter_status): ?>
+            <button class="btn-clear-taken" onclick="clearFiltersTaken()">
+                <i class="fas fa-times"></i> Clear
+            </button>
+            <?php endif; ?>
+
+            <button class="btn-add-taken" onclick="openAddTakenModal()">
+                <i class="fas fa-plus"></i> Ambil Todo
+            </button>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container-taken">
+            <table class="data-table-taken">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Judul Todo</th>
+                        <th>Aplikasi</th>
+                        <th>Prioritas</th>
+                        <th>Status</th>
+                        <th>Dibuat Oleh</th>
+                        <th>Tanggal</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($taken_result->num_rows > 0): ?>
+                        <?php 
+                        $no = $offset + 1;
+                        while($taken = $taken_result->fetch_assoc()): 
+                        ?>
+                        <tr onclick="window.location.href='?page=detail_taken&id=<?= $taken['id'] ?>'">
+                            <td><?= $no++ ?></td>
+                            <td>
+                                <strong class="truncate-text-taken" title="<?= htmlspecialchars($taken['todo_title']) ?>">
+                                    <?= htmlspecialchars($taken['todo_title']) ?>
+                                </strong>
+                            </td>
+                            <td>
+                                <span class="truncate-text-taken" title="<?= htmlspecialchars($taken['app_name']) ?>">
+                                    <?= htmlspecialchars($taken['app_name']) ?>
+                                </span>
+                            </td>
+                            <td><?= getPriorityBadgeTaken($taken['todo_priority']) ?></td>
+                            <td><?= getStatusBadgeTaken($taken['status']) ?></td>
+                            <td>
+                                <?php if ($taken['todo_creator_name']): ?>
+                                    <div class="user-info-taken">
+                                        <span class="user-name-taken truncate-text-taken" title="<?= htmlspecialchars($taken['todo_creator_name']) ?>">
+                                            <?= htmlspecialchars($taken['todo_creator_name']) ?>
+                                        </span>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="user-empty-taken">-</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?= date('d/m/Y', strtotime($taken['date'])) ?></td>
+                            <td onclick="event.stopPropagation()">
+                                <?php if ($taken['status'] == 'done'): ?>
+                                    <div style="text-align: center; color: #999; font-size: 1.2rem;">-</div>
+                                <?php else: ?>
+                                <div class="action-buttons-taken">
+                                    <button class="btn-action-taken btn-complete-taken" 
+                                            onclick="completeTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')"
+                                            title="Selesai">
+                                        <i class="fas fa-check"></i> Selesai
+                                    </button>
+                                    
+                                    <?php if ($taken['status'] == 'pending'): ?>
+                                    <button class="btn-action-taken btn-resume-taken" 
+                                            onclick="resumeTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')"
+                                            title="Lanjutkan">
+                                        <i class="fas fa-play"></i> Lanjutkan
+                                    </button>
+                                    <?php else: ?>
+                                    <button class="btn-action-taken btn-pending-taken" 
+                                            onclick="pendingTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')"
+                                            title="Pending">
+                                        <i class="fas fa-pause"></i> Pending
+                                    </button>
+                                    <?php endif; ?>
+                                    
+                                    <button class="btn-action-taken btn-cancel-taken" 
+                                            onclick="cancelTaken(<?= $taken['id'] ?>, '<?= htmlspecialchars($taken['todo_title'], ENT_QUOTES) ?>')"
+                                            title="Cancel">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </button>
+                                </div>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="8" class="no-data-taken">
+                                <i class="fas fa-inbox"></i>
+                                <h3>Belum ada data</h3>
+                                <p>Anda belum mengambil todo apapun</p>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <?php if ($total_taken > $items_per_page): ?>
+        <div class="pagination-taken">
+            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                <a href="?page=taken&status=<?= $filter_status ?>&priority=<?= $filter_priority ?>&search=<?= urlencode($search) ?>&pg=<?= $i ?>" 
+                   class="page-btn-taken <?= $i == $current_page ? 'active' : '' ?>">
+                    <?= $i ?>
+                </a>
+            <?php endfor; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- Add Taken Modal -->
+<div id="takenModalAdd" class="modal-taken">
+    <div class="modal-content-taken">
+        <div class="modal-header-taken">
+            <h3>Ambil Todo</h3>
+            <button class="modal-close-taken" onclick="closeTakenModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body-taken">
+            <form id="takenFormAdd" method="POST" action="?page=taken">
+                <div class="form-group-taken">
+                    <label for="takenTodoSelect">Pilih Todo *</label>
+                    <select id="takenTodoSelect" name="id_todos" required>
+                        <option value="">Pilih Todo yang Tersedia</option>
+                        <?php 
+                        $available_todos_result->data_seek(0);
+                        while($todo = $available_todos_result->fetch_assoc()): 
+                        ?>
+                        <option value="<?= $todo['id'] ?>">
+                            [<?= ucfirst($todo['priority']) ?>] <?= htmlspecialchars($todo['title']) ?> - <?= htmlspecialchars($todo['app_name']) ?>
+                        </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                
+                <div class="form-group-taken">
+                    <label for="takenAddDate">Tanggal Diambil</label>
+                    <input type="date" id="takenAddDate" name="date" 
+                           value="<?= date('Y-m-d') ?>" readonly>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer-taken">
+            <button type="button" class="btn-secondary-taken" onclick="closeTakenModal()">
+                Batal
+            </button>
+            <button type="submit" form="takenFormAdd" name="add_taken" class="btn-primary-taken">
+                <i class="fas fa-hand-paper"></i> Ambil Todo
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Complete Confirmation Modal -->
+<div id="completeModalTaken" class="modal-taken confirm-modal-taken">
+    <div class="modal-content-taken">
+        <div class="modal-header-taken" style="flex-direction: column; align-items: center; text-align: center;">
+            <div class="confirm-icon-taken complete">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h3>Tandai Selesai</h3>
+        </div>
+        <div class="modal-body-taken">
+            <p class="confirm-message-taken" id="completeMessageTaken">Apakah Anda yakin todo ini sudah selesai?</p>
+            <p class="confirm-note-taken">Status akan diubah menjadi "Completed"</p>
+        </div>
+        <div class="modal-footer-taken">
+            <button type="button" class="btn-secondary-taken" onclick="closeCompleteModal()">
+                Batal
+            </button>
+            <form id="completeFormTaken" method="POST" action="?page=taken" style="display: inline;">
+                <input type="hidden" id="completeTakenIdInput" name="taken_id">
+                <button type="submit" name="complete_taken" class="btn-primary-taken" style="background: #27ae60;">
+                    <i class="fas fa-check"></i> Selesai
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Confirmation Modal -->
+<div id="pendingModalTaken" class="modal-taken confirm-modal-taken">
+    <div class="modal-content-taken">
+        <div class="modal-header-taken" style="flex-direction: column; align-items: center; text-align: center;">
+            <div class="confirm-icon-taken pending">
+                <i class="fas fa-pause-circle"></i>
+            </div>
+            <h3>Tandai Pending</h3>
+        </div>
+        <div class="modal-body-taken">
+            <p class="confirm-message-taken" id="pendingMessageTaken">Apakah Anda yakin ingin menandai todo ini sebagai pending?</p>
+            <p class="confirm-note-taken">Status akan diubah menjadi "Pending"</p>
+        </div>
+        <div class="modal-footer-taken">
+            <button type="button" class="btn-secondary-taken" onclick="closePendingModal()">
+                Batal
+            </button>
+            <form id="pendingFormTaken" method="POST" action="?page=taken" style="display: inline;">
+                <input type="hidden" id="pendingTakenIdInput" name="taken_id">
+                <button type="submit" name="pending_taken" class="btn-primary-taken" style="background: #2196f3;">
+                    <i class="fas fa-pause"></i> Pending
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Resume Confirmation Modal -->
+<div id="resumeModalTaken" class="modal-taken confirm-modal-taken">
+    <div class="modal-content-taken">
+        <div class="modal-header-taken" style="flex-direction: column; align-items: center; text-align: center;">
+            <div class="confirm-icon-taken resume">
+                <i class="fas fa-play-circle"></i>
+            </div>
+            <h3>Lanjutkan Tugas</h3>
+        </div>
+        <div class="modal-body-taken">
+            <p class="confirm-message-taken" id="resumeMessageTaken">Apakah Anda yakin ingin melanjutkan todo ini?</p>
+            <p class="confirm-note-taken">Status akan diubah menjadi "In Progress"</p>
+        </div>
+        <div class="modal-footer-taken">
+            <button type="button" class="btn-secondary-taken" onclick="closeResumeModal()">
+                Batal
+            </button>
+            <form id="resumeFormTaken" method="POST" action="?page=taken" style="display: inline;">
+                <input type="hidden" id="resumeTakenIdInput" name="taken_id">
+                <button type="submit" name="resume_taken" class="btn-primary-taken" style="background: #ff9800;">
+                    <i class="fas fa-play"></i> Lanjutkan
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Confirmation Modal -->
+<div id="cancelModalTaken" class="modal-taken confirm-modal-taken">
+    <div class="modal-content-taken">
+        <div class="modal-header-taken" style="flex-direction: column; align-items: center; text-align: center;">
+            <div class="confirm-icon-taken cancel">
+                <i class="fas fa-times-circle"></i>
+            </div>
+            <h3>Cancel Tugas</h3>
+        </div>
+        <div class="modal-body-taken">
+            <p class="confirm-message-taken" id="cancelMessageTaken">Apakah Anda yakin ingin membatalkan tugas ini?</p>
+            <p class="confirm-note-taken">Todo akan kembali tersedia untuk user lain</p>
+        </div>
+        <div class="modal-footer-taken">
+            <button type="button" class="btn-secondary-taken" onclick="closeCancelModal()">
+                Batal
+            </button>
+            <form id="cancelFormTaken" method="POST" action="?page=taken" style="display: inline;">
+                <input type="hidden" id="cancelTakenIdInput" name="taken_id">
+                <button type="submit" name="cancel_taken" class="btn-primary-taken" style="background: #f39c12;">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 function openAddTakenModal() {
-    document.getElementById('modalTitle').textContent = 'Ambil Todo';
-    document.getElementById('submitBtn').innerHTML = '<i class="fas fa-hand-paper mr-2"></i>Ambil Todo';
-    document.getElementById('submitBtn').name = 'add_taken';
-    document.getElementById('takenForm').reset();
+    document.getElementById('takenFormAdd').reset();
     document.getElementById('takenAddDate').value = '<?= date('Y-m-d') ?>';
-    document.getElementById('takenModal').classList.add('show');
-    document.body.style.overflow = 'hidden';
-}
-
-function deleteTaken(id, title) {
-    document.getElementById('deleteMessage').textContent = `Hapus taken "${title}"?`;
-    document.getElementById('deleteTakenId').value = id;
-    document.getElementById('deleteModal').classList.add('show');
+    document.getElementById('takenModalAdd').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
 function completeTaken(id, title) {
-    document.getElementById('completeMessage').textContent = `Tandai "${title}" sebagai selesai?`;
-    document.getElementById('completeTakenId').value = id;
-    document.getElementById('completeModal').classList.add('show');
+    document.getElementById('completeMessageTaken').textContent = `Tandai "${title}" sebagai selesai?`;
+    document.getElementById('completeTakenIdInput').value = id;
+    document.getElementById('completeModalTaken').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
-function releaseTaken(id, title) {
-    document.getElementById('releaseMessage').textContent = `Lepas tugas "${title}"?`;
-    document.getElementById('releaseTakenId').value = id;
-    document.getElementById('releaseModal').classList.add('show');
+function pendingTaken(id, title) {
+    document.getElementById('pendingMessageTaken').textContent = `Tandai "${title}" sebagai pending?`;
+    document.getElementById('pendingTakenIdInput').value = id;
+    document.getElementById('pendingModalTaken').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function resumeTaken(id, title) {
+    document.getElementById('resumeMessageTaken').textContent = `Lanjutkan tugas "${title}"?`;
+    document.getElementById('resumeTakenIdInput').value = id;
+    document.getElementById('resumeModalTaken').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function cancelTaken(id, title) {
+    document.getElementById('cancelMessageTaken').textContent = `Cancel tugas "${title}"?`;
+    document.getElementById('cancelTakenIdInput').value = id;
+    document.getElementById('cancelModalTaken').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
 function closeTakenModal() {
-    document.getElementById('takenModal').classList.remove('show');
-    document.body.style.overflow = '';
-}
-
-function closeDeleteModal() {
-    document.getElementById('deleteModal').classList.remove('show');
+    document.getElementById('takenModalAdd').classList.remove('show');
     document.body.style.overflow = '';
 }
 
 function closeCompleteModal() {
-    document.getElementById('completeModal').classList.remove('show');
+    document.getElementById('completeModalTaken').classList.remove('show');
     document.body.style.overflow = '';
 }
 
-function closeReleaseModal() {
-    document.getElementById('releaseModal').classList.remove('show');
+function closePendingModal() {
+    document.getElementById('pendingModalTaken').classList.remove('show');
     document.body.style.overflow = '';
 }
 
-function filterByStatus(status) {
-    let url = new URL(window.location);
-    const currentStatus = url.searchParams.get('status');
-    
-    if (currentStatus === status) {
-        url.searchParams.delete('status');
-    } else {
-        url.searchParams.set('status', status);
-    }
-    
-    url.searchParams.set('page', 'taken');
-    url.searchParams.set('pg', '1');
-    window.location.href = url.toString();
+function closeResumeModal() {
+    document.getElementById('resumeModalTaken').classList.remove('show');
+    document.body.style.overflow = '';
 }
 
-function applyFilters() {
-    const statusFilter = document.getElementById('statusFilter').value;
-    const searchValue = document.getElementById('searchInput').value;
+function closeCancelModal() {
+    document.getElementById('cancelModalTaken').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function applyFiltersTaken() {
+    const statusFilter = document.getElementById('statusFilterTaken').value;
+    const priorityFilter = document.getElementById('priorityFilterTaken').value;
+    const searchValue = document.getElementById('searchInputTaken').value;
     
     let url = new URL(window.location);
     url.searchParams.set('page', 'taken');
@@ -1808,6 +1295,12 @@ function applyFilters() {
         url.searchParams.delete('status');
     }
     
+    if (priorityFilter) {
+        url.searchParams.set('priority', priorityFilter);
+    } else {
+        url.searchParams.delete('priority');
+    }
+    
     if (searchValue) {
         url.searchParams.set('search', searchValue);
     } else {
@@ -1817,61 +1310,52 @@ function applyFilters() {
     window.location.href = url.toString();
 }
 
-function handleSearch(event) {
+function handleSearchTaken(event) {
     if (event.key === 'Enter') {
-        applyFilters();
+        applyFiltersTaken();
     }
 }
 
-function clearFilters() {
+function clearFiltersTaken() {
     let url = new URL(window.location);
     url.searchParams.delete('status');
+    url.searchParams.delete('priority');
     url.searchParams.delete('search');
     url.searchParams.set('page', 'taken');
     url.searchParams.set('pg', '1');
     window.location.href = url.toString();
 }
 
-function jumpToPage() {
-    const select = document.getElementById('pageJumpSelect');
-    const page = parseInt(select.value);
-    const statusFilter = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : '';
-    const searchValue = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
-    
-    let url = new URL(window.location);
-    url.searchParams.set('page', 'taken');
-    url.searchParams.set('pg', page);
-    
-    if (statusFilter) url.searchParams.set('status', statusFilter);
-    if (searchValue) url.searchParams.set('search', searchValue);
-    
-    window.location.href = url.toString();
-}
-
+// Close modal when clicking outside
 document.addEventListener('click', function(e) {
-    if(e.target.classList.contains('modal')) {
+    if(e.target.classList.contains('modal-taken')) {
         closeTakenModal();
-        closeDeleteModal();
         closeCompleteModal();
-        closeReleaseModal();
+        closePendingModal();
+        closeResumeModal();
+        closeCancelModal();
     }
 });
 
+// Close modal with ESC key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeTakenModal();
-        closeDeleteModal();
         closeCompleteModal();
-        closeReleaseModal();
+        closePendingModal();
+        closeResumeModal();
+        closeCancelModal();
     }
 });
 
+// Auto hide alerts
 document.addEventListener('DOMContentLoaded', function() {
-    const alerts = document.querySelectorAll('.alert');
+    const alerts = document.querySelectorAll('.alert-taken');
     alerts.forEach(alert => {
         setTimeout(() => {
             alert.style.opacity = '0';
             alert.style.transform = 'translateY(-20px)';
+            alert.style.transition = 'all 0.3s ease';
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     });

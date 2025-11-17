@@ -1,18 +1,17 @@
 <?php
-// Role-based menu configuration
 $user_role = $_SESSION['user_role'];
 
 $menu_items = [
     'dashboard' => [
         'icon' => 'fas fa-home',
         'text' => 'Dashboard',
-        'roles' => ['admin', 'programmer', 'support', 'client'],
+        'roles' => ['admin', 'programmer', 'support'],
         'tooltip' => 'Dashboard'
     ],
     'apps' => [
         'icon' => 'fas fa-th-large',
         'text' => 'Apps',
-        'roles' => ['admin', 'programmer', 'support', 'client'],
+        'roles' => ['admin', 'support', 'programmer'],
         'tooltip' => 'Kelola Aplikasi'
     ],
     'users' => [
@@ -24,27 +23,21 @@ $menu_items = [
     'todos' => [
         'icon' => 'fas fa-list-check',
         'text' => 'Todos',
-        'roles' => ['admin', 'programmer', 'support', 'client'],
+        'roles' => ['admin', 'programmer', 'support'],
         'tooltip' => 'Kelola Tugas'
     ],
     'taken' => [
         'icon' => 'fas fa-chart-line',
         'text' => 'Taken',
-        'roles' => ['admin', 'programmer', 'support'],
+        'roles' => ['admin'],
         'tooltip' => 'Pengambilan Tugas'
     ],
     'reports' => [
         'icon' => 'fas fa-chart-bar',
         'text' => 'Reports',
-        'roles' => ['admin', 'programmer', 'support', 'client'],
+        'roles' => ['admin', 'programmer', 'support'],
         'tooltip' => 'Laporan Sistem'
     ],
-    'profile' => [
-        'icon' => 'fas fa-user',
-        'text' => 'Profile',
-        'roles' => ['admin', 'programmer', 'support', 'client'],
-        'tooltip' => 'Pengaturan Sistem'
-    ]
 ];
 
 // Function to check if user has access to a menu item
@@ -73,6 +66,12 @@ function hasAccess($menu_roles, $user_role) {
         </div>
         <div class="profile-name"><?= htmlspecialchars($_SESSION['user_name']) ?></div>
         <div class="profile-role"><?= ucfirst($_SESSION['user_role']) ?></div>
+        
+        <!-- Profile Button -->
+        <a href="?page=profile" class="profile-button">
+            <i class="fas fa-user"></i>
+            <span>Lihat Profile</span>
+        </a>
     </div>
 
     <!-- Navigation Menu -->
@@ -116,47 +115,49 @@ function hasAccess($menu_roles, $user_role) {
 <div class="overlay" id="overlay"></div>
 
 <style>
-/* Enhanced Sidebar Styling - Always Open on Desktop */
+/* SYNCHRONIZED SIDEBAR - Matches 60px topbar height */
 .sidebar {
     background: white;
-    width: 256px;
+    width: 260px;
     height: calc(100vh - 60px);
     position: fixed;
     left: 0;
     top: 60px;
-    box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+    box-shadow: 4px 0 15px rgba(0,0,0,0.08);
     z-index: 900;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Main content adjustment - ALWAYS has margin on desktop */
 .main-content {
-    margin-left: 256px;
+    margin-left: 260px;
     min-height: calc(100vh - 60px);
-    padding: 20px;
+    padding: 24px;
+    transition: margin-left 0.3s ease;
 }
 
 /* Profile Section dengan Role Indicator */
 .profile-section {
-    padding: 16px 20px;
+    padding: 20px;
     text-align: center;
     border-bottom: 1px solid #e2e8f0;
-    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     transition: all 0.3s ease;
     flex-shrink: 0;
 }
 
 .profile-avatar-container {
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     position: relative;
     display: inline-block;
 }
 
 .profile-avatar {
-    width: 60px;
-    height: 60px;
+    width: 64px;
+    height: 64px;
     object-fit: cover;
     margin: 0 auto;
     border-radius: 50%;
@@ -166,13 +167,18 @@ function hasAccess($menu_roles, $user_role) {
     display: block;
 }
 
+.profile-avatar:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0,102,255,0.3);
+}
+
 /* Role Indicator pada Avatar */
 .role-indicator {
     position: absolute;
-    bottom: -2px;
-    right: -2px;
-    width: 20px;
-    height: 20px;
+    bottom: 0;
+    right: 0;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -180,6 +186,7 @@ function hasAccess($menu_roles, $user_role) {
     font-size: 0.7rem;
     color: white;
     border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
 .role-indicator.role-admin {
@@ -195,11 +202,12 @@ function hasAccess($menu_roles, $user_role) {
 }
 
 .profile-name {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     color: #1e293b;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
     transition: opacity 0.3s ease;
+    line-height: 1.3;
 }
 
 .profile-role {
@@ -207,39 +215,48 @@ function hasAccess($menu_roles, $user_role) {
     color: #64748b;
     margin-bottom: 12px;
     transition: opacity 0.3s ease;
-    font-weight: 500;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
 }
 
-.profile-edit-btn {
+/* Profile Button */
+.profile-button {
     display: inline-flex;
     align-items: center;
-    background: linear-gradient(90deg, #0066ff, #33ccff);
+    gap: 8px;
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #0066ff, #33ccff);
     color: white;
-    padding: 6px 12px;
-    border-radius: 16px;
     text-decoration: none;
-    font-size: 0.75rem;
-    font-weight: 500;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
     transition: all 0.3s ease;
-    border: none;
-    cursor: pointer;
-    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,102,255,0.25);
+    margin-top: 4px;
 }
 
-.profile-edit-btn:hover {
-    background: linear-gradient(90deg, #0044cc, #00aaff);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,102,255,0.3);
-    color: white;
+.profile-button:hover {
+    background: linear-gradient(135deg, #0052cc, #0099ff);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,102,255,0.35);
     text-decoration: none;
+    color: white;
+}
+
+.profile-button i {
+    font-size: 0.8rem;
+}
+
+.profile-button span {
+    font-size: 0.85rem;
 }
 
 /* Menu Container */
 .menu-container {
     flex: 1;
-    padding: 8px 0 16px 0;
+    padding: 12px 0 20px 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -250,56 +267,75 @@ function hasAccess($menu_roles, $user_role) {
 .menu-item {
     display: flex;
     align-items: center;
-    padding: 12px 20px;
+    padding: 13px 20px;
     color: #64748b;
     text-decoration: none;
-    transition: all 0.3s ease;
-    border-left: 4px solid transparent;
-    margin: 1px 0;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    border-left: 3px solid transparent;
+    margin: 2px 0;
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
 }
 
+.menu-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    background: linear-gradient(90deg, rgba(0,102,255,0.08), transparent);
+    transition: width 0.3s ease;
+}
+
+.menu-item:hover::before {
+    width: 100%;
+}
+
 .menu-item:hover {
-    background: linear-gradient(90deg, rgba(0,102,255,0.05), rgba(51,204,255,0.02));
     color: #334155;
     border-left-color: #0066ff;
-    transform: translateX(2px);
+    transform: translateX(3px);
     text-decoration: none;
 }
 
 .menu-item.menu-active {
-    background: linear-gradient(90deg, rgba(0,102,255,0.12), rgba(51,204,255,0.06));
+    background: linear-gradient(90deg, rgba(0,102,255,0.1), rgba(51,204,255,0.04));
     color: #0066ff;
     border-left-color: #0066ff;
     font-weight: 600;
 }
 
 .menu-icon {
-    width: 18px;
+    width: 20px;
     text-align: center;
-    margin-right: 12px;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
+    margin-right: 14px;
+    font-size: 1rem;
+    transition: all 0.25s ease;
     flex-shrink: 0;
 }
 
 .menu-item:hover .menu-icon {
+    transform: scale(1.15);
+}
+
+.menu-item.menu-active .menu-icon {
     transform: scale(1.1);
 }
 
 .nav-text {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     flex: 1;
+    font-weight: 500;
 }
 
 /* Access Badges */
 .access-badge {
     font-size: 0.6rem;
-    padding: 2px 6px;
+    padding: 3px 7px;
     border-radius: 10px;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     opacity: 0;
@@ -315,23 +351,26 @@ function hasAccess($menu_roles, $user_role) {
 .admin-only {
     background: linear-gradient(90deg, #dc2626, #ef4444);
     color: white;
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
 }
 
 .dev-only {
     background: linear-gradient(90deg, #0066ff, #33ccff);
     color: white;
+    box-shadow: 0 2px 4px rgba(0, 102, 255, 0.2);
 }
 
 .support-only {
     background: linear-gradient(90deg, #10b981, #34d399);
     color: white;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
 /* Menu Divider */
 .menu-divider {
     height: 1px;
     background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
-    margin: 8px 16px;
+    margin: 12px 16px;
 }
 
 /* Logout Menu Item */
@@ -339,7 +378,8 @@ function hasAccess($menu_roles, $user_role) {
     color: #ef4444 !important;
     margin-top: auto;
     border-top: 1px solid #fee2e2;
-    padding-top: 16px !important;
+    padding-top: 20px !important;
+    margin-top: 12px;
 }
 
 .logout-menu-item:hover {
@@ -348,7 +388,11 @@ function hasAccess($menu_roles, $user_role) {
     border-left-color: #ef4444 !important;
 }
 
-/* Mobile Responsiveness - Sidebar hidden by default, shown with overlay */
+.logout-menu-item:hover::before {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.08), transparent);
+}
+
+/* Mobile Responsiveness */
 @media (max-width: 1024px) {
     .sidebar {
         transform: translateX(-100%);
@@ -369,28 +413,33 @@ function hasAccess($menu_roles, $user_role) {
     }
     
     .menu-item {
-        padding: 14px 24px;
+        padding: 15px 24px;
         font-size: 1rem;
     }
     
     .menu-icon {
-        font-size: 1rem;
-        margin-right: 16px;
+        font-size: 1.1rem;
+        margin-right: 18px;
     }
     
     .profile-section {
-        padding: 20px;
+        padding: 24px 20px;
     }
     
     .profile-avatar {
-        width: 70px;
-        height: 70px;
+        width: 72px;
+        height: 72px;
     }
     
     .role-indicator {
-        width: 22px;
-        height: 22px;
+        width: 24px;
+        height: 24px;
         font-size: 0.75rem;
+    }
+    
+    .profile-button {
+        padding: 10px 24px;
+        font-size: 0.9rem;
     }
 }
 
@@ -408,26 +457,31 @@ function hasAccess($menu_roles, $user_role) {
 
 @media (max-width: 480px) {
     .sidebar {
-        width: 260px;
+        width: 270px;
     }
     
     .menu-item {
-        padding: 12px 20px;
+        padding: 13px 20px;
     }
     
     .profile-section {
-        padding: 16px;
+        padding: 18px 16px;
     }
     
     .profile-avatar {
-        width: 60px;
-        height: 60px;
+        width: 64px;
+        height: 64px;
     }
     
     .role-indicator {
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
         font-size: 0.65rem;
+    }
+    
+    .profile-button {
+        padding: 8px 18px;
+        font-size: 0.82rem;
     }
 }
 
@@ -443,6 +497,7 @@ function hasAccess($menu_roles, $user_role) {
     z-index: 1050;
     opacity: 0;
     transition: opacity 0.3s ease;
+    backdrop-filter: blur(2px);
 }
 
 .overlay.show {
@@ -461,14 +516,14 @@ function hasAccess($menu_roles, $user_role) {
     outline-offset: -2px;
 }
 
-.profile-edit-btn:focus {
-    outline: 2px solid #fff;
+.profile-button:focus {
+    outline: 2px solid #0066ff;
     outline-offset: 2px;
 }
 
 /* Scrollbar untuk menu container */
 .menu-container::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
 }
 
 .menu-container::-webkit-scrollbar-track {
@@ -477,7 +532,7 @@ function hasAccess($menu_roles, $user_role) {
 
 .menu-container::-webkit-scrollbar-thumb {
     background: #cbd5e1;
-    border-radius: 2px;
+    border-radius: 3px;
 }
 
 .menu-container::-webkit-scrollbar-thumb:hover {
@@ -501,7 +556,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Menu item click handlers untuk mobile - auto close setelah klik
-    const menuItems = document.querySelectorAll('.menu-item:not(.logout-menu-item)');
+    const menuItems = document.querySelectorAll('.menu-item:not(.logout-menu-item), .profile-button');
     menuItems.forEach(item => {
         item.addEventListener('click', function() {
             if (window.innerWidth <= 1024) {
