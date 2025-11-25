@@ -1,5 +1,5 @@
 <?php
-// Enhanced Reports Module with Category Filter
+// Enhanced Reports Module with Laporan Tugas
 
 // Get current logged in user info
 $current_user_id = $_SESSION['user_id'];
@@ -57,95 +57,6 @@ $role_permissions = [
 
 $current_permissions = $role_permissions[$current_user_role] ?? [];
 
-// Handle report deletion
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_report'])) {
-    $report_id = (int)$_POST['report_id'];
-    
-    $report_check = $koneksi->prepare("SELECT user_id FROM reports WHERE id = ?");
-    $report_check->bind_param('i', $report_id);
-    $report_check->execute();
-    $report_data = $report_check->get_result()->fetch_assoc();
-    
-    $can_delete = false;
-    if ($current_permissions['can_delete_all']) {
-        $can_delete = true;
-    } elseif ($current_permissions['can_delete_own'] && $report_data['user_id'] == $current_user_id) {
-        $can_delete = true;
-    }
-    
-    if ($can_delete) {
-        $delete_stmt = $koneksi->prepare("DELETE FROM reports WHERE id = ?");
-        $delete_stmt->bind_param('i', $report_id);
-        if ($delete_stmt->execute()) {
-            $message = 'Laporan berhasil dihapus!';
-        } else {
-            $error = 'Gagal menghapus laporan!';
-        }
-    } else {
-        $error = 'Anda tidak memiliki izin untuk menghapus laporan ini!';
-    }
-}
-
-// Handle report editing
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_report'])) {
-    $report_id = (int)$_POST['report_id'];
-    $activity = $_POST['activity'];
-    
-    $report_check = $koneksi->prepare("SELECT user_id FROM reports WHERE id = ?");
-    $report_check->bind_param('i', $report_id);
-    $report_check->execute();
-    $report_data = $report_check->get_result()->fetch_assoc();
-    
-    $can_edit = false;
-    if ($current_permissions['can_edit_all']) {
-        $can_edit = true;
-    } elseif ($current_permissions['can_edit_own'] && $report_data['user_id'] == $current_user_id) {
-        $can_edit = true;
-    }
-    
-    if ($can_edit) {
-        if (empty($activity)) {
-            $error = 'Aktivitas harus diisi!';
-        } else {
-            $update_stmt = $koneksi->prepare("UPDATE reports SET activity = ? WHERE id = ?");
-            $update_stmt->bind_param('si', $activity, $report_id);
-            if ($update_stmt->execute()) {
-                $message = 'Laporan berhasil diperbarui!';
-            } else {
-                $error = 'Gagal memperbarui laporan!';
-            }
-        }
-    } else {
-        $error = 'Anda tidak memiliki izin untuk mengedit laporan ini!';
-    }
-}
-
-// Handle form submission for new report
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_report'])) {
-    if (!$current_permissions['can_create']) {
-        $error = 'Anda tidak memiliki izin untuk membuat laporan!';
-    } else {
-        $activity = $_POST['activity'];
-        $report_date = $_POST['report_date'] ?? date('Y-m-d');
-        
-        if (empty($activity)) {
-            $error = 'Aktivitas harus diisi!';
-        } else {
-            $insert_report = $koneksi->prepare("
-                INSERT INTO reports (date, user_id, activity) 
-                VALUES (?, ?, ?)
-            ");
-            $insert_report->bind_param('sis', $report_date, $current_user_id, $activity);
-            
-            if ($insert_report->execute()) {
-                $message = 'Laporan berhasil ditambahkan!';
-            } else {
-                $error = 'Gagal menambahkan laporan: ' . $koneksi->error;
-            }
-        }
-    }
-}
-
 // Filter parameters
 $message = $message ?? '';
 $error = $error ?? '';
@@ -164,10 +75,10 @@ switch($period_filter) {
         $date_start = date('Y-m-d', strtotime('-7 days'));
         break;
     case 'bulanan':
-        $date_start = date('Y-m-01'); // First day of current month
+        $date_start = date('Y-m-01');
         break;
     case 'tahunan':
-        $date_start = date('Y-01-01'); // First day of current year
+        $date_start = date('Y-01-01');
         break;
     default:
         $date_start = date('Y-m-d');
@@ -183,116 +94,34 @@ if (isset($_GET['date_end']) && !empty($_GET['date_end'])) {
 
 // Initialize report data
 $report_data = [];
-$report_title = 'Laporan Siswa';
+$report_title = 'Laporan Tugas';
 
 // Build report based on category
 if (!empty($category_filter)) {
-    switch($category_filter) {
-        case 'apps':
-            $report_title = 'Laporan Aplikasi';
-            $query = "
-                SELECT a.id, a.name as app_name, a.description, 
-                       COUNT(t.id) as total_todos,
-                       COUNT(CASE WHEN tk.status = 'done' THEN 1 END) as completed_todos,
-                       COUNT(CASE WHEN tk.status = 'in_progress' THEN 1 END) as progress_todos,
-                       a.created_at as date
-                FROM apps a
-                LEFT JOIN todos t ON a.id = t.app_id
-                LEFT JOIN taken tk ON t.id = tk.id_todos
-                WHERE DATE(a.created_at) BETWEEN ? AND ?
-                GROUP BY a.id
-                ORDER BY a.created_at DESC
-            ";
-            $stmt = $koneksi->prepare($query);
-            $stmt->bind_param('ss', $date_start, $date_end);
-            $stmt->execute();
-            $report_data = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-            break;
-            
-        case 'users':
-            $report_title = 'Laporan Pengguna';
-            $query = "
-                SELECT u.id, u.name, u.email, u.role, u.gender, u.phone,
-                       COUNT(DISTINCT t.id) as total_todos_created,
-                       COUNT(DISTINCT tk.id) as total_taken,
-                       COUNT(DISTINCT CASE WHEN tk.status = 'done' THEN tk.id END) as completed_taken,
-                       u.created_at as date
-                FROM users u
-                LEFT JOIN todos t ON u.id = t.user_id
-                LEFT JOIN taken tk ON u.id = tk.user_id
-                WHERE DATE(u.created_at) BETWEEN ? AND ?
-                GROUP BY u.id
-                ORDER BY u.created_at DESC
-            ";
-            $stmt = $koneksi->prepare($query);
-            $stmt->bind_param('ss', $date_start, $date_end);
-            $stmt->execute();
-            $report_data = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-            break;
-            
-        case 'todos':
-            $report_title = 'Laporan Todo';
-            $query = "
-                SELECT t.id, t.title, t.description, t.priority,
-                       a.name as app_name,
-                       u.name as creator_name,
-                       tk.status,
-                       taker.name as taker_name,
-                       t.created_at as date
-                FROM todos t
-                LEFT JOIN apps a ON t.app_id = a.id
-                LEFT JOIN users u ON t.user_id = u.id
-                LEFT JOIN taken tk ON t.id = tk.id_todos
-                LEFT JOIN users taker ON tk.user_id = taker.id
-                WHERE DATE(t.created_at) BETWEEN ? AND ?
-                ORDER BY t.created_at DESC
-            ";
-            $stmt = $koneksi->prepare($query);
-            $stmt->bind_param('ss', $date_start, $date_end);
-            $stmt->execute();
-            $report_data = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-            break;
-            
-        case 'taken':
-            $report_title = 'Laporan Taken';
-            $query = "
-                SELECT tk.id, tk.status, tk.date,
-                       t.title as todo_title,
-                       t.priority,
-                       a.name as app_name,
-                       u.name as taker_name,
-                       creator.name as creator_name,
-                       tk.created_at
-                FROM taken tk
-                LEFT JOIN todos t ON tk.id_todos = t.id
-                LEFT JOIN apps a ON t.app_id = a.id
-                LEFT JOIN users u ON tk.user_id = u.id
-                LEFT JOIN users creator ON t.user_id = creator.id
-                WHERE tk.date BETWEEN ? AND ?
-                ORDER BY tk.date DESC
-            ";
-            $stmt = $koneksi->prepare($query);
-            $stmt->bind_param('ss', $date_start, $date_end);
-            $stmt->execute();
-            $report_data = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-            break;
+    if ($category_filter == 'laporan_tugas') {
+        $report_title = 'Laporan Tugas';
+        $query = "
+            SELECT tk.id, tk.status, tk.date,
+                   t.title as todo_title,
+                   t.description as todo_description,
+                   t.priority,
+                   a.name as app_name,
+                   u.name as taker_name,
+                   creator.name as creator_name,
+                   tk.created_at
+            FROM taken tk
+            LEFT JOIN todos t ON tk.id_todos = t.id
+            LEFT JOIN apps a ON t.app_id = a.id
+            LEFT JOIN users u ON tk.user_id = u.id
+            LEFT JOIN users creator ON t.user_id = creator.id
+            WHERE tk.date BETWEEN ? AND ?
+            ORDER BY tk.date DESC
+        ";
+        $stmt = $koneksi->prepare($query);
+        $stmt->bind_param('ss', $date_start, $date_end);
+        $stmt->execute();
+        $report_data = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     }
-}
-
-// Helper functions
-function getRoleColor($role) {
-    $colors = ['admin' => '#dc2626', 'client' => '#7c3aed', 'programmer' => '#0066ff', 'support' => '#10b981'];
-    return $colors[$role] ?? '#6b7280';
-}
-
-function getPriorityColor($priority) {
-    $colors = ['high' => '#dc2626', 'medium' => '#f59e0b', 'low' => '#10b981'];
-    return $colors[$priority] ?? '#6b7280';
-}
-
-function getStatusColor($status) {
-    $colors = ['done' => '#10b981', 'in_progress' => '#f59e0b', 'pending' => '#3b82f6'];
-    return $colors[$status] ?? '#6b7280';
 }
 ?>
 
@@ -390,10 +219,15 @@ function getStatusColor($status) {
     letter-spacing: 0.5px;
 }
 
-.btn-preview:hover {
+.btn-preview:hover:not(:disabled) {
     background: linear-gradient(135deg, #2563eb, #1d4ed8);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-preview:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 /* Report Table Section */
@@ -477,11 +311,6 @@ function getStatusColor($status) {
     text-transform: uppercase;
 }
 
-.badge-role-admin { background: #fee2e2; color: #dc2626; }
-.badge-role-programmer { background: #dbeafe; color: #2563eb; }
-.badge-role-support { background: #d1fae5; color: #059669; }
-.badge-role-client { background: #ede9fe; color: #7c3aed; }
-
 .badge-priority-high { background: #fee2e2; color: #dc2626; }
 .badge-priority-medium { background: #fef3c7; color: #d97706; }
 .badge-priority-low { background: #d1fae5; color: #059669; }
@@ -493,7 +322,7 @@ function getStatusColor($status) {
 .empty-state {
     text-align: center;
     padding: 60px 20px;
-    color: #acaf9cff;
+    color: #6b7280;
 }
 
 .empty-state i {
@@ -573,10 +402,7 @@ function getStatusColor($status) {
                     <label class="filter-label">Laporan:</label>
                     <select name="category" class="filter-select" id="categorySelect" required onchange="updateDates()">
                         <option value="">Cari laporan...</option>
-                        <option value="apps" <?= $category_filter == 'apps' ? 'selected' : '' ?>>Apps</option>
-                        <option value="users" <?= $category_filter == 'users' ? 'selected' : '' ?>>Users</option>
-                        <option value="todos" <?= $category_filter == 'todos' ? 'selected' : '' ?>>Todos</option>
-                        <option value="taken" <?= $category_filter == 'taken' ? 'selected' : '' ?>>Taken</option>
+                        <option value="laporan_tugas" <?= $category_filter == 'laporan_tugas' ? 'selected' : '' ?>>Laporan Tugas</option>
                     </select>
                 </div>
                 
@@ -604,7 +430,7 @@ function getStatusColor($status) {
                 </div>
             </div>
 
-            <button type="submit" class="btn-preview">
+            <button type="button" class="btn-preview" onclick="previewReport()">
                 <i class="fas fa-eye"></i> PREVIEW
             </button>
         </form>
@@ -624,42 +450,14 @@ function getStatusColor($status) {
         <table class="report-table">
             <thead>
                 <tr>
-                    <?php if ($category_filter == 'apps'): ?>
-                        <th>No</th>
-                        <th>Nama Aplikasi</th>
-                        <th>Deskripsi</th>
-                        <th>Total Todos</th>
-                        <th>Selesai</th>
-                        <th>Progress</th>
-                        <th>Tanggal Dibuat</th>
-                    <?php elseif ($category_filter == 'users'): ?>
-                        <th>No</th>
-                        <th>Nama</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Gender</th>
-                        <th>Todos Dibuat</th>
-                        <th>Taken</th>
-                        <th>Selesai</th>
-                    <?php elseif ($category_filter == 'todos'): ?>
-                        <th>No</th>
-                        <th>Judul</th>
-                        <th>Aplikasi</th>
-                        <th>Prioritas</th>
-                        <th>Dibuat Oleh</th>
-                        <th>Diambil Oleh</th>
-                        <th>Status</th>
-                        <th>Tanggal</th>
-                    <?php elseif ($category_filter == 'taken'): ?>
-                        <th>No</th>
-                        <th>Todo</th>
-                        <th>Aplikasi</th>
-                        <th>Prioritas</th>
-                        <th>Diambil Oleh</th>
-                        <th>Dibuat Oleh</th>
-                        <th>Status</th>
-                        <th>Tanggal</th>
-                    <?php endif; ?>
+                    <th>No</th>
+                    <th>Judul Tugas</th>
+                    <th>Aplikasi</th>
+                    <th>Prioritas</th>
+                    <th>Pengambil Tugas</th>
+                    <th>Pembuat Tugas</th>
+                    <th>Status</th>
+                    <th>Tanggal</th>
                 </tr>
             </thead>
             <tbody>
@@ -668,42 +466,14 @@ function getStatusColor($status) {
                 foreach ($report_data as $row): 
                 ?>
                 <tr>
-                    <?php if ($category_filter == 'apps'): ?>
-                        <td><?= $no++ ?></td>
-                        <td><strong><?= htmlspecialchars($row['app_name']) ?></strong></td>
-                        <td><?= htmlspecialchars($row['description'] ?: '-') ?></td>
-                        <td><?= $row['total_todos'] ?></td>
-                        <td><?= $row['completed_todos'] ?></td>
-                        <td><?= $row['progress_todos'] ?></td>
-                        <td><?= date('d/m/Y', strtotime($row['date'])) ?></td>
-                    <?php elseif ($category_filter == 'users'): ?>
-                        <td><?= $no++ ?></td>
-                        <td><strong><?= htmlspecialchars($row['name']) ?></strong></td>
-                        <td><?= htmlspecialchars($row['email']) ?></td>
-                        <td><span class="badge badge-role-<?= $row['role'] ?>"><?= ucfirst($row['role']) ?></span></td>
-                        <td><?= $row['gender'] == 'female' ? 'Perempuan' : 'Laki-laki' ?></td>
-                        <td><?= $row['total_todos_created'] ?></td>
-                        <td><?= $row['total_taken'] ?></td>
-                        <td><?= $row['completed_taken'] ?></td>
-                    <?php elseif ($category_filter == 'todos'): ?>
-                        <td><?= $no++ ?></td>
-                        <td><strong><?= htmlspecialchars($row['title']) ?></strong></td>
-                        <td><?= htmlspecialchars($row['app_name']) ?></td>
-                        <td><span class="badge badge-priority-<?= $row['priority'] ?>"><?= ucfirst($row['priority']) ?></span></td>
-                        <td><?= htmlspecialchars($row['creator_name'] ?: '-') ?></td>
-                        <td><?= htmlspecialchars($row['taker_name'] ?: 'Belum diambil') ?></td>
-                        <td><?= $row['status'] ? '<span class="badge badge-status-' . $row['status'] . '">' . ucfirst(str_replace('_', ' ', $row['status'])) . '</span>' : '-' ?></td>
-                        <td><?= date('d/m/Y', strtotime($row['date'])) ?></td>
-                    <?php elseif ($category_filter == 'taken'): ?>
-                        <td><?= $no++ ?></td>
-                        <td><strong><?= htmlspecialchars($row['todo_title']) ?></strong></td>
-                        <td><?= htmlspecialchars($row['app_name']) ?></td>
-                        <td><span class="badge badge-priority-<?= $row['priority'] ?>"><?= ucfirst($row['priority']) ?></span></td>
-                        <td><?= htmlspecialchars($row['taker_name']) ?></td>
-                        <td><?= htmlspecialchars($row['creator_name'] ?: '-') ?></td>
-                        <td><span class="badge badge-status-<?= $row['status'] ?>"><?= ucfirst(str_replace('_', ' ', $row['status'])) ?></span></td>
-                        <td><?= date('d/m/Y', strtotime($row['date'])) ?></td>
-                    <?php endif; ?>
+                    <td><?= $no++ ?></td>
+                    <td><strong><?= htmlspecialchars($row['todo_title']) ?></strong></td>
+                    <td><?= htmlspecialchars($row['app_name']) ?></td>
+                    <td><span class="badge badge-priority-<?= $row['priority'] ?>"><?= ucfirst($row['priority']) ?></span></td>
+                    <td><?= htmlspecialchars($row['taker_name']) ?></td>
+                    <td><?= htmlspecialchars($row['creator_name'] ?: '-') ?></td>
+                    <td><span class="badge badge-status-<?= $row['status'] ?>"><?= ucfirst(str_replace('_', ' ', $row['status'])) ?></span></td>
+                    <td><?= date('d/m/Y', strtotime($row['date'])) ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -721,6 +491,56 @@ function getStatusColor($status) {
 </div>
 
 <script>
+// Function to preview report - open coba.php in new tab with auto print
+function previewReport() {
+    const category = document.getElementById('categorySelect').value;
+    const period = document.getElementById('periodSelect').value;
+    const dateStart = document.getElementById('dateStart').value;
+    const dateEnd = document.getElementById('dateEnd').value;
+    
+    // Validasi form
+    if (!category) {
+        alert('Silakan pilih kategori laporan terlebih dahulu!');
+        return;
+    }
+    
+    if (!dateStart || !dateEnd) {
+        alert('Silakan pilih tanggal mulai dan tanggal selesai!');
+        return;
+    }
+    
+    // Validasi tanggal
+    if (new Date(dateStart) > new Date(dateEnd)) {
+        alert('Tanggal mulai tidak boleh lebih besar dari tanggal selesai!');
+        return;
+    }
+    
+    // Show loading indicator
+    const btn = document.querySelector('.btn-preview');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Membuka...';
+    btn.disabled = true;
+    
+    // Build URL parameters
+    const params = new URLSearchParams({
+        category: category,
+        period: period,
+        date_start: dateStart,
+        date_end: dateEnd,
+        auto_print: '1' // Flag untuk trigger auto print
+    });
+    
+    // Open in new tab
+    const url = 'modul/laporan/coba.php?' + params.toString();
+    window.open(url, '_blank');
+    
+    // Reset button after short delay
+    setTimeout(function() {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }, 1000);
+}
+
 // Function to update date ranges based on period selection
 function updateDates() {
     const period = document.getElementById('periodSelect').value;
@@ -735,19 +555,15 @@ function updateDates() {
     
     switch(period) {
         case 'harian':
-            // Same day
             startDate = new Date();
             break;
         case 'mingguan':
-            // 7 days ago
             startDate.setDate(today.getDate() - 7);
             break;
         case 'bulanan':
-            // First day of current month
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
             break;
         case 'tahunan':
-            // First day of current year
             startDate = new Date(today.getFullYear(), 0, 1);
             break;
     }
@@ -763,7 +579,7 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
-// Initialize dates on page load if period is selected
+// Initialize dates on page load
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     if (!urlParams.has('date_start') && urlParams.has('period')) {

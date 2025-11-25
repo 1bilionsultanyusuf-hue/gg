@@ -11,7 +11,7 @@ $menu_items = [
     'apps' => [
         'icon' => 'fas fa-th-large',
         'text' => 'Apps',
-        'roles' => ['admin', 'support', 'programmer'],
+        'roles' => ['admin', 'support'],
         'tooltip' => 'Kelola Aplikasi'
     ],
     'users' => [
@@ -29,7 +29,7 @@ $menu_items = [
     'taken' => [
         'icon' => 'fas fa-chart-line',
         'text' => 'Taken',
-        'roles' => ['admin'],
+        'roles' => ['admin', 'programmer'],
         'tooltip' => 'Pengambilan Tugas'
     ],
     'reports' => [

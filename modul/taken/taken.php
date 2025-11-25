@@ -3,6 +3,12 @@
 $message = '';
 $error = '';
 
+// Check for error message from session
+if (isset($_SESSION['error_message'])) {
+    $error = $_SESSION['error_message'];
+    unset($_SESSION['error_message']);
+}
+
 // Get current user info
 $current_user_id = $_SESSION['user_id'];
 $current_user_query = $koneksi->prepare("SELECT role, name FROM users WHERE id = ?");
@@ -19,6 +25,9 @@ $current_user_role = $current_user['role'];
 $current_user_name = $current_user['name'];
 
 // CREATE - Add new taken
+$redirect_to_edit = false;
+$redirect_taken_id = 0;
+
 if (isset($_POST['add_taken'])) {
     $id_todos = (int)$_POST['id_todos'];
     $status = 'in_progress';
@@ -37,7 +46,8 @@ if (isset($_POST['add_taken'])) {
             $stmt->bind_param("issi", $id_todos, $status, $date, $user_id);
             
             if ($stmt->execute()) {
-                $message = "Todo berhasil diambil dan ditambahkan ke daftar Anda!";
+                $redirect_taken_id = $koneksi->insert_id;
+                $redirect_to_edit = true;
             } else {
                 $error = "Gagal mengambil todo!";
             }
@@ -107,35 +117,8 @@ if (isset($_POST['resume_taken'])) {
     }
 }
 
-// COMPLETE - Mark as done
-if (isset($_POST['complete_taken'])) {
-    $id = (int)$_POST['taken_id'];
-    
-    $check_owner = $koneksi->prepare("SELECT user_id FROM taken WHERE id = ?");
-    $check_owner->bind_param("i", $id);
-    $check_owner->execute();
-    $owner_result = $check_owner->get_result();
-    
-    if ($owner_result->num_rows > 0) {
-        $owner = $owner_result->fetch_assoc();
-        if ($owner['user_id'] == $current_user_id) {
-            $status = 'done';
-            $date = date('Y-m-d');
-            $stmt = $koneksi->prepare("UPDATE taken SET status = ?, date = ? WHERE id = ?");
-            $stmt->bind_param("ssi", $status, $date, $id);
-            
-            if ($stmt->execute()) {
-                $message = "Todo berhasil ditandai selesai!";
-            } else {
-                $error = "Gagal menandai todo selesai!";
-            }
-        } else {
-            $error = "Anda tidak memiliki akses untuk mengedit taken ini!";
-        }
-    } else {
-        $error = "Taken tidak ditemukan!";
-    }
-}
+// COMPLETE - Sudah dipindah ke index.php, jadi HAPUS dari sini!
+// Tidak ada lagi kode complete_taken di sini
 
 // CANCEL - Cancel taken
 if (isset($_POST['cancel_taken'])) {
@@ -309,7 +292,6 @@ body {
     background: #f5f6fa;
 }
 
-/* Alert Messages */
 .alert-taken {
     padding: 11px 17px;
     border-radius: 6px;
@@ -332,7 +314,6 @@ body {
     border: 1px solid #f5c6cb;
 }
 
-/* Page Header */
 .page-header-taken {
     margin-bottom: 16px;
     padding: 8px 30px;
@@ -349,7 +330,6 @@ body {
     margin-bottom: 8px;
 }
 
-/* Content Box */
 .content-box-taken {
     background: white;
     border-radius: 0;
@@ -357,7 +337,6 @@ body {
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
-/* Filters */
 .filters-container-taken {
     display: flex;
     gap: 12px;
@@ -415,7 +394,6 @@ body {
     background: #0b7ad6;
 }
 
-/* Table Container */
 .table-container-taken {
     background: white;
     border-radius: 0;
@@ -424,7 +402,6 @@ body {
     margin-bottom: 0;
 }
 
-/* Table */
 .data-table-taken {
     width: 100%;
     border-collapse: collapse;
@@ -505,7 +482,6 @@ body {
     text-align: center;
 }
 
-/* Truncate text */
 .truncate-text-taken {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -514,7 +490,6 @@ body {
     max-width: 100%;
 }
 
-/* User Info */
 .user-info-taken {
     display: flex;
     align-items: center;
@@ -535,7 +510,6 @@ body {
     font-size: 0.9rem;
 }
 
-/* Badges */
 .priority-badge,
 .status-badge {
     display: inline-block;
@@ -575,7 +549,6 @@ body {
     color: #2196f3;
 }
 
-/* Action Buttons */
 .action-buttons-taken {
     display: flex;
     gap: 7px;
@@ -636,7 +609,6 @@ body {
     color: white;
 }
 
-/* Pagination */
 .pagination-taken {
     display: flex;
     justify-content: center;
@@ -675,7 +647,6 @@ body {
     border-color: #0d8af5;
 }
 
-/* No Data */
 .no-data-taken {
     text-align: center;
     padding: 50px 20px;
@@ -698,7 +669,6 @@ body {
     font-size: 0.92rem;
 }
 
-/* Modal */
 .modal-taken {
     display: none;
     position: fixed;
@@ -824,7 +794,6 @@ body {
     background: #0b7ad6;
 }
 
-/* Confirmation Modal */
 .confirm-modal-taken .modal-content-taken {
     max-width: 400px;
     text-align: center;
@@ -869,7 +838,6 @@ body {
     color: #999;
 }
 
-/* Responsive */
 @media (max-width: 1200px) {
     .data-table-taken {
         font-size: 0.88rem;
@@ -904,7 +872,6 @@ body {
 </style>
 
 <div class="container-taken">
-    <!-- Alerts -->
     <?php if ($message): ?>
     <div class="alert-taken alert-success">
         <i class="fas fa-check-circle"></i>
@@ -920,15 +887,12 @@ body {
     <?php endif; ?>
 </div>
 
-<!-- Page Header -->
 <div class="page-header-taken">
     <h1 class="page-title-taken">Todo Saya - Daftar Tugas</h1>
 </div>
 
 <div class="container-taken">
-    <!-- Main Content Container -->
     <div class="content-box-taken">
-        <!-- Filters -->
         <div class="filters-container-taken">
             <input type="text" class="search-input-taken" id="searchInputTaken" placeholder="Cari todo..." 
                    value="<?= htmlspecialchars($search) ?>" onkeyup="handleSearchTaken(event)">
@@ -958,7 +922,6 @@ body {
             </button>
         </div>
 
-        <!-- Table -->
         <div class="table-container-taken">
             <table class="data-table-taken">
                 <thead>
@@ -1053,7 +1016,6 @@ body {
             </table>
         </div>
 
-        <!-- Pagination -->
         <?php if ($total_taken > $items_per_page): ?>
         <div class="pagination-taken">
             <?php for ($i = 1; $i <= $total_pages; $i++): ?>
@@ -1067,7 +1029,7 @@ body {
     </div>
 </div>
 
-<!-- Add Taken Modal -->
+<!-- Modal Ambil Todo -->
 <div id="takenModalAdd" class="modal-taken">
     <div class="modal-content-taken">
         <div class="modal-header-taken">
@@ -1111,7 +1073,7 @@ body {
     </div>
 </div>
 
-<!-- Complete Confirmation Modal -->
+<!-- Modal Konfirmasi Selesai -->
 <div id="completeModalTaken" class="modal-taken confirm-modal-taken">
     <div class="modal-content-taken">
         <div class="modal-header-taken" style="flex-direction: column; align-items: center; text-align: center;">
@@ -1122,23 +1084,23 @@ body {
         </div>
         <div class="modal-body-taken">
             <p class="confirm-message-taken" id="completeMessageTaken">Apakah Anda yakin todo ini sudah selesai?</p>
-            <p class="confirm-note-taken">Status akan diubah menjadi "Completed"</p>
+            <p class="confirm-note-taken">Anda akan diarahkan ke halaman taken_selesai.php untuk mengisi detail</p>
         </div>
         <div class="modal-footer-taken">
             <button type="button" class="btn-secondary-taken" onclick="closeCompleteModal()">
                 Batal
             </button>
-            <form id="completeFormTaken" method="POST" action="?page=taken" style="display: inline;">
+            <form id="completeFormTaken" method="POST" action="index.php?page=taken" style="display: inline;">
                 <input type="hidden" id="completeTakenIdInput" name="taken_id">
                 <button type="submit" name="complete_taken" class="btn-primary-taken" style="background: #27ae60;">
-                    <i class="fas fa-check"></i> Selesai
+                    <i class="fas fa-check"></i> Lanjutkan
                 </button>
             </form>
         </div>
     </div>
 </div>
 
-<!-- Pending Confirmation Modal -->
+<!-- Modal Konfirmasi Pending -->
 <div id="pendingModalTaken" class="modal-taken confirm-modal-taken">
     <div class="modal-content-taken">
         <div class="modal-header-taken" style="flex-direction: column; align-items: center; text-align: center;">
@@ -1165,7 +1127,7 @@ body {
     </div>
 </div>
 
-<!-- Resume Confirmation Modal -->
+<!-- Modal Konfirmasi Resume -->
 <div id="resumeModalTaken" class="modal-taken confirm-modal-taken">
     <div class="modal-content-taken">
         <div class="modal-header-taken" style="flex-direction: column; align-items: center; text-align: center;">
@@ -1192,7 +1154,7 @@ body {
     </div>
 </div>
 
-<!-- Cancel Confirmation Modal -->
+<!-- Modal Konfirmasi Cancel -->
 <div id="cancelModalTaken" class="modal-taken confirm-modal-taken">
     <div class="modal-content-taken">
         <div class="modal-header-taken" style="flex-direction: column; align-items: center; text-align: center;">
@@ -1228,28 +1190,28 @@ function openAddTakenModal() {
 }
 
 function completeTaken(id, title) {
-    document.getElementById('completeMessageTaken').textContent = `Tandai "${title}" sebagai selesai?`;
+    document.getElementById('completeMessageTaken').textContent = 'Tandai "' + title + '" sebagai selesai?';
     document.getElementById('completeTakenIdInput').value = id;
     document.getElementById('completeModalTaken').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
 function pendingTaken(id, title) {
-    document.getElementById('pendingMessageTaken').textContent = `Tandai "${title}" sebagai pending?`;
+    document.getElementById('pendingMessageTaken').textContent = 'Tandai "' + title + '" sebagai pending?';
     document.getElementById('pendingTakenIdInput').value = id;
     document.getElementById('pendingModalTaken').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
 function resumeTaken(id, title) {
-    document.getElementById('resumeMessageTaken').textContent = `Lanjutkan tugas "${title}"?`;
+    document.getElementById('resumeMessageTaken').textContent = 'Lanjutkan tugas "' + title + '"?';
     document.getElementById('resumeTakenIdInput').value = id;
     document.getElementById('resumeModalTaken').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
 function cancelTaken(id, title) {
-    document.getElementById('cancelMessageTaken').textContent = `Cancel tugas "${title}"?`;
+    document.getElementById('cancelMessageTaken').textContent = 'Cancel tugas "' + title + '"?';
     document.getElementById('cancelTakenIdInput').value = id;
     document.getElementById('cancelModalTaken').classList.add('show');
     document.body.style.overflow = 'hidden';
@@ -1326,7 +1288,6 @@ function clearFiltersTaken() {
     window.location.href = url.toString();
 }
 
-// Close modal when clicking outside
 document.addEventListener('click', function(e) {
     if(e.target.classList.contains('modal-taken')) {
         closeTakenModal();
@@ -1337,7 +1298,6 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Close modal with ESC key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeTakenModal();
@@ -1348,7 +1308,6 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Auto hide alerts
 document.addEventListener('DOMContentLoaded', function() {
     const alerts = document.querySelectorAll('.alert-taken');
     alerts.forEach(alert => {
