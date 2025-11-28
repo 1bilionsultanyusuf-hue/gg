@@ -629,7 +629,7 @@ body {
                         <th>No</th>
                         <th>Aplikasi</th>
                         <th>Deskripsi</th>
-                        <th>Total Todos</th>
+                        <th>Total Todo</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -660,11 +660,6 @@ body {
                             </td>
                             <td onclick="event.stopPropagation()">
                                 <div class="action-buttons">
-                                    <a href="?page=tambah_apps&action=add_todo&app_id=<?= $app['id'] ?>&app_name=<?= urlencode($app['name']) ?>" 
-                                       class="btn-action btn-todo" 
-                                       title="Tambah Todo">
-                                        <i class="fas fa-plus"></i>
-                                    </a>
                                     <a href="?page=tambah_apps&action=edit&id=<?= $app['id'] ?>" 
                                        class="btn-action btn-edit" 
                                        title="Edit">

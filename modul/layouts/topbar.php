@@ -1,19 +1,18 @@
 <?php
-
+// Jangan ada output HTML di sini
+// Hanya simpan variabel atau logika PHP
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- FontAwesome untuk ikon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
 
 <header class="site-header">
     <div class="header-container">
-        <!-- CENTER - Logo utama -->
         <h1 class="logo-main">
             <span class="logo-it">IT</span>
             <span class="logo-sep">|</span>
@@ -25,7 +24,7 @@
 </header>
 
 <style>
-/* Header styling - SYNCHRONIZED with sidebar height 60px */
+/* Header styling */
 .site-header {
     position: fixed;
     top: 0;
@@ -36,7 +35,7 @@
     color: #fff;
     padding: 0 20px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    height: 60px; /* SAMA dengan height di sidebar calculation */
+    height: 60px;
 }
 
 .header-container {
@@ -48,7 +47,6 @@
     height: 100%;
 }
 
-/* Logo positioning - CENTER */
 .logo-main {
     display: flex;
     align-items: center;
@@ -59,7 +57,6 @@
     gap: 8px;
 }
 
-/* Logo styling */
 .logo-it {
     background: linear-gradient(90deg, #FFD700, #FFB700, #FFA500);
     -webkit-background-clip: text;
@@ -85,7 +82,6 @@
     letter-spacing: 1px;
 }
 
-/* Saturn O effect */
 .saturn-o {
     position: relative;
     display: inline-block;
@@ -106,7 +102,6 @@
     box-shadow: 0 0 10px rgba(255,204,0,0.4);
 }
 
-/* Hover effects for logo */
 .logo-main:hover {
     transform: scale(1.05);
 }
@@ -120,85 +115,34 @@
     100% { transform: translate(-50%, -50%) rotate(335deg); }
 }
 
-/* Responsive adjustments */
 @media (max-width: 1024px) {
-    .site-header {
-        height: 60px;
-        padding: 0 16px;
-    }
-    
-    .logo-it {
-        font-size: 1.6rem;
-    }
-    
-    .logo-core {
-        font-size: 1.35rem;
-    }
-    
-    .logo-sep {
-        font-size: 1.35rem;
-    }
+    .site-header { height: 60px; padding: 0 16px; }
+    .logo-it { font-size: 1.6rem; }
+    .logo-core { font-size: 1.35rem; }
+    .logo-sep { font-size: 1.35rem; }
 }
 
 @media (max-width: 768px) {
-    .site-header {
-        height: 55px;
-        padding: 0 15px;
-    }
-    
-    .logo-it {
-        font-size: 1.4rem;
-    }
-    
-    .logo-core {
-        font-size: 1.2rem;
-    }
-    
-    .logo-sep {
-        font-size: 1.2rem;
-    }
-    
-    .saturn-o::before {
-        width: 1.6em;
-        height: 0.35em;
-        border-width: 2px;
-    }
+    .site-header { height: 55px; padding: 0 15px; }
+    .logo-it { font-size: 1.4rem; }
+    .logo-core { font-size: 1.2rem; }
+    .logo-sep { font-size: 1.2rem; }
+    .saturn-o::before { width: 1.6em; height: 0.35em; border-width: 2px; }
 }
 
 @media (max-width: 480px) {
-    .site-header {
-        height: 55px;
-    }
-    
-    .logo-it {
-        font-size: 1.2rem;
-    }
-    
-    .logo-core {
-        font-size: 1rem;
-    }
-    
-    .logo-sep {
-        font-size: 1rem;
-    }
-    
-    .saturn-o::before {
-        width: 1.4em;
-        height: 0.3em;
-    }
+    .site-header { height: 55px; }
+    .logo-it { font-size: 1.2rem; }
+    .logo-core { font-size: 1rem; }
+    .logo-sep { font-size: 1rem; }
+    .saturn-o::before { width: 1.4em; height: 0.3em; }
 }
 
-/* Body padding untuk accommodate fixed header */
 body {
     padding-top: 60px;
 }
 
 @media (max-width: 768px) {
-    body {
-        padding-top: 55px;
-    }
+    body { padding-top: 55px; }
 }
 </style>
-
-</body>
-</html>

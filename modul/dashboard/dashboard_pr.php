@@ -1,13 +1,5 @@
 <?php
 // Get Dashboard Statistics
-// Total Applications
-$total_apps = $koneksi->query("SELECT COUNT(*) as count FROM apps")->fetch_assoc()['count'];
-
-// Total Todos
-$total_todos = $koneksi->query("SELECT COUNT(*) as count FROM todos")->fetch_assoc()['count'];
-
-// Total Users
-$total_users = $koneksi->query("SELECT COUNT(*) as count FROM users")->fetch_assoc()['count'];
 
 // High Priority Todos
 $high_priority = $koneksi->query("SELECT COUNT(*) as count FROM todos WHERE priority = 'high'")->fetch_assoc()['count'];
@@ -33,21 +25,32 @@ $admin_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role =
 $programmer_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'programmer'")->fetch_assoc()['count'];
 $support_count = $koneksi->query("SELECT COUNT(*) as count FROM users WHERE role = 'support'")->fetch_assoc()['count'];
 
-// Recent Apps (Last 5)
-$recent_apps = $koneksi->query("
-    SELECT a.*, 
-           COUNT(t.id) as total_todos
-    FROM apps a
-    LEFT JOIN todos t ON a.id = t.app_id
-    GROUP BY a.id
-    ORDER BY a.id DESC
+// Get In Progress Todos (Belum selesai)
+$inprogress_todos = $koneksi->query("
+    SELECT t.*, 
+           a.name as app_name,
+           tk.status as taken_status,
+           u.name as taker_name
+    FROM todos t
+    LEFT JOIN apps a ON t.app_id = a.id
+    LEFT JOIN taken tk ON t.id = tk.id_todos
+    LEFT JOIN users u ON tk.user_id = u.id
+    WHERE tk.status = 'in_progress' OR tk.status = 'pending'
+    ORDER BY t.priority DESC, t.created_at DESC
     LIMIT 5
 ");
 
-// Recent Users (Last 5)
-$recent_users = $koneksi->query("
-    SELECT * FROM users
-    ORDER BY id DESC
+// Get Available Todos (Belum diambil)
+$available_todos = $koneksi->query("
+    SELECT t.*, 
+           a.name as app_name,
+           u.name as creator_name
+    FROM todos t
+    LEFT JOIN apps a ON t.app_id = a.id
+    LEFT JOIN users u ON t.user_id = u.id
+    LEFT JOIN taken tk ON t.id = tk.id_todos
+    WHERE tk.id IS NULL
+    ORDER BY t.priority DESC, t.created_at DESC
     LIMIT 5
 ");
 
@@ -294,6 +297,137 @@ body {
     color: #1f2937;
 }
 
+/* Todo List Cards - FIXED WIDTH */
+.todo-cards-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 28px;
+}
+
+.todo-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    min-height: 400px; /* Set minimum height */
+    display: flex;
+    flex-direction: column;
+}
+
+.todo-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f3f4f6;
+    flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.todo-card-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.todo-card-header .view-all {
+    color: #0d8af5;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: color 0.2s;
+    white-space: nowrap; /* Prevent text wrapping */
+}
+
+.todo-card-header .view-all:hover {
+    color: #0b7ad6;
+}
+
+.todo-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1; /* Allow to grow */
+}
+
+.todo-item {
+    padding: 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.todo-item:hover {
+    border-color: #0d8af5;
+    background: #f8fafc;
+    transform: translateX(4px);
+}
+
+.todo-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.todo-item-title {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.95rem;
+    flex: 1;
+    margin-right: 10px;
+    word-wrap: break-word; /* Allow text wrapping */
+    overflow-wrap: break-word;
+}
+
+.todo-item-priority {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.todo-item-priority.high {
+    background: #fee;
+    color: #e74c3c;
+}
+
+.todo-item-priority.medium {
+    background: #fff4e6;
+    color: #f39c12;
+}
+
+.todo-item-priority.low {
+    background: #e8f5e9;
+    color: #27ae60;
+}
+
+.todo-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.8rem;
+    color: #6b7280;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+}
+
+.todo-item-meta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.todo-item-meta i {
+    font-size: 0.75rem;
+}
+
 /* Recent Activity Section */
 .activity-section {
     display: grid;
@@ -442,8 +576,13 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
     
-    .activity-section {
+    .activity-section,
+    .todo-cards-section {
         grid-template-columns: 1fr;
+    }
+    
+    .todo-card {
+        min-height: auto; /* Remove min-height on tablet */
     }
 }
 
@@ -479,6 +618,10 @@ body {
         height: 48px;
         font-size: 1.3rem;
     }
+    
+    .todo-card {
+        min-height: auto; /* Remove min-height on mobile */
+    }
 }
 </style>
 
@@ -487,7 +630,7 @@ body {
     <div class="page-header">
         <h1 class="page-title">Dashboard</h1>
     </div>
-
+    
     <!-- Welcome Card -->
     <div class="welcome-card">
         <h2>Selamat Datang, <?= htmlspecialchars($_SESSION['user_name']) ?>!</h2>
@@ -496,54 +639,105 @@ body {
 
     <!-- Main Statistics -->
     <div class="stats-grid">
-        <!-- Total Apps -->
-        <div class="stat-card" onclick="window.location.href='?page=apps'">
-            <div class="stat-card-header">
-                <div class="stat-info">
-                    <h3>Total Aplikasi</h3>
-                    <div class="stat-number"><?= $total_apps ?></div>
-                </div>
-                <div class="stat-icon blue">
-                    <i class="fas fa-cubes"></i>
-                </div>
+    </div>
+
+    <!-- Todo Lists Section -->
+    <div class="todo-cards-section">
+        <!-- In Progress Todos -->
+        <div class="todo-card">
+            <div class="todo-card-header">
+                <h3>
+                    <i class="fas fa-spinner"></i>
+                    Tugas Sedang Dikerjakan
+                </h3>
+                <a href="?page=taken&status=in_progress" class="view-all">
+                    Lihat Semua <i class="fas fa-arrow-right"></i>
+                </a>
             </div>
-            <div class="stat-footer">
-                <i class="fas fa-arrow-right"></i>
-                <span>Lihat semua aplikasi</span>
+            
+            <div class="todo-list">
+                <?php if ($inprogress_todos->num_rows > 0): ?>
+                    <?php while($todo = $inprogress_todos->fetch_assoc()): ?>
+                    <div class="todo-item" onclick="window.location.href='?page=detail_todos&id=<?= $todo['id'] ?>'">
+                        <div class="todo-item-header">
+                            <div class="todo-item-title"><?= htmlspecialchars($todo['title']) ?></div>
+                            <span class="todo-item-priority <?= strtolower($todo['priority']) ?>">
+                                <?= ucfirst($todo['priority']) ?>
+                            </span>
+                        </div>
+                        <div class="todo-item-meta">
+                            <span>
+                                <i class="fas fa-cube"></i>
+                                <?= htmlspecialchars($todo['app_name']) ?>
+                            </span>
+                            <?php if ($todo['taker_name']): ?>
+                            <span>
+                                <i class="fas fa-user"></i>
+                                <?= htmlspecialchars($todo['taker_name']) ?>
+                            </span>
+                            <?php endif; ?>
+                            <span>
+                                <i class="fas fa-circle"></i>
+                                <?= $todo['taken_status'] == 'pending' ? 'Pending' : 'In Progress' ?>
+                            </span>
+                        </div>
+                    </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <div class="empty-state" style="padding: 20px;">
+                        <i class="fas fa-check-circle"></i>
+                        <p>Tidak ada tugas yang sedang dikerjakan</p>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
-        <!-- Total Todos -->
-        <div class="stat-card" onclick="window.location.href='?page=todos'">
-            <div class="stat-card-header">
-                <div class="stat-info">
-                    <h3>Total Tugas</h3>
-                    <div class="stat-number"><?= $total_todos ?></div>
-                </div>
-                <div class="stat-icon green">
-                    <i class="fas fa-tasks"></i>
-                </div>
+        <!-- Available Todos -->
+        <div class="todo-card">
+            <div class="todo-card-header">
+                <h3>
+                    <i class="fas fa-inbox"></i>
+                    Tugas Belum Diambil
+                </h3>
+                <a href="?page=todos&taken_status=available" class="view-all">
+                    Lihat Semua <i class="fas fa-arrow-right"></i>
+                </a>
             </div>
-            <div class="stat-footer">
-                <i class="fas fa-arrow-right"></i>
-                <span>Lihat semua tugas</span>
-            </div>
-        </div>
-
-        <!-- Total Users -->
-        <div class="stat-card" onclick="window.location.href='?page=users'">
-            <div class="stat-card-header">
-                <div class="stat-info">
-                    <h3>Total Pengguna</h3>
-                    <div class="stat-number"><?= $total_users ?></div>
-                </div>
-                <div class="stat-icon purple">
-                    <i class="fas fa-users"></i>
-                </div>
-            </div>
-            <div class="stat-footer">
-                <i class="fas fa-arrow-right"></i>
-                <span>Kelola pengguna</span>
+            
+            <div class="todo-list">
+                <?php if ($available_todos->num_rows > 0): ?>
+                    <?php while($todo = $available_todos->fetch_assoc()): ?>
+                    <div class="todo-item" onclick="window.location.href='?page=detail_todos&id=<?= $todo['id'] ?>'">
+                        <div class="todo-item-header">
+                            <div class="todo-item-title"><?= htmlspecialchars($todo['title']) ?></div>
+                            <span class="todo-item-priority <?= strtolower($todo['priority']) ?>">
+                                <?= ucfirst($todo['priority']) ?>
+                            </span>
+                        </div>
+                        <div class="todo-item-meta">
+                            <span>
+                                <i class="fas fa-cube"></i>
+                                <?= htmlspecialchars($todo['app_name']) ?>
+                            </span>
+                            <?php if ($todo['creator_name']): ?>
+                            <span>
+                                <i class="fas fa-user-plus"></i>
+                                <?= htmlspecialchars($todo['creator_name']) ?>
+                            </span>
+                            <?php endif; ?>
+                            <span style="color: #2196f3;">
+                                <i class="fas fa-clock"></i>
+                                Available
+                            </span>
+                        </div>
+                    </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <div class="empty-state" style="padding: 20px;">
+                        <i class="fas fa-check-circle"></i>
+                        <p>Semua tugas sudah diambil</p>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -558,7 +752,7 @@ document.querySelectorAll('a[href^="?page="]').forEach(link => {
 
 // Add animation on load
 document.addEventListener('DOMContentLoaded', function() {
-    const cards = document.querySelectorAll('.stat-card, .secondary-stat-card, .activity-card');
+    const cards = document.querySelectorAll('.stat-card, .secondary-stat-card, .activity-card, .todo-card');
     cards.forEach((card, index) => {
         card.style.opacity = '0';
         card.style.transform = 'translateY(20px)';
@@ -570,3 +764,4 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+</div>

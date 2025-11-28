@@ -1,4 +1,9 @@
 <?php
+// ============================================================
+// TAMBAHKAN ob_start() DI PALING ATAS - SEBELUM APAPUN
+// ============================================================
+ob_start();
+
 // index.php - Without client role
 session_start();
 
@@ -322,8 +327,8 @@ include 'modul/layouts/header.php';
             case 'logout':
                 include "modul/auth/logout.php";
                 break;
-            case 'detail_todos':
-                include "modul/todos/detail_todos.php";
+            case 'detail_todo':
+                include "modul/todo/detail_todo.php";
                 break;
             case 'detail_taken':
                 include "modul/taken/detail_taken.php";
@@ -447,6 +452,13 @@ include 'modul/layouts/header.php';
     to { opacity: 1; transform: translateY(0); }
 }
 </style>
+
+<?php
+// ============================================================
+// TAMBAHKAN ob_end_flush() DI PALING BAWAH - SEBELUM TUTUP PHP/HTML
+// ============================================================
+ob_end_flush();
+?>
 
 </body>
 </html>

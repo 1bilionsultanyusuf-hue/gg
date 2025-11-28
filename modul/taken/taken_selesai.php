@@ -131,15 +131,9 @@ if ($taken_id == 0) {
 // Get taken data
 $query = "
     SELECT tk.*, 
-           td.title as todo_title,
-           td.description as todo_description,
-           td.priority as todo_priority,
-           a.name as app_name,
-           u.name as user_name
+           td.title as todo_title
     FROM taken tk
     LEFT JOIN todos td ON tk.id_todos = td.id
-    LEFT JOIN apps a ON td.app_id = a.id
-    LEFT JOIN users u ON tk.user_id = u.id
     WHERE tk.id = ? AND tk.user_id = ?
 ";
 
@@ -192,27 +186,6 @@ body {
     margin-bottom: 8px;
 }
 
-.breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
-    color: #6b7280;
-}
-
-.breadcrumb a {
-    color: #0d8af5;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: color 0.2s;
-}
-
-.breadcrumb a:hover {
-    color: #0b7ad6;
-}
-
 .content-card {
     background: white;
     border-radius: 12px;
@@ -247,75 +220,6 @@ body {
         opacity: 1;
         transform: translateY(0);
     }
-}
-
-.info-section {
-    margin-bottom: 32px;
-    padding-bottom: 24px;
-    border-bottom: 2px solid #e5e7eb;
-}
-
-.info-section h3 {
-    font-size: 1.15rem;
-    color: #1f2937;
-    margin-bottom: 18px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.info-section h3 i {
-    color: #0d8af5;
-}
-
-.info-grid {
-    display: grid;
-    grid-template-columns: 150px 1fr;
-    gap: 14px;
-    margin-bottom: 14px;
-}
-
-.info-label {
-    font-weight: 600;
-    color: #6b7280;
-    font-size: 0.95rem;
-}
-
-.info-value {
-    color: #1f2937;
-    font-size: 0.95rem;
-}
-
-.info-value strong {
-    color: #0d8af5;
-    font-size: 1.05rem;
-}
-
-.priority-badge {
-    display: inline-block;
-    padding: 5px 14px;
-    border-radius: 16px;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.priority-badge.high {
-    background: #fee;
-    color: #e74c3c;
-}
-
-.priority-badge.medium {
-    background: #fff4e6;
-    color: #f39c12;
-}
-
-.priority-badge.low {
-    background: #e8f5e9;
-    color: #27ae60;
-}
-
-.form-section {
-    margin-bottom: 24px;
 }
 
 .form-section h3 {
@@ -584,20 +488,6 @@ body {
         padding: 24px 20px;
     }
     
-    .info-grid {
-        grid-template-columns: 1fr;
-        gap: 6px;
-    }
-    
-    .info-label {
-        font-size: 0.85rem;
-        font-weight: 700;
-    }
-    
-    .info-value {
-        margin-bottom: 12px;
-    }
-    
     .button-group {
         flex-direction: column-reverse;
     }
@@ -621,11 +511,6 @@ body {
     <!-- Page Header -->
     <div class="page-header-selesai">
         <h1 class="page-title-selesai">Selesaikan Tugas</h1>
-        <div class="breadcrumb">
-            <a href="index.php?page=taken">
-                <i class="fas fa-arrow-left"></i> Kembali ke Daftar
-            </a>
-        </div>
     </div>
 
     <?php if ($error): ?>
@@ -637,35 +522,6 @@ body {
 
     <!-- Content Card -->
     <div class="content-card">
-        <!-- Info Section -->
-        <div class="info-section">
-            <h3><i class="fas fa-info-circle"></i> Informasi Tugas</h3>
-            
-            <div class="info-grid">
-                <div class="info-label">Judul Todo:</div>
-                <div class="info-value"><strong><?= htmlspecialchars($taken['todo_title']) ?></strong></div>
-            </div>
-            
-            <div class="info-grid">
-                <div class="info-label">Aplikasi:</div>
-                <div class="info-value"><?= htmlspecialchars($taken['app_name']) ?></div>
-            </div>
-            
-            <div class="info-grid">
-                <div class="info-label">Prioritas:</div>
-                <div class="info-value">
-                    <span class="priority-badge <?= strtolower($taken['todo_priority']) ?>">
-                        <?= ucfirst($taken['todo_priority']) ?>
-                    </span>
-                </div>
-            </div>
-            
-            <div class="info-grid">
-                <div class="info-label">Deskripsi:</div>
-                <div class="info-value"><?= nl2br(htmlspecialchars($taken['todo_description'])) ?></div>
-            </div>
-        </div>
-
         <!-- Form Section -->
         <div class="form-section">
             <h3><i class="fas fa-edit"></i> Lengkapi Detail Penyelesaian</h3>

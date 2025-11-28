@@ -22,7 +22,7 @@ $menu_items = [
     ],
     'todos' => [
         'icon' => 'fas fa-list-check',
-        'text' => 'Todos',
+        'text' => 'Todo',
         'roles' => ['admin', 'programmer', 'support'],
         'tooltip' => 'Kelola Tugas'
     ],

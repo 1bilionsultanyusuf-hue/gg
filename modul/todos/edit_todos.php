@@ -1,4 +1,5 @@
 <?php
+// ===== BAGIAN 1: LOGIKA PHP (HARUS DI PALING ATAS) =====
 // Get todo ID from URL
 $todo_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
@@ -48,6 +49,7 @@ $apps_query = "SELECT id, name FROM apps ORDER BY name";
 $apps_result = $koneksi->query($apps_query);
 ?>
 
+<!-- ===== BAGIAN 2: HTML DAN CSS (SETELAH SEMUA LOGIKA PHP) ===== -->
 <style>
 * {
     margin: 0;

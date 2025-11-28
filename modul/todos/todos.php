@@ -9,8 +9,8 @@ if (isset($_SESSION['success_message'])) {
     unset($_SESSION['success_message']);
 }
 
-// DELETE - Remove todo
-if (isset($_POST['delete_todo'])) {
+// DELETE - Remove todo (only for admin and support)
+if (isset($_POST['delete_todo']) && in_array($_SESSION['user_role'], ['admin', 'support'])) {
     $id = $_POST['todo_id'];
     
     $stmt = $koneksi->prepare("DELETE FROM todos WHERE id = ?");
@@ -93,7 +93,7 @@ if (!empty($params)) {
 
 $total_pages = $total_todos > 0 ? ceil($total_todos / $items_per_page) : 1;
 
-// Get todos data with sender and taker info
+// Get todos data with sender and taker info - sorted by taken status and priority
 $todos_query = "
     SELECT t.*, 
            a.name as app_name,
@@ -102,14 +102,23 @@ $todos_query = "
            taker.name as taker_name,
            taker.id as taker_id,
            sender.name as sender_name,
-           sender.id as sender_id
+           sender.id as sender_id,
+           CASE WHEN tk.id_todos IS NULL THEN 0 ELSE 1 END as is_taken
     FROM todos t
     LEFT JOIN apps a ON t.app_id = a.id
     LEFT JOIN taken tk ON t.id = tk.id_todos
     LEFT JOIN users taker ON tk.user_id = taker.id
     LEFT JOIN users sender ON t.user_id = sender.id
     $where_clause
-    ORDER BY t.id ASC
+    ORDER BY 
+        is_taken ASC,
+        CASE t.priority
+            WHEN 'high' THEN 1
+            WHEN 'medium' THEN 2
+            WHEN 'low' THEN 3
+            ELSE 4
+        END,
+        t.created_at DESC
     LIMIT $items_per_page OFFSET $offset
 ";
 
@@ -139,6 +148,9 @@ function getStatusBadge($taker_id, $status) {
         ? '<span class="status-badge badge-done">Completed</span>' 
         : '<span class="status-badge badge-progress">In Progress</span>';
 }
+
+// Check if user can edit/delete todos
+$canManageTodos = in_array($_SESSION['user_role'], ['admin', 'support']);
 ?>
 
 <style>
@@ -226,6 +238,27 @@ body {
     background: #c0392b;
 }
 
+.btn-add-todo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: #0d8af5;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: auto;
+    text-decoration: none;
+}
+
+.btn-add-todo:hover {
+    background: #0b7ad6;
+}
+
 /* Table Container */
 .table-container {
     background: white;
@@ -244,7 +277,7 @@ body {
 }
 
 .data-table thead {
-    background: linear-gradient(135deg, #0d8af5 0%, #0b7ad6 100%);
+    background: linear-gradient(135deg, #747f88ff 0%, #747f88ff 100%);
     color: white;
 }
 
@@ -267,6 +300,7 @@ body {
     text-align: center;
 }
 
+<?php if ($canManageTodos): ?>
 .data-table th:nth-child(2) { /* Judul */
     width: 180px;
 }
@@ -299,6 +333,35 @@ body {
     width: 100px;
     text-align: center;
 }
+<?php else: ?>
+.data-table th:nth-child(2) { /* Judul */
+    width: 200px;
+}
+
+.data-table th:nth-child(3) { /* Aplikasi */
+    width: 150px;
+}
+
+.data-table th:nth-child(4) { /* Deskripsi */
+    width: 280px;
+}
+
+.data-table th:nth-child(5) { /* Prioritas */
+    width: 130px;
+}
+
+.data-table th:nth-child(6) { /* Status */
+    width: 140px;
+}
+
+.data-table th:nth-child(7) { /* Dikirim Oleh */
+    width: 160px;
+}
+
+.data-table th:nth-child(8) { /* Diambil Oleh */
+    width: 160px;
+}
+<?php endif; ?>
 
 .data-table tbody tr {
     border-bottom: 2px solid #e0e0e0;
@@ -532,6 +595,115 @@ body {
     max-width: 400px;
 }
 
+/* Custom Searchable Dropdown */
+.searchable-dropdown {
+    position: relative;
+    width: 100%;
+}
+
+.dropdown-selected {
+    padding: 11px 16px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.96rem;
+}
+
+.dropdown-selected:hover {
+    border-color: #0d8af5;
+}
+
+.dropdown-selected.active {
+    border-color: #0d8af5;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.dropdown-arrow {
+    transition: transform 0.2s;
+}
+
+.dropdown-arrow.rotated {
+    transform: rotate(180deg);
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #0d8af5;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-search {
+    position: sticky;
+    top: 0;
+    background: white;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.dropdown-search input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.dropdown-search input:focus {
+    outline: none;
+    border-color: #0d8af5;
+}
+
+.dropdown-options {
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.dropdown-option {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 0.96rem;
+    transition: background 0.2s;
+}
+
+.dropdown-option:hover {
+    background: #e3f2fd;
+}
+
+.dropdown-option.selected {
+    background: #0d8af5;
+    color: white;
+}
+
+.dropdown-option.hidden {
+    display: none;
+}
+
+.dropdown-no-result {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-size: 0.9rem;
+}
+
 .modal-header {
     padding: 18px 20px;
     border-bottom: 1px solid #eee;
@@ -723,6 +895,13 @@ body {
                 <i class="fas fa-times"></i> Clear
             </button>
             <?php endif; ?>
+            
+            <?php if ($canManageTodos): ?>
+            <button class="btn-add-todo" onclick="showSelectAppModal()">
+                <i class="fas fa-plus"></i>
+                <span>Tambah Todo</span>
+            </button>
+            <?php endif; ?>
         </div>
 
         <!-- Table -->
@@ -738,7 +917,9 @@ body {
                         <th>Status</th>
                         <th>Dikirim Oleh</th>
                         <th>Diambil Oleh</th>
+                        <?php if ($canManageTodos): ?>
                         <th>Aksi</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -788,6 +969,7 @@ body {
                                     <span class="user-empty">Belum diambil</span>
                                 <?php endif; ?>
                             </td>
+                            <?php if ($canManageTodos): ?>
                             <td>
                                 <div class="action-buttons">
                                     <a href="?page=edit_todos&id=<?= $todo['id'] ?>" 
@@ -803,11 +985,12 @@ body {
                                     </button>
                                 </div>
                             </td>
+                            <?php endif; ?>
                         </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="9" class="no-data">
+                            <td colspan="<?= $canManageTodos ? '9' : '8' ?>" class="no-data">
                                 <i class="fas fa-inbox"></i>
                                 <h3>Belum ada data</h3>
                                 <p>Tidak ada todo yang sesuai dengan pencarian</p>
@@ -832,6 +1015,7 @@ body {
     </div>
 </div>
 
+<?php if ($canManageTodos): ?>
 <!-- Delete Modal -->
 <div id="deleteModal" class="modal">
     <div class="modal-content">
@@ -856,6 +1040,66 @@ body {
         </div>
     </div>
 </div>
+
+<!-- Select App Modal for Adding Todo -->
+<div id="selectAppModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Pilih Aplikasi</h3>
+            <button class="modal-close" onclick="closeSelectAppModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 16px; color: #6b7280;">Pilih aplikasi untuk todo baru:</p>
+            
+            <!-- Custom Searchable Dropdown -->
+            <div class="searchable-dropdown">
+                <div class="dropdown-selected" id="dropdownSelected" onclick="toggleDropdown()">
+                    <span id="selectedText">-- Pilih Aplikasi --</span>
+                    <i class="fas fa-chevron-down dropdown-arrow" id="dropdownArrow"></i>
+                </div>
+                <div class="dropdown-menu" id="dropdownMenu">
+                    <div class="dropdown-search">
+                        <input type="text" 
+                               id="dropdownSearch" 
+                               placeholder="Cari aplikasi..." 
+                               onkeyup="filterDropdownOptions()"
+                               onclick="event.stopPropagation()">
+                    </div>
+                    <div class="dropdown-options" id="dropdownOptions">
+                        <?php 
+                        $apps_query = "SELECT id, name FROM apps ORDER BY name";
+                        $apps_result = $koneksi->query($apps_query);
+                        while($app = $apps_result->fetch_assoc()): 
+                        ?>
+                        <div class="dropdown-option" 
+                             data-value="<?= $app['id'] ?>" 
+                             data-name="<?= htmlspecialchars($app['name']) ?>"
+                             onclick="selectDropdownOption(this)">
+                            <?= htmlspecialchars($app['name']) ?>
+                        </div>
+                        <?php endwhile; ?>
+                    </div>
+                    <div class="dropdown-no-result" id="dropdownNoResult" style="display: none;">
+                        <i class="fas fa-search"></i>
+                        <p>Aplikasi tidak ditemukan</p>
+                    </div>
+                </div>
+            </div>
+            
+            <input type="hidden" id="selectedAppId" value="">
+            <input type="hidden" id="selectedAppName" value="">
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeSelectAppModal()">Batal</button>
+            <button type="button" class="btn-primary" onclick="redirectToAddTodo()">
+                <i class="fas fa-arrow-right"></i> Lanjutkan
+            </button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <script>
 // Make table rows clickable
@@ -896,6 +1140,7 @@ function clearFilters() {
     window.location.href = '?page=todos';
 }
 
+<?php if ($canManageTodos): ?>
 // Delete modal functions
 function deleteTodo(id, title) {
     document.getElementById('deleteId').value = id;
@@ -909,12 +1154,145 @@ function closeDeleteModal() {
     document.body.style.overflow = '';
 }
 
+// Select App Modal functions
+function showSelectAppModal() {
+    document.getElementById('selectAppModal').classList.add('show');
+    resetDropdown();
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSelectAppModal() {
+    document.getElementById('selectAppModal').classList.remove('show');
+    closeDropdown();
+    document.body.style.overflow = '';
+}
+
+// Custom Dropdown functions
+function toggleDropdown() {
+    const menu = document.getElementById('dropdownMenu');
+    const arrow = document.getElementById('dropdownArrow');
+    const selected = document.getElementById('dropdownSelected');
+    
+    if (menu.classList.contains('show')) {
+        closeDropdown();
+    } else {
+        menu.classList.add('show');
+        arrow.classList.add('rotated');
+        selected.classList.add('active');
+        document.getElementById('dropdownSearch').focus();
+    }
+}
+
+function closeDropdown() {
+    const menu = document.getElementById('dropdownMenu');
+    const arrow = document.getElementById('dropdownArrow');
+    const selected = document.getElementById('dropdownSelected');
+    
+    menu.classList.remove('show');
+    arrow.classList.remove('rotated');
+    selected.classList.remove('active');
+}
+
+function selectDropdownOption(element) {
+    const appId = element.getAttribute('data-value');
+    const appName = element.getAttribute('data-name');
+    
+    // Update selected text
+    document.getElementById('selectedText').textContent = appName;
+    
+    // Update hidden inputs
+    document.getElementById('selectedAppId').value = appId;
+    document.getElementById('selectedAppName').value = appName;
+    
+    // Update selected styling
+    document.querySelectorAll('.dropdown-option').forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    element.classList.add('selected');
+    
+    // Close dropdown
+    closeDropdown();
+}
+
+function filterDropdownOptions() {
+    const searchValue = document.getElementById('dropdownSearch').value.toLowerCase();
+    const options = document.querySelectorAll('.dropdown-option');
+    const noResult = document.getElementById('dropdownNoResult');
+    let hasVisibleOption = false;
+    
+    options.forEach(option => {
+        const text = option.textContent.toLowerCase();
+        
+        if (text.includes(searchValue)) {
+            option.classList.remove('hidden');
+            hasVisibleOption = true;
+        } else {
+            option.classList.add('hidden');
+        }
+    });
+    
+    // Show/hide no result message
+    if (hasVisibleOption) {
+        noResult.style.display = 'none';
+    } else {
+        noResult.style.display = 'block';
+    }
+}
+
+function resetDropdown() {
+    // Reset selected text
+    document.getElementById('selectedText').textContent = '-- Pilih Aplikasi --';
+    
+    // Reset hidden inputs
+    document.getElementById('selectedAppId').value = '';
+    document.getElementById('selectedAppName').value = '';
+    
+    // Reset search
+    document.getElementById('dropdownSearch').value = '';
+    
+    // Show all options
+    document.querySelectorAll('.dropdown-option').forEach(opt => {
+        opt.classList.remove('hidden');
+        opt.classList.remove('selected');
+    });
+    
+    // Hide no result message
+    document.getElementById('dropdownNoResult').style.display = 'none';
+    
+    // Close dropdown
+    closeDropdown();
+}
+
+function redirectToAddTodo() {
+    const appId = document.getElementById('selectedAppId').value;
+    const appName = document.getElementById('selectedAppName').value;
+    
+    if (!appId) {
+        alert('Silakan pilih aplikasi terlebih dahulu!');
+        return;
+    }
+    
+    window.location.href = '?page=tambah_apps&action=add_todo&app_id=' + appId + '&app_name=' + encodeURIComponent(appName);
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdown = document.querySelector('.searchable-dropdown');
+    if (dropdown && !dropdown.contains(event.target)) {
+        closeDropdown();
+    }
+});
+
 // Close modal when clicking outside
 window.onclick = function(event) {
     const deleteModal = document.getElementById('deleteModal');
+    const selectAppModal = document.getElementById('selectAppModal');
     
     if (event.target == deleteModal) {
         closeDeleteModal();
+    }
+    if (event.target == selectAppModal) {
+        closeSelectAppModal();
     }
 }
 
@@ -922,6 +1300,8 @@ window.onclick = function(event) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeDeleteModal();
+        closeSelectAppModal();
     }
 });
+<?php endif; ?>
 </script>

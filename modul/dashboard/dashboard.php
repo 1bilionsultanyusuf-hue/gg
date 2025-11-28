@@ -137,6 +137,52 @@ body {
     font-size: 0.9rem;
 }
 
+/* Quick Action Button in Stat Cards */
+.quick-action-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    text-decoration: none;
+}
+
+.quick-action-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Color variations for quick action buttons */
+.quick-action-btn.btn-blue {
+    background: linear-gradient(135deg, #0066ff, #33ccff);
+}
+
+.quick-action-btn.btn-blue:hover {
+    background: linear-gradient(135deg, #0052cc, #2eb8e6);
+}
+
+.quick-action-btn.btn-green {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.quick-action-btn.btn-green:hover {
+    background: linear-gradient(135deg, #0d9668, #047857);
+}
+
+.quick-action-btn.btn-purple {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.quick-action-btn.btn-purple:hover {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+}
+
 /* Welcome Card */
 .welcome-card {
     background: linear-gradient(135deg, #0d8af5 0%, #0b7ad6 100%);
@@ -435,6 +481,220 @@ body {
     font-size: 0.9rem;
 }
 
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 400px;
+}
+
+.modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    font-size: 1.2rem;
+    color: #333;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    color: #999;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.modal-close:hover {
+    background: #f5f5f5;
+    color: #666;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-body p {
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.btn-secondary {
+    padding: 9px 18px;
+    border: 1px solid #ddd;
+    background: white;
+    color: #666;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-secondary:hover {
+    background: #f5f5f5;
+}
+
+.btn-primary {
+    padding: 9px 18px;
+    border: none;
+    background: #0d8af5;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-primary:hover {
+    background: #0b7ad6;
+}
+
+/* Custom Searchable Dropdown */
+.searchable-dropdown {
+    position: relative;
+    width: 100%;
+}
+
+.dropdown-selected {
+    padding: 11px 16px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.96rem;
+}
+
+.dropdown-selected:hover {
+    border-color: #0d8af5;
+}
+
+.dropdown-selected.active {
+    border-color: #0d8af5;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.dropdown-arrow {
+    transition: transform 0.2s;
+}
+
+.dropdown-arrow.rotated {
+    transform: rotate(180deg);
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #0d8af5;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-search {
+    position: sticky;
+    top: 0;
+    background: white;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.dropdown-search input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.dropdown-search input:focus {
+    outline: none;
+    border-color: #0d8af5;
+}
+
+.dropdown-options {
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.dropdown-option {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 0.96rem;
+    transition: background 0.2s;
+}
+
+.dropdown-option:hover {
+    background: #e3f2fd;
+}
+
+.dropdown-option.selected {
+    background: #0d8af5;
+    color: white;
+}
+
+.dropdown-option.hidden {
+    display: none;
+}
+
+.dropdown-no-result {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-size: 0.9rem;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     .stats-grid,
@@ -503,13 +763,46 @@ body {
                     <h3>Total Aplikasi</h3>
                     <div class="stat-number"><?= $total_apps ?></div>
                 </div>
-                <div class="stat-icon blue">
-                    <i class="fas fa-cubes"></i>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div class="stat-icon blue">
+                        <i class="fas fa-cubes"></i>
+                    </div>
+                    <a href="?page=tambah_apps&action=add" 
+                       class="quick-action-btn btn-blue" 
+                       onclick="event.stopPropagation()"
+                       title="Tambah Aplikasi">
+                        <i class="fas fa-plus"></i>
+                    </a>
                 </div>
             </div>
             <div class="stat-footer">
                 <i class="fas fa-arrow-right"></i>
                 <span>Lihat semua aplikasi</span>
+            </div>
+        </div>
+
+         <!-- Total Users -->
+        <div class="stat-card" onclick="window.location.href='?page=users'">
+            <div class="stat-card-header">
+                <div class="stat-info">
+                    <h3>Total Pengguna</h3>
+                    <div class="stat-number"><?= $total_users ?></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div class="stat-icon purple">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <a href="?page=tambah_users" 
+                       class="quick-action-btn btn-purple" 
+                       onclick="event.stopPropagation()"
+                       title="Tambah Pengguna">
+                        <i class="fas fa-plus"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="stat-footer">
+                <i class="fas fa-arrow-right"></i>
+                <span>Kelola pengguna</span>
             </div>
         </div>
 
@@ -520,8 +813,17 @@ body {
                     <h3>Total Tugas</h3>
                     <div class="stat-number"><?= $total_todos ?></div>
                 </div>
-                <div class="stat-icon green">
-                    <i class="fas fa-tasks"></i>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div class="stat-icon green">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <?php if (in_array($_SESSION['user_role'], ['admin', 'support'])): ?>
+                    <button class="quick-action-btn btn-green" 
+                            onclick="event.stopPropagation(); showSelectAppModal()"
+                            title="Tambah Todo">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="stat-footer">
@@ -529,25 +831,70 @@ body {
                 <span>Lihat semua tugas</span>
             </div>
         </div>
+    </div>
+</div>
 
-        <!-- Total Users -->
-        <div class="stat-card" onclick="window.location.href='?page=users'">
-            <div class="stat-card-header">
-                <div class="stat-info">
-                    <h3>Total Pengguna</h3>
-                    <div class="stat-number"><?= $total_users ?></div>
+<!-- Modal untuk Tambah Todo (Select App) -->
+<?php if (in_array($_SESSION['user_role'], ['admin', 'support'])): ?>
+<div id="selectAppModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Pilih Aplikasi</h3>
+            <button class="modal-close" onclick="closeSelectAppModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 16px; color: #6b7280;">Pilih aplikasi untuk todo baru:</p>
+            
+            <!-- Custom Searchable Dropdown -->
+            <div class="searchable-dropdown">
+                <div class="dropdown-selected" id="dropdownSelected" onclick="toggleDropdown()">
+                    <span id="selectedText">-- Pilih Aplikasi --</span>
+                    <i class="fas fa-chevron-down dropdown-arrow" id="dropdownArrow"></i>
                 </div>
-                <div class="stat-icon purple">
-                    <i class="fas fa-users"></i>
+                <div class="dropdown-menu" id="dropdownMenu">
+                    <div class="dropdown-search">
+                        <input type="text" 
+                               id="dropdownSearch" 
+                               placeholder="Cari aplikasi..." 
+                               onkeyup="filterDropdownOptions()"
+                               onclick="event.stopPropagation()">
+                    </div>
+                    <div class="dropdown-options" id="dropdownOptions">
+                        <?php 
+                        $apps_query = "SELECT id, name FROM apps ORDER BY name";
+                        $apps_result = $koneksi->query($apps_query);
+                        while($app = $apps_result->fetch_assoc()): 
+                        ?>
+                        <div class="dropdown-option" 
+                             data-value="<?= $app['id'] ?>" 
+                             data-name="<?= htmlspecialchars($app['name']) ?>"
+                             onclick="selectDropdownOption(this)">
+                            <?= htmlspecialchars($app['name']) ?>
+                        </div>
+                        <?php endwhile; ?>
+                    </div>
+                    <div class="dropdown-no-result" id="dropdownNoResult" style="display: none;">
+                        <i class="fas fa-search"></i>
+                        <p>Aplikasi tidak ditemukan</p>
+                    </div>
                 </div>
             </div>
-            <div class="stat-footer">
-                <i class="fas fa-arrow-right"></i>
-                <span>Kelola pengguna</span>
-            </div>
+            
+            <input type="hidden" id="selectedAppId" value="">
+            <input type="hidden" id="selectedAppName" value="">
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeSelectAppModal()">Batal</button>
+            <button type="button" class="btn-primary" onclick="redirectToAddTodo()">
+                <i class="fas fa-arrow-right"></i> Lanjutkan
+            </button>
         </div>
     </div>
-       
+</div>
+<?php endif; ?>
+
 <script>
 // Add smooth scroll behavior
 document.querySelectorAll('a[href^="?page="]').forEach(link => {
@@ -569,4 +916,151 @@ document.addEventListener('DOMContentLoaded', function() {
         }, index * 50);
     });
 });
+
+<?php if (in_array($_SESSION['user_role'], ['admin', 'support'])): ?>
+// Select App Modal functions for adding todo
+function showSelectAppModal() {
+    document.getElementById('selectAppModal').classList.add('show');
+    resetDropdown();
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSelectAppModal() {
+    document.getElementById('selectAppModal').classList.remove('show');
+    closeDropdown();
+    document.body.style.overflow = '';
+}
+
+// Custom Dropdown functions
+function toggleDropdown() {
+    const menu = document.getElementById('dropdownMenu');
+    const arrow = document.getElementById('dropdownArrow');
+    const selected = document.getElementById('dropdownSelected');
+    
+    if (menu.classList.contains('show')) {
+        closeDropdown();
+    } else {
+        menu.classList.add('show');
+        arrow.classList.add('rotated');
+        selected.classList.add('active');
+        document.getElementById('dropdownSearch').focus();
+    }
+}
+
+function closeDropdown() {
+    const menu = document.getElementById('dropdownMenu');
+    const arrow = document.getElementById('dropdownArrow');
+    const selected = document.getElementById('dropdownSelected');
+    
+    menu.classList.remove('show');
+    arrow.classList.remove('rotated');
+    selected.classList.remove('active');
+}
+
+function selectDropdownOption(element) {
+    const appId = element.getAttribute('data-value');
+    const appName = element.getAttribute('data-name');
+    
+    // Update selected text
+    document.getElementById('selectedText').textContent = appName;
+    
+    // Update hidden inputs
+    document.getElementById('selectedAppId').value = appId;
+    document.getElementById('selectedAppName').value = appName;
+    
+    // Update selected styling
+    document.querySelectorAll('.dropdown-option').forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    element.classList.add('selected');
+    
+    // Close dropdown
+    closeDropdown();
+}
+
+function filterDropdownOptions() {
+    const searchValue = document.getElementById('dropdownSearch').value.toLowerCase();
+    const options = document.querySelectorAll('.dropdown-option');
+    const noResult = document.getElementById('dropdownNoResult');
+    let hasVisibleOption = false;
+    
+    options.forEach(option => {
+        const text = option.textContent.toLowerCase();
+        
+        if (text.includes(searchValue)) {
+            option.classList.remove('hidden');
+            hasVisibleOption = true;
+        } else {
+            option.classList.add('hidden');
+        }
+    });
+    
+    // Show/hide no result message
+    if (hasVisibleOption) {
+        noResult.style.display = 'none';
+    } else {
+        noResult.style.display = 'block';
+    }
+}
+
+function resetDropdown() {
+    // Reset selected text
+    document.getElementById('selectedText').textContent = '-- Pilih Aplikasi --';
+    
+    // Reset hidden inputs
+    document.getElementById('selectedAppId').value = '';
+    document.getElementById('selectedAppName').value = '';
+    
+    // Reset search
+    document.getElementById('dropdownSearch').value = '';
+    
+    // Show all options
+    document.querySelectorAll('.dropdown-option').forEach(opt => {
+        opt.classList.remove('hidden');
+        opt.classList.remove('selected');
+    });
+    
+    // Hide no result message
+    document.getElementById('dropdownNoResult').style.display = 'none';
+    
+    // Close dropdown
+    closeDropdown();
+}
+
+function redirectToAddTodo() {
+    const appId = document.getElementById('selectedAppId').value;
+    const appName = document.getElementById('selectedAppName').value;
+    
+    if (!appId) {
+        alert('Silakan pilih aplikasi terlebih dahulu!');
+        return;
+    }
+    
+    window.location.href = '?page=tambah_apps&action=add_todo&app_id=' + appId + '&app_name=' + encodeURIComponent(appName);
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdown = document.querySelector('.searchable-dropdown');
+    if (dropdown && !dropdown.contains(event.target)) {
+        closeDropdown();
+    }
+});
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const selectAppModal = document.getElementById('selectAppModal');
+    
+    if (event.target == selectAppModal) {
+        closeSelectAppModal();
+    }
+}
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeSelectAppModal();
+    }
+});
+<?php endif; ?>
 </script>

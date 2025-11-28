@@ -180,7 +180,7 @@ if (!empty($category_filter)) {
     width: 100%;
     padding: 12px 16px;
     border: 2px solid #e5e7eb;
-    border-radius: 8px;
+    border-radius: 20px;
     font-size: 0.95rem;
     background: white;
     color: #1f2937;
@@ -205,12 +205,12 @@ if (!empty($category_filter)) {
 }
 
 .btn-preview {
-    width: 100%;
-    padding: 18px 24px;
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    width: 10%;
+    padding: 18px 25px;
+    background: linear-gradient(135deg, #3baef6ff, #3baef6ff);
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 15px;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
